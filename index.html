@@ -1,0 +1,343 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Camera Sheet Prompt Builder</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@300;400;500;600;700&display=swap">
+<style>
+/* Layout: CG Pro dark field. Glass "slate" plate with the live prompt stays pinned; slot cards below, as chips or dropdowns. Single dark theme by design. */
+:root {
+  color-scheme: dark;
+  --orange: #FF9900;
+  --orange-hover: color-mix(in oklch, #FF9900, #fff 16%);
+  --orange-press: color-mix(in oklch, #FF9900, #000 14%);
+  --orange-08: rgba(255,153,0,.08);
+  --orange-16: rgba(255,153,0,.16);
+  --orange-40: rgba(255,153,0,.40);
+  --grey-10: #E5E5E5;
+  --grey-20: #CCCCCC;
+  --grey-40: #999999;
+  --grey-70: #404040;
+  --grey-80: #333333;
+  --ink: #212121;
+  --black: #000000;
+  --panel: rgba(0,0,0,.766);
+  --line: rgba(229,229,229,.14);
+  --chip-bg: rgba(0,0,0,.35);
+  --font-display: "Bebas Neue", "Haettenschweiler", "Arial Narrow", sans-serif;
+  --font-core: "Montserrat", "Helvetica Neue", Arial, sans-serif;
+  --hex: polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+  --ease: cubic-bezier(.4,0,.2,1);
+}
+* { box-sizing: border-box }
+body { background: var(--ink); color: var(--grey-40); font: 300 15px/1.6 var(--font-core);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 64px; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--ink); }
+.wrap { max-width: 1160px; margin: 0 auto; display: grid; gap: 24px; }
+button, select, input { font: inherit }
+button { cursor: pointer }
+:focus-visible { outline: 1px solid var(--orange); outline-offset: 2px; box-shadow: 0 0 12px rgba(255,153,0,.35) }
+
+/* Header */
+header.top { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; justify-content: space-between; }
+.brand { display: flex; align-items: center; gap: 16px; min-width: 0 }
+.brand img { width: 52px; height: auto; flex: none }
+.eyebrow { font: 600 12px/1.3 var(--font-core); letter-spacing: .14em; text-transform: uppercase; color: var(--orange); margin: 0 0 4px }
+h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .01em; color: var(--grey-10); margin: 0; text-transform: uppercase; }
+.sub { margin: 0; max-width: 54ch; font-size: 14px; color: var(--grey-40) }
+
+/* Segmented switch */
+.seg { display: inline-flex; padding: 3px; border-radius: 999px; border: 1px solid var(--line); background: var(--chip-bg); }
+.seg button { border: 0; background: transparent; color: var(--grey-20); font: 600 12px/1 var(--font-core); letter-spacing: .08em; text-transform: uppercase; padding: 9px 16px; border-radius: 999px; transition: all 200ms var(--ease); }
+.seg button[aria-pressed="true"] { background: var(--orange); color: var(--black) }
+.seg.small button { padding: 6px 12px; font-size: 11px }
+
+/* Slate: glass plate */
+.slate { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); z-index: 5; background: var(--panel);
+  border: 1px solid var(--orange); border-radius: 28px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 0 64px rgba(255,153,0,.28); padding: 20px 24px; display: grid; gap: 14px; }
+.slate-meta { display: flex; flex-wrap: wrap; gap: 6px 20px; font: 600 11px/1.3 var(--font-core); letter-spacing: .14em; text-transform: uppercase; color: var(--grey-40); }
+.slate-meta b { color: var(--grey-10); font-weight: 600 }
+.slate-meta .live { color: var(--orange) }
+#out { margin: 0; font: 400 15px/1.6 var(--font-core); color: var(--grey-10); white-space: pre-wrap; word-break: break-word; max-height: 8em; overflow: auto; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.btn { display: inline-flex; align-items: center; gap: 8px; font: 600 12px/1 var(--font-core); letter-spacing: .08em; text-transform: uppercase;
+  padding: 11px 20px; border-radius: 999px; border: 1px solid var(--orange); background: transparent; color: var(--grey-10); transition: all 200ms var(--ease); }
+.btn:hover { background: var(--orange-16) }
+.btn:active { transform: scale(.97) }
+.btn.primary { background: var(--orange); color: var(--black) }
+.btn.primary:hover { background: var(--orange-hover) }
+.btn.primary:active { background: var(--orange-press) }
+.btn.quiet { border-color: var(--line); color: var(--grey-20) }
+#toast { font: 600 11px/1 var(--font-core); letter-spacing: .14em; text-transform: uppercase; color: var(--orange) }
+
+/* Controls row */
+.controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px 24px; align-items: end }
+.field { display: grid; gap: 8px; min-width: 0 }
+.lbl { font: 600 12px/1.3 var(--font-core); letter-spacing: .14em; text-transform: uppercase; color: var(--grey-20) }
+#subject { width: 100%; padding: 12px 14px; border-radius: 6px; border: 1px solid var(--line); background: rgba(0,0,0,.45); color: var(--grey-10); font-weight: 400 }
+.view-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end }
+.presets { display: flex; flex-wrap: wrap; gap: 8px }
+.preset { padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--chip-bg); color: var(--grey-10); font: 500 13px/1.2 var(--font-core); transition: all 200ms var(--ease) }
+.preset:hover { border-color: var(--orange); background: var(--orange-08) }
+
+/* Sheet */
+.sheet { display: grid; gap: 12px }
+.sheet.dd { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.slot { background: var(--grey-80); border: 1px solid var(--line); border-radius: 18px; padding: 16px 20px; display: grid; gap: 14px; min-width: 0; transition: border-color 200ms var(--ease) }
+.slot.locked { border-color: var(--orange-40) }
+.slot.off { opacity: .55 }
+.slot-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; justify-content: space-between }
+.slot-title { display: flex; align-items: center; gap: 12px; min-width: 0; background: none; border: 0; color: inherit; padding: 0; text-align: left }
+.hexdot { width: 14px; aspect-ratio: .866; clip-path: var(--hex); background: var(--grey-70); flex: none; transition: background 200ms var(--ease) }
+.slot.set .hexdot { background: var(--orange) }
+.slot-name { font: 400 28px/.92 var(--font-display); letter-spacing: .02em; color: var(--grey-10); text-transform: uppercase }
+.slot-val { font: 400 13px/1.3 var(--font-core); color: var(--grey-20); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40ch }
+.caret { color: var(--grey-40); font-size: 11px; transition: transform 200ms var(--ease) }
+.slot.collapsed .caret { transform: rotate(-90deg) }
+.slot-tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center }
+.mini { font: 600 11px/1 var(--font-core); letter-spacing: .08em; text-transform: uppercase; padding: 7px 12px; border-radius: 999px;
+  border: 1px solid var(--line); background: transparent; color: var(--grey-20); transition: all 200ms var(--ease) }
+.mini:hover { border-color: var(--orange) }
+.mini.lock[aria-pressed="true"] { background: var(--orange); border-color: var(--orange); color: var(--black) }
+.mini.on[aria-pressed="false"] { color: var(--grey-40) }
+.group { display: grid; gap: 8px }
+.group-name { font: 600 11px/1.3 var(--font-core); letter-spacing: .14em; text-transform: uppercase; color: var(--grey-40) }
+.chip-list { display: flex; flex-wrap: wrap; gap: 6px }
+.chip { padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--chip-bg); color: var(--grey-10);
+  font: 400 13px/1.3 var(--font-core); text-align: left; transition: all 120ms var(--ease) }
+.chip:hover { border-color: var(--orange-40) }
+.chip[aria-pressed="true"] { background: var(--orange-16); border-color: var(--orange); color: var(--grey-10); font-weight: 500 }
+.slot select { width: 100%; padding: 11px 36px 11px 14px; border-radius: 6px; border: 1px solid var(--line); background-color: rgba(0,0,0,.45); color: var(--grey-10);
+  appearance: none; -webkit-appearance: none; font-weight: 400;
+  background-image: linear-gradient(45deg, transparent 50%, #FF9900 50%), linear-gradient(135deg, #FF9900 50%, transparent 50%);
+  background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
+.slot select option, .slot select optgroup { background: var(--ink); color: var(--grey-10) }
+
+@media (max-width: 720px) {
+  .controls { grid-template-columns: 1fr }
+  .view-tools { justify-content: flex-start }
+  .slate { border-radius: 18px; padding: 16px }
+  .slot-val { max-width: 22ch }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGgAAAB4CAMAAAApFEcIAAAAwFBMVEUAAAD/////////pi//////////////////////piz//////wD/pS7/sTL/pS7/qlX/py//1H//qi//fwD/fz//nCz/qS//qS//tm3/1FX/qgD//3//AAD/AP//nx//qn//zGb/zJn//78AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFIlHhAAAAQHRSTlMA/gX90m2wky4WTQFq/1UDLQbQAgQSrI4HBgMCAQEIBgUFBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1ALYdgAABDxJREFUeNq924lu2zAMAFBa0eE4ydI2zbq1u///I6fDdiSbog7L5VBgQIo8SJQp2WYBioIxgIErZv+zY+hv72XXdXyAPSn9zUx1Lni/G6W/lonuEaq39A6MTk4XhGD7JScMPjSeveWseYMC9n497ThrY0jGrvo3rjvOmnMA/sD5fITbrcmsqS7m6PGcL5eXL3pQp52SM83b+WDi6xPA6489kuOc36NzuBze7vWpIpLjnO+TY6nzHT5udU581ozz4TuGMql6PVU48VnDnDlVpWsAVNflzttj/spSxeyPJJ1nxHGpusH1lj0cU8NkhVOQKrOke84piHSmVF0zlrRODiemLum4VJ3ecwoBAUn28xm+HOi4vJwB3m/pQhCH7HhSjqWeYqnyC0EU0uP5luPEUxVW6RgkGTznOmapH+F0Ws2aX28ikHayxzMvdW8DcUu6S0KljqH8DcQ/rlFQhWPi7ehShe5tGFSUnzBVv1yqkCqNQNr5V+NMqcL3tjXEGfytdMaljl6WK4ibjQOOx+P9WBP3p2Me5JxtkQNNzgmPZhA9HlNSRDKGDCg1b4xRu/50k5OG0vlhIBpAGeuA0SeZPChrvWVIKShzXaelBJR9/SQlGiq4TlMSCRXVg4REQLyw7tBSHGKqL6xvpERA5Y8rqOMtMXUV9ZqQKKjqZpTJGNTzhlBcUoBK1VBUUvobe94QiknKbly8IRSRdI4waQuESwo4Jm0akfknseWNSBsWAwiBSfY6WkuboG5A5shdsCtpCzR0mDRWhuUn20aESVMJWnyyFVpLc60LP9kMraRHUR38tbIdWkpe9falBtBC8rcJT2oBhWs52I8eUhMokGSw8Q1TnWoD+VIIzVIjyEpuF1pAk9QKchIGmZcNWmoGzdIK6mztrX9hs7pXGqU1ZCVoB40SAtnZg3aQk9BznYCmkFvl0LWV0PtZe4qPvehiDSF7LunaSvgdOo+NqFZisUcBekzx+4xyicWfOUjg7SR9MOmhHCqWzAGoCiqU7EGrDiqSrFMLFUjOqYaypdGphzKlcXfbAmVJs7MFcjeFmQ4FpZ9SSkaPyXMoSCVDDuSQfIeCMmslFmuHhlgqcueNhtiGWDkU1OvjYmX0KycKKeQlVXZg98Q4JPtk1wIR6JMQDJr6r+g+jKLxoJB4dJTZt2+8hbOGVHjspXplSpwlJNetZGWpijkhhDfHlaQq6gRQtN2P0e0sOY4HSaorLu+qIpwZSrYUZqRqQJ/HhZBIN0kmUyWIZ84jpPLu5OhU0Y6B+vxGTCJVCcfdCRUcBmOpSjkGKjxHo6lKObKve6GxTJUg36e4Jb21/zXDEfV9v2GqFPkmSjHY9lB+ThXpNGj4nVJFOqJJt7SdP8pp1pRtvyXqyJa9y/YMJ6JLumk/MUO7FsQ+rezLqiQ/p+N7x3b5oCqJXf8AYD6WfdLfGfCK5PwHVlY7L7xxRPoAAAAASUVORK5CYII=" alt="CG Pro">
+      <div>
+        <p class="eyebrow">CG Pro · AI for Filmmakers</p>
+        <h1>Camera Sheet</h1>
+      </div>
+    </div>
+    <p class="sub">Set each slot, lock what you like, roll the rest. Copy the prompt into your image or video model.</p>
+  </header>
+
+  <section class="slate" aria-label="Prompt">
+    <div class="slate-meta">
+      <span class="live">▶ Live prompt</span>
+      <span>Slots <b id="m-slots">0</b></span>
+      <span>Locked <b id="m-locked">0</b></span>
+      <span>Chars <b id="m-chars">0</b></span>
+    </div>
+    <pre id="out" aria-live="polite"></pre>
+    <div class="actions">
+      <button class="btn primary" id="copy" type="button">Copy prompt</button>
+      <button class="btn" id="roll" type="button">Roll unlocked</button>
+      <button class="btn quiet" id="clear" type="button">Clear unlocked</button>
+      <span id="toast" role="status"></span>
+    </div>
+  </section>
+
+  <div class="controls">
+    <div class="field">
+      <label class="lbl" for="subject">Subject and action</label>
+      <input id="subject" type="text" value="A lone astronaut walks across a salt flat at dawn">
+    </div>
+    <div class="view-tools">
+      <div class="seg" role="group" aria-label="View">
+        <button type="button" id="view-chips">Buttons</button>
+        <button type="button" id="view-dd">Dropdowns</button>
+      </div>
+      <button class="mini" type="button" id="collapse-all">Collapse all</button>
+      <button class="mini" type="button" id="expand-all">Expand all</button>
+    </div>
+  </div>
+
+  <div class="field">
+    <span class="lbl">Presets</span>
+    <div class="presets" id="presets"></div>
+  </div>
+
+  <main class="sheet" id="sheet"></main>
+</div>
+
+<script>
+const SLOTS = [
+  { id: "camera", name: "Camera", prefix: "Shot on ", groups: [
+    { name: "Digital cinema", items: ["ARRI Alexa 65","ARRI Alexa Mini LF","ARRI Alexa 35","ARRI Alexa LF","ARRI Alexa Mini","ARRI Alexa 265","Sony Venice 2","Sony Burano","RED V-Raptor 8K VV","RED Monstro 8K VV","RED Komodo 6K","Panavision Millennium DXL2","Blackmagic URSA Cine 12K","Canon EOS C700 FF"] },
+    { name: "Film", items: ["IMAX 15/70mm film camera","Panavision System 65 (65mm film)","Panavision Panaflex Millennium XL2 (35mm)","ARRICAM LT 35mm","ARRIFLEX 435","ARRI 416 Super 16mm","Aaton XTR Prod 16mm","Bolex H16 16mm","Canon 1014 XL-S Super 8","Mitchell BNC vintage 35mm"] },
+    { name: "Other formats", items: ["iPhone 16 Pro","GoPro HERO action camera","DJI Ronin 4D","1990s Sony Handycam MiniDV","VHS camcorder","CCTV security camera"] } ] },
+  { id: "lens", name: "Lens", groups: [
+    { name: "Anamorphic", items: ["Panavision C-Series anamorphic lenses","Panavision G-Series anamorphic lenses","Panavision T-Series anamorphic lenses","Ultra Panavision 70 anamorphic","ARRI Master Anamorphic lenses","Cooke Anamorphic/i SF lenses","Hawk V-Lite anamorphic lenses","Atlas Orion anamorphic lenses","vintage Kowa anamorphic lenses","LOMO Roundfront anamorphic lenses"] },
+    { name: "Spherical, modern", items: ["Zeiss Master Primes","Zeiss Supreme Primes","ARRI Signature Primes","Cooke S4/i lenses","Leica Summilux-C lenses","Panavision Primo 70 lenses","Panavision Sphero 65 lenses","Angénieux Optimo zoom"] },
+    { name: "Spherical, vintage and character", items: ["Cooke Panchro/i Classic lenses","Canon K35 lenses","Zeiss Super Speeds","Bausch & Lomb Super Baltar lenses","Zeiss Planar 50mm f/0.7","Helios 44-2 lens with swirly bokeh","Petzval lens","Laowa 24mm probe lens","14mm ultra wide lens","fisheye lens","200mm telephoto compression"] } ] },
+  { id: "light", name: "Lighting", groups: [
+    { name: "Naturalistic", items: ["soft overcast daylight","golden hour backlight","blue hour ambient light","harsh midday sun with hard shadows","single window source with soft falloff","candlelight only","flickering firelight","cool low-key moonlight"] },
+    { name: "Stylized", items: ["chiaroscuro lighting with deep blacks","low-key noir lighting through venetian blinds","high-key shadowless lighting","Rembrandt lighting","silhouette against a bright background","rim light","volumetric god rays","neon practicals on wet reflective streets","sodium vapor streetlight","mixed tungsten and blue daylight","motivated practicals only","red emergency lighting","green-tinted overhead fluorescents","lightning flashes in darkness","hard top light","soft bounce fill","LED volume interactive lighting"] } ] },
+  { id: "atmo", name: "Atmosphere", groups: [
+    { name: "In the air", items: ["atmospheric haze","thick haze","light fog","dust particles in the air","backlit rain","drifting smoke","rising steam","snow falling through headlights","embers floating","sandstorm"] } ] },
+  { id: "grade", name: "Grade / Stock", groups: [
+    { name: "Motion picture stocks", items: ["Kodak Vision3 color grading","Kodak Vision3 500T 5219 film stock","Kodak Vision3 250D 5207 film stock","Kodak Vision3 50D 5203 film stock","Kodak Vision3 200T 5213 film stock","Kodak Ektachrome 100D reversal film","Eastman Double-X 5222 black and white film","Fujifilm Eterna 500T film stock","Fujifilm Eterna Vivid film stock","Kodak 2383 print film emulation","Fujifilm 3513 print film emulation","CineStill 800T with red halation"] },
+    { name: "Processes and looks", items: ["bleach bypass grade","three-strip Technicolor look","two-strip Technicolor look","cross-processed color","Kodachrome color","teal and orange grade","muted pastel palette","day-for-night blue grade","sepia-toned","monochrome with selective red","faded 1970s print with lifted blacks","clean neutral ACES grade","sickly green fluorescent grade","warm amber nostalgic grade"] } ] },
+  { id: "size", name: "Shot size", groups: [
+    { name: "Framing", items: ["extreme wide establishing shot","wide shot","full shot","medium wide cowboy shot","medium shot","medium close-up","close-up","extreme close-up","macro insert shot","two-shot","group shot"] } ] },
+  { id: "camwork", name: "Camera", modes: [
+    { id: "angle", label: "Angle", groups: [
+      { name: "Height", items: ["eye level","low angle","high angle","worm's-eye view","bird's-eye view","overhead top-down","ground level","knee level","hip level","shoulder level","aerial view","satellite view"] },
+      { name: "Orientation", items: ["Dutch angle","frontal symmetrical framing","profile view","three-quarter angle","from behind","reverse angle"] },
+      { name: "Point of view", items: ["over-the-shoulder","first-person POV","through-foreground framing","reflection in a mirror","through a doorway","through a car windshield","peephole view","security camera angle","dashcam view","body cam view"] } ] },
+    { id: "move", label: "Move", groups: [
+      { name: "Dolly and track", items: ["slow dolly push-in","dolly pull-back reveal","truck left","truck right","tracking shot alongside","leading shot walking backward","following shot from behind","arc shot orbiting the subject","360 degree orbit","parallax slide past foreground"] },
+      { name: "Pivot", items: ["slow pan","whip pan","tilt up reveal","tilt down","pedestal up","barrel roll"] },
+      { name: "Crane and air", items: ["crane rising","crane descending","jib sweep","FPV drone dive","drone flyover","drone rising reveal","helicopter aerial","cable cam glide","top-down drone pull-up"] },
+      { name: "Rigs", items: ["handheld","shoulder-mounted","Steadicam follow","gimbal tracking","snorricam body mount","car mount tracking","Russian arm chase","motion control repeat pass","locked-off tripod","one-take long oner"] },
+      { name: "Lens moves", items: ["vertigo dolly zoom","crash zoom","slow zoom in","snap zoom","rack focus pull","bullet time freeze"] },
+      { name: "Shutter feel", items: ["natural motion blur, 180 degree shutter","staccato 45 degree shutter","speed ramp","slow motion at 120fps","timelapse","hyperlapse"] } ] } ] },
+  { id: "aspect", name: "Aspect", groups: [
+    { name: "Ratio", items: ["2.39:1 widescreen","1.85:1 aspect ratio","1.43:1 IMAX aspect ratio","1.33:1 Academy ratio","2.76:1 Ultra Panavision aspect ratio","9:16 vertical"] } ] },
+  { id: "texture", name: "Texture", groups: [
+    { name: "Image", items: ["heavy 16mm grain","fine 35mm grain","gate weave","light leaks","halation","anamorphic lens flares","subtle chromatic aberration","soft vignette","Pro-Mist diffusion","Black Pro-Mist bloom"] } ] },
+  { id: "focus", name: "Focus", groups: [
+    { name: "Depth", items: ["shallow depth of field","deep focus","split diopter","tilt-shift miniature","oval anamorphic bokeh","soft focus"] } ] }
+];
+
+const PRESETS = [
+  { name: "Original", v: { camera: "ARRI Alexa 65", lens: "Panavision C-Series anamorphic lenses", light: "volumetric god rays", atmo: "atmospheric haze", grade: "Kodak Vision3 color grading" } },
+  { name: "16mm intimate", v: { camera: "ARRI 416 Super 16mm", lens: "Zeiss Super Speeds", light: "single window source with soft falloff", grade: "Kodak Vision3 500T 5219 film stock", texture: "heavy 16mm grain", aspect: "1.85:1 aspect ratio", size: "medium close-up", "camwork:move": "handheld" }, mode: "move" },
+  { name: "IMAX epic", v: { camera: "IMAX 15/70mm film camera", lens: "Panavision Sphero 65 lenses", light: "golden hour backlight", atmo: "thick haze", grade: "Kodak Vision3 250D 5207 film stock", aspect: "1.43:1 IMAX aspect ratio", size: "extreme wide establishing shot", "camwork:move": "drone rising reveal" }, mode: "move" },
+  { name: "Neon night", v: { camera: "Sony Venice 2", lens: "Cooke Anamorphic/i SF lenses", light: "neon practicals on wet reflective streets", atmo: "backlit rain", grade: "CineStill 800T with red halation", aspect: "2.39:1 widescreen", texture: "anamorphic lens flares", "camwork:angle": "low angle" }, mode: "angle" },
+  { name: "Classic noir", v: { camera: "Panavision Panaflex Millennium XL2 (35mm)", lens: "Bausch & Lomb Super Baltar lenses", light: "low-key noir lighting through venetian blinds", atmo: "drifting smoke", grade: "Eastman Double-X 5222 black and white film", aspect: "1.33:1 Academy ratio", "camwork:angle": "Dutch angle" }, mode: "angle" },
+  { name: "Gritty war", v: { camera: "ARRI Alexa 35", lens: "Canon K35 lenses", light: "harsh midday sun with hard shadows", atmo: "dust particles in the air", grade: "bleach bypass grade", "camwork:move": "staccato 45 degree shutter", aspect: "2.39:1 widescreen" }, mode: "move" },
+  { name: "Period candle", v: { camera: "ARRI Alexa Mini LF", lens: "Zeiss Planar 50mm f/0.7", light: "candlelight only", grade: "warm amber nostalgic grade", focus: "shallow depth of field", texture: "fine 35mm grain", size: "close-up", "camwork:angle": "profile view" }, mode: "angle" },
+  { name: "Thriller chase", v: { camera: "RED V-Raptor 8K VV", lens: "ARRI Master Anamorphic lenses", light: "sodium vapor streetlight", grade: "teal and orange grade", "camwork:move": "Russian arm chase", aspect: "2.39:1 widescreen", texture: "Black Pro-Mist bloom" }, mode: "move" }
+];
+
+/* ---------- state ---------- */
+const store = { get(k, d) { try { const v = localStorage.getItem("cs:" + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+                set(k, v) { try { localStorage.setItem("cs:" + k, JSON.stringify(v)); } catch (e) {} } };
+const vals = {}, locked = {}, enabled = {}, mode = {};
+let view = store.get("view", "chips");
+let collapsed = store.get("collapsed", {});
+SLOTS.forEach(s => { locked[s.id] = false; enabled[s.id] = true; if (s.modes) mode[s.id] = s.modes[0].id; });
+mode.camwork = "move";
+
+const keyOf = s => s.modes ? s.id + ":" + mode[s.id] : s.id;
+const groupsOf = s => s.modes ? s.modes.find(m => m.id === mode[s.id]).groups : s.groups;
+const itemsOf = s => groupsOf(s).flatMap(g => g.items);
+const $ = id => document.getElementById(id);
+const esc = t => t.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function applyPreset(p) {
+  SLOTS.forEach(s => {
+    if (locked[s.id]) return;
+    enabled[s.id] = true;
+    if (s.modes) { s.modes.forEach(m => vals[s.id + ":" + m.id] = p.v[s.id + ":" + m.id] || null); if (p.mode) mode[s.id] = p.mode; }
+    else vals[s.id] = p.v[s.id] || null;
+  });
+}
+applyPreset(PRESETS[0]);
+
+/* ---------- build ---------- */
+function slotHTML(s, i) {
+  const k = keyOf(s), v = vals[k], isCol = view === "chips" && collapsed[s.id];
+  const cls = ["slot", v && enabled[s.id] ? "set" : "", locked[s.id] ? "locked" : "", enabled[s.id] ? "" : "off", isCol ? "collapsed" : ""].join(" ");
+  const titleInner = `<span class="hexdot"></span><span class="slot-name">${s.name}</span>${view === "chips" ? `<span class="caret" aria-hidden="true">▼</span>` : ""}`;
+  const title = view === "chips"
+    ? `<button class="slot-title" type="button" id="col-${s.id}" aria-expanded="${!isCol}">${titleInner}</button>`
+    : `<div class="slot-title">${titleInner}</div>`;
+  const modeSwitch = s.modes ? `<div class="seg small" role="group" aria-label="${s.name} mode">${s.modes.map(m =>
+      `<button type="button" id="mode-${s.id}-${m.id}" aria-pressed="${mode[s.id] === m.id}">${m.label}</button>`).join("")}</div>` : "";
+  const tools = `<div class="slot-tools">${modeSwitch}
+    <button class="mini lock" type="button" id="lock-${s.id}" aria-pressed="${locked[s.id]}">${locked[s.id] ? "Locked" : "Lock"}</button>
+    <button class="mini" type="button" id="roll-${s.id}">Roll</button>
+    <button class="mini on" type="button" id="on-${s.id}" aria-pressed="${enabled[s.id]}">${enabled[s.id] ? "On" : "Off"}</button></div>`;
+  const summary = isCol && v ? `<span class="slot-val">${esc(v)}</span>` : "";
+  let body = "";
+  if (view === "dd") {
+    body = `<select id="sel-${s.id}" aria-label="${s.name}"><option value="">None</option>${groupsOf(s).map(g =>
+      `<optgroup label="${esc(g.name)}">${g.items.map(it => `<option${it === v ? " selected" : ""}>${esc(it)}</option>`).join("")}</optgroup>`).join("")}</select>`;
+  } else if (!isCol) {
+    body = groupsOf(s).map((g, gi) => `<div class="group">${groupsOf(s).length > 1 ? `<div class="group-name">${esc(g.name)}</div>` : ""}<div class="chip-list">${
+      g.items.map((it, ii) => `<button type="button" class="chip" id="chip-${s.id}-${mode[s.id] || ""}-${gi}-${ii}" data-slot="${s.id}" data-val="${esc(it)}" aria-pressed="${it === v}">${esc(it)}</button>`).join("")}</div></div>`).join("");
+  }
+  return `<section class="${cls}" id="slot-${s.id}"><div class="slot-head"><div style="display:flex;align-items:center;gap:12px;min-width:0;flex-wrap:wrap">${title}${summary}</div>${tools}</div>${body}</section>`;
+}
+
+function render() {
+  const active = document.activeElement && document.activeElement.id;
+  const sheet = $("sheet");
+  sheet.className = "sheet" + (view === "dd" ? " dd" : "");
+  sheet.innerHTML = SLOTS.map(slotHTML).join("");
+  $("view-chips").setAttribute("aria-pressed", view === "chips");
+  $("view-dd").setAttribute("aria-pressed", view === "dd");
+  $("collapse-all").hidden = $("expand-all").hidden = view !== "chips";
+  const t = promptText();
+  $("out").textContent = t || "Pick a few options to build a prompt.";
+  $("m-slots").textContent = SLOTS.filter(s => vals[keyOf(s)] && enabled[s.id]).length;
+  $("m-locked").textContent = SLOTS.filter(s => locked[s.id]).length;
+  $("m-chars").textContent = t.length;
+  if (active && $(active)) $(active).focus({ preventScroll: true });
+}
+
+function promptText() {
+  const parts = SLOTS.filter(s => vals[keyOf(s)] && enabled[s.id]).map(s => (s.prefix || "") + vals[keyOf(s)]);
+  const subj = $("subject").value.trim(), tech = parts.join(", ");
+  if (subj && tech) return subj.replace(/[.\s]+$/, "") + ". " + tech;
+  return subj || tech;
+}
+
+function rollSlot(s) { const a = itemsOf(s); vals[keyOf(s)] = a[Math.floor(Math.random() * a.length)]; }
+
+/* ---------- events (delegated) ---------- */
+$("sheet").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.classList.contains("chip")) { const k = keyOf(SLOTS.find(s => s.id === b.dataset.slot)); vals[k] = vals[k] === b.dataset.val ? null : b.dataset.val; return render(); }
+  const [kind, id, m] = b.id.split("-");
+  const s = SLOTS.find(x => x.id === id); if (!s) return;
+  if (kind === "lock") locked[id] = !locked[id];
+  else if (kind === "roll") rollSlot(s);
+  else if (kind === "on") enabled[id] = !enabled[id];
+  else if (kind === "mode") mode[id] = m;
+  else if (kind === "col") { collapsed[id] = !collapsed[id]; store.set("collapsed", collapsed); }
+  render();
+});
+$("sheet").addEventListener("change", e => {
+  if (e.target.tagName !== "SELECT") return;
+  const s = SLOTS.find(x => "sel-" + x.id === e.target.id); vals[keyOf(s)] = e.target.value || null; render();
+});
+$("view-chips").onclick = () => { view = "chips"; store.set("view", view); render(); };
+$("view-dd").onclick = () => { view = "dd"; store.set("view", view); render(); };
+$("collapse-all").onclick = () => { SLOTS.forEach(s => collapsed[s.id] = true); store.set("collapsed", collapsed); render(); };
+$("expand-all").onclick = () => { collapsed = {}; store.set("collapsed", collapsed); render(); };
+$("roll").onclick = () => { SLOTS.forEach(s => { if (!locked[s.id] && enabled[s.id]) rollSlot(s); }); render(); toast("Rolled"); };
+$("clear").onclick = () => { SLOTS.forEach(s => { if (!locked[s.id]) vals[keyOf(s)] = null; }); render(); };
+$("subject").addEventListener("input", () => { const t = promptText(); $("out").textContent = t; $("m-chars").textContent = t.length; });
+
+const presetBox = $("presets");
+PRESETS.forEach(p => { const b = document.createElement("button"); b.type = "button"; b.className = "preset"; b.textContent = p.name;
+  b.onclick = () => { applyPreset(p); render(); toast("Loaded " + p.name); }; presetBox.appendChild(b); });
+
+let tt;
+function toast(msg) { $("toast").textContent = msg; clearTimeout(tt); tt = setTimeout(() => $("toast").textContent = "", 1800); }
+$("copy").addEventListener("click", () => {
+  const t = promptText();
+  const fallback = () => { const r = document.createRange(); r.selectNodeContents($("out")); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); toast("Selected, press Cmd+C"); };
+  try { navigator.clipboard.writeText(t).then(() => toast("Copied"), fallback); } catch (e) { fallback(); }
+});
+
+render();
+</script>
