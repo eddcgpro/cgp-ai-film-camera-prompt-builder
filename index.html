@@ -81,6 +81,13 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
 .frame svg { width: 100%; height: auto; max-height: 44vh; display: block; border-radius: 6px }
 .frame figcaption { font: 400 11px/1.45 var(--font-core); color: var(--grey-40) }
 .frame figcaption b { font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--orange); margin-right: 6px }
+.frame.drawing svg { cursor: crosshair; touch-action: none }
+.pv-tools { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; font: 400 11px/1.3 var(--font-core); color: var(--grey-20) }
+.pv-tools label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap }
+.pv-tools input { accent-color: var(--orange); margin: 0 }
+.pv-tools .mini { padding: 5px 10px; font-size: 10px }
+.pv-tools .mini[aria-pressed="true"] { background: var(--orange); border-color: var(--orange); color: var(--black) }
+.pv-tools .sep { flex-basis: 100%; height: 0 }
 
 /* Controls row */
 .controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px 24px; align-items: end }
@@ -179,7 +186,11 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
       <span id="toast" role="status"></span>
     </div>
     <p id="warn" role="status" hidden></p>
-    <figure class="frame" id="frame"></figure>
+    <figure class="frame" id="frame">
+      <div id="pv-view"></div>
+      <div class="pv-tools" id="pv-tools" role="group" aria-label="Preview overlays and drawing"></div>
+      <figcaption id="pv-cap"></figcaption>
+    </figure>
   </section>
 
   <div class="controls">
@@ -296,7 +307,7 @@ const PRESETS = [
 const store = { get(k, d) { try { const v = localStorage.getItem("cs:" + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
                 set(k, v) { try { localStorage.setItem("cs:" + k, JSON.stringify(v)); } catch (e) {} } };
 const vals = {}, locked = {}, enabled = {}, mode = {};
-let view = store.get("view", "chips");
+let view = store.get("view2", "dd");  // dropdowns by default; a new key so earlier saved "Buttons" choices reset once
 let format = store.get("format", "compact");
 let collapsed = store.get("collapsed", {});
 SLOTS.forEach(s => { locked[s.id] = false; enabled[s.id] = true; if (s.modes) mode[s.id] = s.modes[0].id; });
@@ -423,7 +434,8 @@ function renderLive() {
   if (lensSpecific(a) && a.dof) c.push(`Your "${a.dof}" pick is ignored: lens settings calculate depth of field`);
   $("warn").hidden = !c.length;
   $("warn").textContent = c.length ? "⚠ " + c.join(" · ") : "";
-  $("frame").innerHTML = previewHTML(a);
+  const pv = previewHTML(a);
+  $("pv-view").innerHTML = pv.svg; $("pv-cap").innerHTML = pv.cap;
   startPreview();
 }
 
@@ -1044,7 +1056,8 @@ function startPreview() {
   pvRaf = requestAnimationFrame(step);
 }
 
-// The preview's fixed parts: film back, crop, framing overlays and caption. The scene itself is drawn by drawPreview.
+// The preview's fixed parts: film back, crop, overlays and sketch, returned as { svg, cap } (the caption's HTML).
+// The scene itself is drawn by drawPreview.
 function previewHTML(a) {
   const c = pvCtx = previewCtx(a), { W, H, fw, fh, g } = c, view = g.L.view;
   const glowDef = (id, col) => `<radialGradient id="${id}"><stop offset="0" stop-color="${col}" stop-opacity=".85"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></radialGradient>`;
@@ -1058,7 +1071,6 @@ function previewHTML(a) {
   if (a.angle === "peephole view" || view === "fish" && a.angle !== "satellite view") fg += `<path fill-rule="evenodd" d="M0 0H${fw}V${fh}H0Z M${fw / 2 - fh * .48} ${fh / 2} a${fh * .48} ${fh * .48} 0 1 0 ${fh * .96} 0 a${fh * .48} ${fh * .48} 0 1 0 ${-fh * .96} 0Z" fill="#050505" opacity="${a.angle === "peephole view" ? 1 : .55}"/>`;
   if (c.mv === "parallax slide past foreground") fg += `<rect y="0" width="${fw * .12}" height="${fh}" fill="#080808" filter="url(#pv-blur)"><animate attributeName="x" values="${fw * 1.1};${-fw * .3};${fw * 1.1}" dur="${c.dur}s" repeatCount="indefinite"/></rect>`;
   if (["security camera angle", "dashcam view", "body cam view"].includes(a.angle) || a.camera === CCTV) fg += `<text x="8" y="16" fill="#ff4d4d" font-family="Montserrat, Arial" font-size="10" font-weight="600">● REC</text>`;
-  const thirds = [1, 2].map(i => `<line x1="${i * fw / 3}" y1="0" x2="${i * fw / 3}" y2="${fh}" stroke="rgba(255,255,255,.08)"/><line x1="0" y1="${i * fh / 3}" x2="${fw}" y2="${i * fh / 3}" stroke="rgba(255,255,255,.08)"/>`).join("");
   const svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Sketch of the framed shot">
     <defs><clipPath id="pv-clip"><rect width="${fw}" height="${fh}"/></clipPath>
       <filter id="pv-blur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.4"/></filter>
@@ -1068,7 +1080,8 @@ function previewHTML(a) {
       ${glowDef("pv-glow", c.lk.key)}${glowDef("pv-glow2", c.k2)}
       <radialGradient id="pv-vig" r=".75"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".6"/></radialGradient></defs>
     <rect x="${(W - g.gw * c.s) / 2}" y="${(H - g.gh * c.s) / 2}" width="${g.gw * c.s}" height="${g.gh * c.s}" fill="#0b0b0b" stroke="#666" stroke-dasharray="4 3"/>
-    <g transform="translate(${(W - fw) / 2} ${(H - fh) / 2})"><g clip-path="url(#pv-clip)">${scene}<g id="pv-atmo"></g>${fg}${thirds}</g>
+    <g id="pv-fg" transform="translate(${(W - fw) / 2} ${(H - fh) / 2})"><g clip-path="url(#pv-clip)">${scene}<g id="pv-atmo"></g>${fg}${overlaySVG(fw, fh)}
+      <path id="pv-ink" d="${inkPath(fw, fh)}" fill="none" stroke="#FF9900" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></g>
       <rect width="${fw}" height="${fh}" fill="none" stroke="#FF9900" stroke-width="1.5"/></g></svg>`;
   const C = g.C, d = c.d;
   const back = a.camera ? `Film back${C.k === "film" ? "" : " (sensor)"} ≈ ${f1(C.w)} × ${f1(C.h)} mm${g.cropped ? `, cropped from ${f1(g.C0.w)} × ${f1(g.C0.h)} to the lens coverage` : ""}`
@@ -1082,8 +1095,77 @@ function previewHTML(a) {
     : c.manual ? `Depth of field picked by hand: ${a.dof}` : lensSpecific(a) ? "Add a focal length and T-stop to calculate depth of field" : "";
   const moveLine = c.mv ? `Looping: ${a.move}${a.speed && SPEED_DUR[a.speed] ? `, ${a.speed}` : ""}` : "";
   const lines = [back + squeeze, crop, lensLine, dofLine, moveLine, a.aspect && "Also set this aspect in your image model's own settings."].filter(Boolean);
-  return `${svg}<figcaption><b>Frame preview</b> ${lines.map(esc).join("<br>")}</figcaption>`;
+  return { svg, cap: `<b>Frame preview</b> ${lines.map(esc).join("<br>")}` };
 }
+
+/* ---------- preview overlays and drawing ----------
+   Composition guides drawn over the frame (the aspect crop, not the whole gate), toggled by the checkboxes under the preview.
+   Safe areas follow SMPTE ST 2046-1: action safe 93% and title safe 90% of the frame. */
+const OVERLAYS = [["thirds", "Rule of thirds"], ["phi", "Golden ratio"], ["spiral", "Golden spiral"], ["diag", "Diagonals"],
+  ["center", "Center cross"], ["action", "Action safe 93%"], ["title", "Title safe 90%"], ["crops", "Crop guides 4:3 · 1:1 · 9:16"]];
+const PHI = (1 + Math.sqrt(5)) / 2;
+let overlays = store.get("overlays", { thirds: true });
+
+// The checked overlays as SVG, in frame coordinates (fw × fh).
+function overlaySVG(fw, fh) {
+  const L = (x1, y1, x2, y2, col, dash) => `<line x1="${f1(x1)}" y1="${f1(y1)}" x2="${f1(x2)}" y2="${f1(y2)}" stroke="${col}" stroke-width=".7"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`;
+  const box = (k, col, label, dy) => { const x = fw * (1 - k) / 2, y = fh * (1 - k) / 2;
+    return `<rect x="${f1(x)}" y="${f1(y)}" width="${f1(fw * k)}" height="${f1(fh * k)}" fill="none" stroke="${col}" stroke-width=".7" stroke-dasharray="3 2"/><text x="${f1(x + 2)}" y="${f1(y + dy)}" fill="${col}" font-family="Montserrat, Arial" font-size="5">${label}</text>`; };
+  let o = `<style>#pv-fg text { stroke: #000; stroke-opacity: .55; stroke-width: 1.2px; paint-order: stroke }</style>`;  // labels stay readable on bright skies
+  if (overlays.thirds) [1, 2].forEach(i => o += L(i * fw / 3, 0, i * fw / 3, fh, "rgba(255,255,255,.45)") + L(0, i * fh / 3, fw, i * fh / 3, "rgba(255,255,255,.45)"));
+  if (overlays.phi) [1 / PHI / PHI, 1 / PHI].forEach(k => o += L(k * fw, 0, k * fw, fh, "rgba(255,190,90,.7)") + L(0, k * fh, fw, k * fh, "rgba(255,190,90,.7)"));
+  if (overlays.spiral) {
+    // Quarter arcs through squares cut from a golden rectangle, stretched to the frame (as camera monitors show it).
+    let x = 0, y = 0, w = PHI, h = 1, pts = [];
+    for (let i = 0; i < 10; i++) {
+      const s = i % 2 ? w : h, side = i % 4;
+      const [cx, cy] = [[x + s, y + s], [x, y + s], [x + w - s, y], [x + s, y + h - s]][side];
+      for (let j = 0; j <= 12; j++) { const t = (180 + 90 * i + 7.5 * j) * Math.PI / 180; pts.push([(cx + s * Math.cos(t)) * fw / PHI, (cy + s * Math.sin(t)) * fh]); }
+      if (side === 0) { x += s; w -= s; } else if (side === 1) { y += s; h -= s; } else if (side === 2) w -= s; else h -= s;
+    }
+    o += `<polyline points="${pts.map(p => `${f1(p[0])},${f1(p[1])}`).join(" ")}" fill="none" stroke="rgba(255,190,90,.8)" stroke-width=".8"/>`;
+  }
+  if (overlays.diag) o += L(0, 0, fw, fh, "rgba(255,255,255,.35)") + L(fw, 0, 0, fh, "rgba(255,255,255,.35)");
+  if (overlays.center) { const r = Math.min(fw, fh) * .05; o += L(fw / 2 - r, fh / 2, fw / 2 + r, fh / 2, "rgba(255,255,255,.8)") + L(fw / 2, fh / 2 - r, fw / 2, fh / 2 + r, "rgba(255,255,255,.8)"); }
+  if (overlays.action) o += box(.93, "rgba(120,220,255,.85)", "ACTION SAFE", 6);
+  if (overlays.title) o += box(.9, "rgba(255,255,255,.85)", "TITLE SAFE", 11);  // label sits below the action safe one
+  if (overlays.crops) [[4 / 3, "4:3"], [1, "1:1"], [9 / 16, "9:16"]].forEach(([r, label]) => {
+    if (Math.abs(r / (fw / fh) - 1) < .03) return;  // same as the frame
+    const cw = Math.min(fw, fh * r), ch = cw / r, x = (fw - cw) / 2, y = (fh - ch) / 2;
+    o += `<rect x="${f1(x)}" y="${f1(y)}" width="${f1(cw)}" height="${f1(ch)}" fill="none" stroke="rgba(200,200,200,.6)" stroke-width=".6" stroke-dasharray="1.5 1.5"/><text x="${f1(x + cw - 2)}" y="${f1(y + ch - 2)}" text-anchor="end" fill="rgba(200,200,200,.8)" font-family="Montserrat, Arial" font-size="5">${label}</text>`;
+  });
+  return o;
+}
+
+// Sketch strokes over the preview, kept as fractions of the frame so they survive rebuilds (and stretch with an aspect change).
+let ink = [], inkOn = false, inkStroke = null;
+const inkPath = (fw, fh) => ink.map(s => "M" + s.map(([x, y]) => `${Math.round(x * fw * 100) / 100} ${Math.round(y * fh * 100) / 100}`).join("L") + (s.length < 2 ? "l0 0" : "")).join("");
+const inkRedraw = () => { const p = $("pv-ink"); if (p && pvCtx) p.setAttribute("d", inkPath(pvCtx.fw, pvCtx.fh)); };
+const inkPt = e => { const q = new DOMPoint(e.clientX, e.clientY).matrixTransform($("pv-fg").getScreenCTM().inverse()); return [q.x / pvCtx.fw, q.y / pvCtx.fh]; };
+
+function toolsHTML() {
+  return OVERLAYS.map(([k, label]) => `<label><input type="checkbox" id="ov-${k}"${overlays[k] ? " checked" : ""}>${label}</label>`).join("")
+    + `<span class="sep"></span><button class="mini" type="button" id="ink-on" aria-pressed="${inkOn}">${inkOn ? "Drawing: drag on the frame" : "Draw"}</button>`
+    + `<button class="mini" type="button" id="ink-undo">Undo</button><button class="mini" type="button" id="ink-reset">Reset drawing</button>`;
+}
+function renderTools() { $("pv-tools").innerHTML = toolsHTML(); $("frame").classList.toggle("drawing", inkOn); }
+$("pv-tools").addEventListener("change", e => {
+  const k = e.target.id.replace(/^ov-/, ""); overlays[k] = e.target.checked; store.set("overlays", overlays); renderLive();
+});
+$("pv-tools").addEventListener("click", e => {
+  const id = e.target.id;
+  if (id === "ink-on") { inkOn = !inkOn; renderTools(); }
+  else if (id === "ink-undo") { ink.pop(); inkRedraw(); }
+  else if (id === "ink-reset") { ink = []; inkRedraw(); }
+});
+$("pv-view").addEventListener("pointerdown", e => {
+  if (!inkOn || !$("pv-fg") || e.button > 0) return;
+  e.preventDefault(); $("pv-view").setPointerCapture(e.pointerId);
+  inkStroke = [inkPt(e)]; ink.push(inkStroke); inkRedraw();
+});
+$("pv-view").addEventListener("pointermove", e => { if (inkStroke) { inkStroke.push(inkPt(e)); inkRedraw(); } });
+["pointerup", "pointercancel"].forEach(t => $("pv-view").addEventListener(t, () => inkStroke = null));
+renderTools();
 
 /* ---------- events (delegated) ---------- */
 $("sheet").addEventListener("click", e => {
@@ -1114,8 +1196,8 @@ $("sheet").addEventListener("input", e => {
 // Clear one group of slots at a time (locked slots stay).
 const CLEAR = { lens: ["lens", "focal", "tstop"], lighting: ["light", "atmo"], composition: ["size", "angle", "aspect"] };
 Object.entries(CLEAR).forEach(([k, ids]) => $("clear-" + k).onclick = () => { ids.forEach(id => { if (!locked[id]) vals[id] = null; }); render(); toast(`Cleared ${k}`); });
-$("view-chips").onclick = () => { view = "chips"; store.set("view", view); render(); };
-$("view-dd").onclick = () => { view = "dd"; store.set("view", view); render(); };
+$("view-chips").onclick = () => { view = "chips"; store.set("view2", view); render(); };
+$("view-dd").onclick = () => { view = "dd"; store.set("view2", view); render(); };
 $("collapse-all").onclick = () => { SLOTS.forEach(s => collapsed[s.id] = true); store.set("collapsed", collapsed); render(); };
 $("expand-all").onclick = () => { collapsed = {}; store.set("collapsed", collapsed); render(); };
 $("roll").onclick = () => {
