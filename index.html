@@ -1115,12 +1115,16 @@ function overlaySVG(fw, fh) {
   if (overlays.thirds) [1, 2].forEach(i => o += L(i * fw / 3, 0, i * fw / 3, fh, "rgba(255,255,255,.45)") + L(0, i * fh / 3, fw, i * fh / 3, "rgba(255,255,255,.45)"));
   if (overlays.phi) [1 / PHI / PHI, 1 / PHI].forEach(k => o += L(k * fw, 0, k * fw, fh, "rgba(255,190,90,.7)") + L(0, k * fh, fw, k * fh, "rgba(255,190,90,.7)"));
   if (overlays.spiral) {
-    // Quarter arcs through squares cut from a golden rectangle, stretched to the frame (as camera monitors show it).
+    // Quarter arcs through squares cut from a golden rectangle, stretched to the frame (as camera monitors show it),
+    // with the lines that divide each square from the rest of the rectangle.
     let x = 0, y = 0, w = PHI, h = 1, pts = [];
+    const X = v => v * fw / PHI, Y = v => v * fh;
     for (let i = 0; i < 10; i++) {
       const s = i % 2 ? w : h, side = i % 4;
       const [cx, cy] = [[x + s, y + s], [x, y + s], [x + w - s, y], [x + s, y + h - s]][side];
-      for (let j = 0; j <= 12; j++) { const t = (180 + 90 * i + 7.5 * j) * Math.PI / 180; pts.push([(cx + s * Math.cos(t)) * fw / PHI, (cy + s * Math.sin(t)) * fh]); }
+      for (let j = 0; j <= 12; j++) { const t = (180 + 90 * i + 7.5 * j) * Math.PI / 180; pts.push([X(cx + s * Math.cos(t)), Y(cy + s * Math.sin(t))]); }
+      const d = [[x + s, y, x + s, y + h], [x, y + s, x + w, y + s], [x + w - s, y, x + w - s, y + h], [x, y + h - s, x + w, y + h - s]][side];
+      o += L(X(d[0]), Y(d[1]), X(d[2]), Y(d[3]), "rgba(255,190,90,.6)");
       if (side === 0) { x += s; w -= s; } else if (side === 1) { y += s; h -= s; } else if (side === 2) w -= s; else h -= s;
     }
     o += `<polyline points="${pts.map(p => `${f1(p[0])},${f1(p[1])}`).join(" ")}" fill="none" stroke="rgba(255,190,90,.8)" stroke-width=".8"/>`;
