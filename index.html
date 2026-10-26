@@ -88,6 +88,7 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
 .pv-tools .mini { padding: 5px 10px; font-size: 10px }
 .pv-tools .mini[aria-pressed="true"] { background: var(--orange); border-color: var(--orange); color: var(--black) }
 .pv-tools .sep { flex-basis: 100%; height: 0 }
+.pv-tools .mask input { width: 140px; margin: 0 2px }
 
 /* Controls row */
 .controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px 24px; align-items: end }
@@ -875,7 +876,8 @@ function previewCtx(a) {
   if (a.ftech === "oval anamorphic bokeh") blur = Math.max(blur, 2.5);
   if (size === "macro insert shot" && !d && !manual) blur = 4;
   const center = ang.center || ["two-shot", "group shot", "macro insert shot"].includes(size);
-  return { a, g, s, W, H, fw, fh, fReal, f0, fpx0: fReal * s, lk, k2: lk.key2 || lk.key, d, manual, blur,
+  const gW = g.gw * s, gH = g.gh * s;  // the whole film back, centred on the crop
+  return { a, g, s, W, H, fw, fh, gW, gH, gx: (fw - gW) / 2, gy: (fh - gH) / 2, fReal, f0, fpx0: fReal * s, lk, k2: lk.key2 || lk.key, d, manual, blur,
     base: { D, h: ang.h ?? 1.6, el: ang.el ?? null, az: ang.az || 0, roll: ang.roll || 0, ty: AIM_Y[size] ?? .95,
       x: 0, dh: 0, fwd: 0, yaw: 0, pitch: 0, fMul: 1, wx: 0, wz: 0, aim: true, rack: 0 },
     subjX: center ? fw / 2 : ["close-up", "extreme close-up", "medium close-up"].includes(size) ? fw * .42 : fw / 3,
@@ -918,25 +920,31 @@ function drawPreview(c, tau) {
   if (c.mv && MOVES[c.mv]) MOVES[c.mv](p, u, t, tau);
   if (w) p[w[0] === "x" ? "wx" : "wz"] = w[1] * t * w[2] * g;
   const cam = makeCamera(p, c), S = cam.S, n1 = v => f1(v), P = pts => pts.map(q => `${n1(q[0])},${n1(q[1])}`).join(" ");
-  const on = q => q && q[0] > -fw && q[0] < 2 * fw && q[1] > -fh && q[1] < 2 * fh;
-  const glow = (q, r, id = "pv-glow") => q && r > .5 ? `<circle cx="${n1(q[0])}" cy="${n1(q[1])}" r="${n1(Math.min(r, fh * 1.5))}" fill="url(#${id})"/>` : "";
+  const on = q => q && q[0] > X0 - W && q[0] < X0 + 2 * W && q[1] > Y0 - H && q[1] < Y0 + 2 * H;
+  const glow = (q, r, id = "pv-glow") => q && r > .5 ? `<circle cx="${n1(q[0])}" cy="${n1(q[1])}" r="${n1(Math.min(r, c.H * 1.5))}" fill="url(#${id})"/>` : "";
+  // A crop is centred, so anything not placed in the world is placed from the frame's centre in fixed preview units (W × H, the
+  // uncropped preview box), and suns and moons are sized by the lens (fpx), never by the cropped frame. Changing the crop then
+  // only reveals more or less of the same picture.
+  const W = c.W, H = c.H, X0 = fw / 2 - W / 2, Y0 = fh / 2 - H / 2;
   const depth = Q => cam.cam(Q)[2];
   const rpx = (Q, m) => { const z = depth(Q); return z > .01 ? cam.fpx * m / z : 0; };  // m metres at Q, in pixels
 
   // Sky and ground meet at the horizon: the projection of the ground plane at infinity.
   const farPt = dy => [cam.C[0] + Math.sin(cam.Y + dy * RAD) * 1e6, 0, cam.C[2] + Math.cos(cam.Y + dy * RAD) * 1e6];
   const h1 = cam.pt(farPt(-50)), h2 = cam.pt(farPt(50)), f0 = farPt(0), dn = cam.pt([f0[0], -1e5, f0[2]]);
-  const box = [[-fw, -fh], [2 * fw, -fh], [2 * fw, 2 * fh], [-fw, 2 * fh]];
+  const box = [[X0 - W, Y0 - H], [X0 + 2 * W, Y0 - H], [X0 + 2 * W, Y0 + 2 * H], [X0 - W, Y0 + 2 * H]];
   const ground = h1 && h2 && dn ? clipHalf(box, h1, h2, dn) : cam.P < 0 ? box : [];
-  const hy = h1 && h2 && Math.abs(h2[0] - h1[0]) > 1e-6 ? h1[1] + (h2[1] - h1[1]) * (fw / 2 - h1[0]) / (h2[0] - h1[0]) : cam.P < 0 ? -fh : 2 * fh;
-  let bg = `<defs><linearGradient id="pv-sky" gradientUnits="userSpaceOnUse" x1="0" y1="${n1(Math.min(hy, fh) - fh * 1.2)}" x2="0" y2="${n1(hy)}"><stop offset="0" stop-color="${lk.sky[0]}"/><stop offset="1" stop-color="${lk.sky[1]}"/></linearGradient></defs>`
-    + `<rect x="${-fw}" y="${-fh}" width="${3 * fw}" height="${3 * fh}" fill="url(#pv-sky)"/>`;
+  const hy = h1 && h2 && Math.abs(h2[0] - h1[0]) > 1e-6 ? h1[1] + (h2[1] - h1[1]) * (fw / 2 - h1[0]) / (h2[0] - h1[0]) : cam.P < 0 ? Y0 - H : Y0 + 2 * H;
+  let bg = `<defs><linearGradient id="pv-sky" gradientUnits="userSpaceOnUse" x1="0" y1="${n1(Math.min(hy, Y0 + H) - H)}" x2="0" y2="${n1(hy)}"><stop offset="0" stop-color="${lk.sky[0]}"/><stop offset="1" stop-color="${lk.sky[1]}"/></linearGradient></defs>`
+    + `<rect x="${n1(X0 - W)}" y="${n1(Y0 - H)}" width="${3 * W}" height="${3 * H}" fill="url(#pv-sky)"/>`;
 
   // Lights. Suns and moons sit at infinity; practicals sit in the world (and repeat along a walk).
   const sky = SKY_DIR[lk.src] && norm(SKY_DIR[lk.src]), skyPt = sky && cam.pt([cam.C[0] + sky[0] * 1e6, cam.C[1] + sky[1] * 1e6, cam.C[2] + sky[2] * 1e6]);
-  if (skyPt && lk.src !== "zenith") bg += glow(skyPt, fh * (lk.src === "moon" ? .22 : .7)) + (on(skyPt) ? `<circle cx="${n1(skyPt[0])}" cy="${n1(skyPt[1])}" r="${n1(fh * (lk.src === "moon" ? .045 : .05))}" fill="${lk.key}"/>` : "");
-  if (lk.src === "zenith") bg += glow(skyPt && on(skyPt) ? skyPt : [fw * .72, -fh * .15], fh * .9);
-  if (lk.src === "bolt" && hy > 0) bg += `<rect x="${-fw}" y="${-fh}" width="${3 * fw}" height="${n1(hy + fh)}" fill="${lk.key}" opacity="${n1(.08 + .1 * Math.max(0, Math.sin(tau * 5)))}"/><polyline points="${P([[fw * .7, 0], [fw * .67, hy * .35], [fw * .72, hy * .45], [fw * .66, hy * .9]])}" fill="none" stroke="${lk.key}" stroke-width="1.5"/>`;
+  const moon = lk.src === "moon";
+  if (skyPt && lk.src !== "zenith") bg += glow(skyPt, Math.max(cam.fpx * (moon ? .04 : .13), H * (moon ? .08 : .25))) + (on(skyPt) ? `<circle cx="${n1(skyPt[0])}" cy="${n1(skyPt[1])}" r="${n1(Math.max(1.5, cam.fpx * (moon ? .008 : .009)))}" fill="${lk.key}"/>` : "");
+  if (lk.src === "zenith") bg += glow(skyPt && on(skyPt) ? skyPt : [fw / 2 + W * .22, Y0 - H * .15], H * .9);
+  const by = k => Y0 + (hy - Y0) * k;  // lightning from the top of the uncropped box down towards the horizon
+  if (lk.src === "bolt" && hy > Y0) bg += `<rect x="${n1(X0 - W)}" y="${n1(Y0 - H)}" width="${3 * W}" height="${n1(hy - Y0 + H)}" fill="${lk.key}" opacity="${n1(.08 + .1 * Math.max(0, Math.sin(tau * 5)))}"/><polyline points="${P([[fw / 2 + W * .2, Y0], [fw / 2 + W * .17, by(.35)], [fw / 2 + W * .22, by(.45)], [fw / 2 + W * .16, by(.9)]])}" fill="none" stroke="${lk.key}" stroke-width="1.5"/>`;
   if (ground.length) bg += `<polygon points="${P(ground)}" fill="${lk.ground}"/>`;
   // Ground grid: lines every g metres, snapped to the world so walking moves repeat seamlessly.
   const N = 24, ox = Math.round(S[0] / g) * g, oz = Math.round(S[2] / g) * g;
@@ -944,7 +952,7 @@ function drawPreview(c, tau) {
   for (let i = -N; i <= N; i++) [cam.seg([ox + i * g, 0, oz - N * g], [ox + i * g, 0, oz + N * g]), cam.seg([ox - N * g, 0, oz + i * g], [ox + N * g, 0, oz + i * g])]
     .forEach(sg => { if (sg) grid += `M${n1(sg[0][0])} ${n1(sg[0][1])}L${n1(sg[1][0])} ${n1(sg[1][1])}`; });
   bg += `<path d="${grid}" stroke="${lk.lines || "rgba(229,229,229,.14)"}" fill="none"/>`;
-  if (h1 && h2 && hy > -fh && hy < 2 * fh) bg += `<line x1="${n1(h1[0])}" y1="${n1(h1[1])}" x2="${n1(h2[0])}" y2="${n1(h2[1])}" stroke="rgba(255,153,0,.45)"/>`;
+  if (h1 && h2 && hy > Y0 - H && hy < Y0 + 2 * H) bg += `<line x1="${n1(h1[0])}" y1="${n1(h1[1])}" x2="${n1(h2[0])}" y2="${n1(h2[1])}" stroke="rgba(255,153,0,.45)"/>`;
   const reps = w ? [-1, 0, 1, 2].map(k => k * w[2] * g * w[1]) : [0];
   const R3 = (x, y, z, k) => w && w[0] === "x" ? [x + k, y, z] : [x, y, z + k];
   let keyPos = null;
@@ -1010,26 +1018,27 @@ function drawPreview(c, tau) {
       + `<path d="M${n1(-r * 1.7)} ${n1(y0 + r * .5)} Q0 ${n1(y0 - r * .3)} ${n1(r * 1.7)} ${n1(y0 + r * .5)} L${n1(r * .9)} 0 L${n1(-r * .9)} 0Z" fill="url(#pv-fig)"${stroke}/></g>`;
   });
 
-  // Atmosphere and light quality laid over the frame; particles drift while a move plays.
+  // Atmosphere and light quality laid over the whole film back; particles drift while a move plays.
   const at = a.atmo || "", hazeOp = /thick haze/.test(at) ? .5 : /fog/.test(at) ? .42 : /haze/.test(at) ? .3 : 0, hazeCol = lk.side === "sil" ? lk.sky[1] : lk.key;
-  const dots = (n, col, op, r0, r1, dx, dy) => Array.from({ length: n }, (_, i) => `<circle cx="${n1(md(rnd(i + 1) * fw + dx * tau, fw))}" cy="${n1(md(rnd(i + 51) * fh + dy * tau, fh))}" r="${n1(r0 + rnd(i + 7) * (r1 - r0))}" fill="${col}" opacity="${op}"/>`).join("");
+  const dots = (n, col, op, r0, r1, dx, dy) => Array.from({ length: n }, (_, i) => `<circle cx="${n1(X0 + md(rnd(i + 1) * W + dx * tau, W))}" cy="${n1(Y0 + md(rnd(i + 51) * H + dy * tau, H))}" r="${n1(r0 + rnd(i + 7) * (r1 - r0))}" fill="${col}" opacity="${op}"/>`).join("");
+  const boxR = `x="${n1(X0)}" y="${n1(Y0)}" width="${W}" height="${H}"`;
   let atmo = "";
-  if (hazeOp) atmo += `<defs><linearGradient id="pv-haze" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="${n1(fh)}"><stop offset="0" stop-color="${hazeCol}" stop-opacity="${hazeOp * .35}"/><stop offset="${Math.min(.95, Math.max(.05, hy / fh))}" stop-color="${hazeCol}" stop-opacity="${hazeOp}"/><stop offset="1" stop-color="${hazeCol}" stop-opacity="${hazeOp * .25}"/></linearGradient></defs><rect width="${n1(fw)}" height="${n1(fh)}" fill="url(#pv-haze)"/>`;
+  if (hazeOp) atmo += `<defs><linearGradient id="pv-haze" gradientUnits="userSpaceOnUse" x1="0" y1="${n1(Y0)}" x2="0" y2="${n1(Y0 + H)}"><stop offset="0" stop-color="${hazeCol}" stop-opacity="${hazeOp * .35}"/><stop offset="${Math.min(.95, Math.max(.05, (hy - Y0) / H))}" stop-color="${hazeCol}" stop-opacity="${hazeOp}"/><stop offset="1" stop-color="${hazeCol}" stop-opacity="${hazeOp * .25}"/></linearGradient></defs><rect ${boxR} fill="url(#pv-haze)"/>`;
   if (/god rays/.test(at)) {
-    const kp = keyPos && cam.pt(keyPos), [rx, ry] = on(skyPt) && skyPt[1] < fh * .7 ? skyPt : on(kp) ? kp : [fw * .2, -fh * .1];
-    atmo += `<g filter="url(#pv-blur)">${[-2, -1, 0, 1, 2].map(i => `<polygon points="${n1(rx)},${n1(ry)} ${n1(fw * (.5 + i * .24 - .05))},${n1(fh * 1.05)} ${n1(fw * (.5 + i * .24 + .05))},${n1(fh * 1.05)}" fill="${hazeCol}" opacity=".22"/>`).join("")}</g>`;
+    const kp = keyPos && cam.pt(keyPos), [rx, ry] = on(skyPt) && skyPt[1] < fh / 2 + H * .2 ? skyPt : on(kp) ? kp : [fw / 2 - W * .3, Y0 - H * .1];
+    atmo += `<g filter="url(#pv-blur)">${[-2, -1, 0, 1, 2].map(i => `<polygon points="${n1(rx)},${n1(ry)} ${n1(fw / 2 + W * (i * .24 - .05))},${n1(Y0 + H * 1.05)} ${n1(fw / 2 + W * (i * .24 + .05))},${n1(Y0 + H * 1.05)}" fill="${hazeCol}" opacity=".22"/>`).join("")}</g>`;
   }
   if (/dust/.test(at)) atmo += dots(40, hazeCol, .5, .6, 1.3, 4, 1.5);
   if (/embers/.test(at)) atmo += dots(26, "#ff8a2a", .9, .8, 1.8, 3, -14);
-  if (/rain/.test(at)) atmo += Array.from({ length: 70 }, (_, i) => { const x = md(rnd(i) * fw * 1.1 - tau * 20, fw * 1.1), y = md(rnd(i + 99) * fh + tau * fh * 2.2, fh); return `<line x1="${n1(x)}" y1="${n1(y)}" x2="${n1(x - 2.5)}" y2="${n1(y + 9)}" stroke="${hazeCol}" stroke-opacity=".45" stroke-width=".8"/>`; }).join("");
+  if (/rain/.test(at)) atmo += Array.from({ length: 70 }, (_, i) => { const x = X0 + md(rnd(i) * W * 1.1 - tau * 20, W * 1.1), y = Y0 + md(rnd(i + 99) * H + tau * H * 2.2, H); return `<line x1="${n1(x)}" y1="${n1(y)}" x2="${n1(x - 2.5)}" y2="${n1(y + 9)}" stroke="${hazeCol}" stroke-opacity=".45" stroke-width=".8"/>`; }).join("");
   if (/snow/.test(at)) {
-    const ly = Math.min(fh * .8, Math.max(hy, 0) + (fh - Math.max(hy, 0)) * .3);
-    atmo += `<polygon points="${P([[fw * .82, ly - 2], [fw * .82, ly + 2], [0, ly + fh * .25], [0, ly - fh * .12]])}" fill="#fff" opacity=".12"/><circle cx="${n1(fw * .82)}" cy="${n1(ly)}" r="3" fill="#fff"/><circle cx="${n1(fw * .9)}" cy="${n1(ly)}" r="3" fill="#fff"/>` + dots(60, "#fff", .85, .8, 1.6, -3, fh * .25);
+    const top = Math.max(hy, Y0), ly = Math.min(Y0 + H * .8, top + (Y0 + H - top) * .3), hx = fw / 2 + W * .32;
+    atmo += `<polygon points="${P([[hx, ly - 2], [hx, ly + 2], [X0, ly + H * .25], [X0, ly - H * .12]])}" fill="#fff" opacity=".12"/><circle cx="${n1(hx)}" cy="${n1(ly)}" r="3" fill="#fff"/><circle cx="${n1(hx + W * .08)}" cy="${n1(ly)}" r="3" fill="#fff"/>` + dots(60, "#fff", .85, .8, 1.6, -3, H * .25);
   }
-  if (/smoke|steam/.test(at)) atmo += `<g filter="url(#pv-blur)" opacity=".28">${[0, 1, 2, 3].map(i => `<ellipse cx="${n1(fw * (.15 + i * .24) + Math.sin(tau * .5 + i) * fw * .03)}" cy="${n1(fh * (/steam/.test(at) ? md(.85 - i % 2 * .2 - tau * .04, 1) : .45 + i % 2 * .15))}" rx="${n1(fw * .14)}" ry="${n1(fh * .12)}" fill="#cfcfcf"/>`).join("")}</g>`;
-  if (/sandstorm/.test(at)) atmo += `<rect width="${n1(fw)}" height="${n1(fh)}" fill="#c9a36a" opacity=".42"/>` + Array.from({ length: 30 }, (_, i) => { const x = md(rnd(i) * fw + tau * fw * .6, fw), y = rnd(i + 30) * fh; return `<line x1="${n1(x)}" y1="${n1(y)}" x2="${n1(x + 14)}" y2="${n1(y + 2)}" stroke="#e8cfa0" stroke-opacity=".5"/>`; }).join("");
-  if (lk.blinds) atmo += `<g transform="rotate(-16 ${n1(fw / 2)} ${n1(fh / 2)})" opacity=".62">${Array.from({ length: 14 }, (_, i) => `<rect x="${n1(-fw * .3)}" y="${n1(-fh * .3 + i * fh * .13)}" width="${n1(fw * 1.6)}" height="${n1(fh * .055)}" fill="#000"/>`).join("")}</g>`;
-  if (parseInt(lk.amb.slice(1, 3), 16) < 0x30) atmo += `<rect width="${n1(fw)}" height="${n1(fh)}" fill="url(#pv-vig)"/>`;  // low-key looks fall off at the edges
+  if (/smoke|steam/.test(at)) atmo += `<g filter="url(#pv-blur)" opacity=".28">${[0, 1, 2, 3].map(i => `<ellipse cx="${n1(X0 + W * (.15 + i * .24) + Math.sin(tau * .5 + i) * W * .03)}" cy="${n1(Y0 + H * (/steam/.test(at) ? md(.85 - i % 2 * .2 - tau * .04, 1) : .45 + i % 2 * .15))}" rx="${n1(W * .14)}" ry="${n1(H * .12)}" fill="#cfcfcf"/>`).join("")}</g>`;
+  if (/sandstorm/.test(at)) atmo += `<rect ${boxR} fill="#c9a36a" opacity=".42"/>` + Array.from({ length: 30 }, (_, i) => { const x = X0 + md(rnd(i) * W + tau * W * .6, W), y = Y0 + rnd(i + 30) * H; return `<line x1="${n1(x)}" y1="${n1(y)}" x2="${n1(x + 14)}" y2="${n1(y + 2)}" stroke="#e8cfa0" stroke-opacity=".5"/>`; }).join("");
+  if (lk.blinds) atmo += `<g transform="rotate(-16 ${n1(fw / 2)} ${n1(fh / 2)})" opacity=".62">${Array.from({ length: 14 }, (_, i) => `<rect x="${n1(fw / 2 - W * .8)}" y="${n1(fh / 2 - H * .8 + i * H * .13)}" width="${n1(W * 1.6)}" height="${n1(H * .055)}" fill="#000"/>`).join("")}</g>`;
+  if (parseInt(lk.amb.slice(1, 3), 16) < 0x30) atmo += `<rect x="${n1(c.gx)}" y="${n1(c.gy)}" width="${n1(c.gW)}" height="${n1(c.gH)}" fill="url(#pv-vig)"/>`;  // low-key looks fall off towards the edges of the film back
 
   el.bg.innerHTML = bg; el.subj.innerHTML = subj; el.atmo.innerHTML = atmo;
   // Depth of field: the background softens with the calculated blur (scaled by any zoom or dolly); a rack focus swaps it to the subject.
@@ -1056,7 +1065,8 @@ function startPreview() {
   pvRaf = requestAnimationFrame(step);
 }
 
-// The preview's fixed parts: film back, crop, overlays and sketch, returned as { svg, cap } (the caption's HTML).
+// The preview's fixed parts: film back, crop (the scene shows across the whole film back, darkened outside the crop by
+// cropMask), overlays and sketch, returned as { svg, cap } (the caption's HTML).
 // The scene itself is drawn by drawPreview.
 function previewHTML(a) {
   const c = pvCtx = previewCtx(a), { W, H, fw, fh, g } = c, view = g.L.view;
@@ -1072,16 +1082,19 @@ function previewHTML(a) {
   if (c.mv === "parallax slide past foreground") fg += `<rect y="0" width="${fw * .12}" height="${fh}" fill="#080808" filter="url(#pv-blur)"><animate attributeName="x" values="${fw * 1.1};${-fw * .3};${fw * 1.1}" dur="${c.dur}s" repeatCount="indefinite"/></rect>`;
   if (["security camera angle", "dashcam view", "body cam view"].includes(a.angle) || a.camera === CCTV) fg += `<text x="8" y="16" fill="#ff4d4d" font-family="Montserrat, Arial" font-size="10" font-weight="600">● REC</text>`;
   const svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Sketch of the framed shot">
-    <defs><clipPath id="pv-clip"><rect width="${fw}" height="${fh}"/></clipPath>
+    <defs><clipPath id="pv-clip"><rect width="${fw}" height="${fh}"/></clipPath><clipPath id="pv-gate"><rect x="${c.gx}" y="${c.gy}" width="${c.gW}" height="${c.gH}"/></clipPath>
       <filter id="pv-blur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.4"/></filter>
       <filter id="pv-soft"><feGaussianBlur stdDeviation=".9"/></filter>
       <filter id="pv-bgblur" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur id="pv-bgblur-fe" stdDeviation="0"/></filter>
       <filter id="pv-subjblur" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur id="pv-subjblur-fe" stdDeviation="0"/></filter>
       ${glowDef("pv-glow", c.lk.key)}${glowDef("pv-glow2", c.k2)}
       <radialGradient id="pv-vig" r=".75"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".6"/></radialGradient></defs>
-    <rect x="${(W - g.gw * c.s) / 2}" y="${(H - g.gh * c.s) / 2}" width="${g.gw * c.s}" height="${g.gh * c.s}" fill="#0b0b0b" stroke="#666" stroke-dasharray="4 3"/>
-    <g id="pv-fg" transform="translate(${(W - fw) / 2} ${(H - fh) / 2})"><g clip-path="url(#pv-clip)">${scene}<g id="pv-atmo"></g>${fg}${overlaySVG(fw, fh)}
-      <path id="pv-ink" d="${inkPath(fw, fh)}" fill="none" stroke="#FF9900" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <g id="pv-fg" transform="translate(${(W - fw) / 2} ${(H - fh) / 2})">
+      <g clip-path="url(#pv-gate)">${scene}<g id="pv-atmo"></g>
+        <path id="pv-mask" d="M${f1(c.gx)} ${f1(c.gy)}h${f1(c.gW)}v${f1(c.gH)}h${f1(-c.gW)}Z M0 0v${f1(fh)}h${f1(fw)}v${f1(-fh)}Z" fill="#000" fill-rule="evenodd" opacity="${cropMask}"/></g>
+      <g clip-path="url(#pv-clip)">${fg}${overlaySVG(fw, fh)}</g>
+      <g clip-path="url(#pv-gate)"><path id="pv-ink" d="${inkPath(fw, fh)}" fill="none" stroke="#FF9900" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></g>
+      <rect x="${c.gx}" y="${c.gy}" width="${c.gW}" height="${c.gH}" fill="none" stroke="#666" stroke-dasharray="4 3"/>
       <rect width="${fw}" height="${fh}" fill="none" stroke="#FF9900" stroke-width="1.5"/></g></svg>`;
   const C = g.C, d = c.d;
   const back = a.camera ? `Film back${C.k === "film" ? "" : " (sensor)"} ≈ ${f1(C.w)} × ${f1(C.h)} mm${g.cropped ? `, cropped from ${f1(g.C0.w)} × ${f1(g.C0.h)} to the lens coverage` : ""}`
@@ -1102,9 +1115,10 @@ function previewHTML(a) {
    Composition guides drawn over the frame (the aspect crop, not the whole gate), toggled by the checkboxes under the preview.
    Safe areas follow SMPTE ST 2046-1: action safe 93% and title safe 90% of the frame. */
 const OVERLAYS = [["thirds", "Rule of thirds"], ["phi", "Golden ratio"], ["spiral", "Golden spiral"], ["diag", "Diagonals"],
-  ["center", "Center cross"], ["action", "Action safe 93%"], ["title", "Title safe 90%"], ["crops", "Crop guides 4:3 · 1:1 · 9:16"]];
+  ["center", "Center cross"], ["action", "Action safe 93%"], ["title", "Title safe 90%"], ["crops", "Crop guides 16:9 · 4:3 · 1:1 · 9:16"]];
 const PHI = (1 + Math.sqrt(5)) / 2;
 let overlays = store.get("overlays", { thirds: true });
+let cropMask = store.get("cropMask", .7);  // how dark the film back outside the crop is: 0 shows it all, 1 hides it
 
 // The checked overlays as SVG, in frame coordinates (fw × fh).
 function overlaySVG(fw, fh) {
@@ -1133,7 +1147,7 @@ function overlaySVG(fw, fh) {
   if (overlays.center) { const r = Math.min(fw, fh) * .05; o += L(fw / 2 - r, fh / 2, fw / 2 + r, fh / 2, "rgba(255,255,255,.8)") + L(fw / 2, fh / 2 - r, fw / 2, fh / 2 + r, "rgba(255,255,255,.8)"); }
   if (overlays.action) o += box(.93, "rgba(120,220,255,.85)", "ACTION SAFE", 6);
   if (overlays.title) o += box(.9, "rgba(255,255,255,.85)", "TITLE SAFE", 11);  // label sits below the action safe one
-  if (overlays.crops) [[4 / 3, "4:3"], [1, "1:1"], [9 / 16, "9:16"]].forEach(([r, label]) => {
+  if (overlays.crops) [[16 / 9, "16:9"], [4 / 3, "4:3"], [1, "1:1"], [9 / 16, "9:16"]].forEach(([r, label]) => {
     if (Math.abs(r / (fw / fh) - 1) < .03) return;  // same as the frame
     const cw = Math.min(fw, fh * r), ch = cw / r, x = (fw - cw) / 2, y = (fh - ch) / 2;
     o += `<rect x="${f1(x)}" y="${f1(y)}" width="${f1(cw)}" height="${f1(ch)}" fill="none" stroke="rgba(200,200,200,.6)" stroke-width=".6" stroke-dasharray="1.5 1.5"/><text x="${f1(x + cw - 2)}" y="${f1(y + ch - 2)}" text-anchor="end" fill="rgba(200,200,200,.8)" font-family="Montserrat, Arial" font-size="5">${label}</text>`;
@@ -1149,11 +1163,19 @@ const inkPt = e => { const q = new DOMPoint(e.clientX, e.clientY).matrixTransfor
 
 function toolsHTML() {
   return OVERLAYS.map(([k, label]) => `<label><input type="checkbox" id="ov-${k}"${overlays[k] ? " checked" : ""}>${label}</label>`).join("")
+    + `<span class="sep"></span><label class="mask">Outside crop <input type="range" id="pv-mask-range" min="0" max="100" step="5" value="${Math.round(cropMask * 100)}" aria-label="Darken the film back outside the crop"><span id="pv-mask-val">${Math.round(cropMask * 100)}%</span></label>`
     + `<span class="sep"></span><button class="mini" type="button" id="ink-on" aria-pressed="${inkOn}">${inkOn ? "Drawing: drag on the frame" : "Draw"}</button>`
     + `<button class="mini" type="button" id="ink-undo">Undo</button><button class="mini" type="button" id="ink-reset">Reset drawing</button>`;
 }
 function renderTools() { $("pv-tools").innerHTML = toolsHTML(); $("frame").classList.toggle("drawing", inkOn); }
+// The mask slider only changes the mask's opacity, so dragging it doesn't restart a playing move.
+$("pv-tools").addEventListener("input", e => {
+  if (e.target.id !== "pv-mask-range") return;
+  cropMask = e.target.value / 100; store.set("cropMask", cropMask);
+  $("pv-mask-val").textContent = e.target.value + "%"; if ($("pv-mask")) $("pv-mask").setAttribute("opacity", cropMask);
+});
 $("pv-tools").addEventListener("change", e => {
+  if (!e.target.id.startsWith("ov-")) return;
   const k = e.target.id.replace(/^ov-/, ""); overlays[k] = e.target.checked; store.set("overlays", overlays); renderLive();
 });
 $("pv-tools").addEventListener("click", e => {
