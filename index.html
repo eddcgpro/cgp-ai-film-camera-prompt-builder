@@ -90,7 +90,13 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
 #out.structured { max-height: 13em }
 #subject, #avoid { width: 100%; padding: 12px 14px; border-radius: 6px; border: 1px solid var(--line); background: rgba(0,0,0,.45); color: var(--grey-10); font-weight: 400 }
 .view-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end }
-.sheet-tools { margin-bottom: -12px }
+.sheet-tools { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; margin-bottom: -12px }
+.tool-group { display: flex; flex-wrap: wrap; gap: 6px }
+.focal-dial { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px }
+.focal-dial input[type=range] { flex: 1 1 220px; accent-color: var(--orange) }
+.focal-dial input[type=range].unset { opacity: .45 }
+.focal-dial label { display: flex; align-items: center; gap: 6px; font: 400 13px/1 var(--font-core); color: var(--grey-20) }
+.focal-dial input[type=number] { width: 84px; padding: 7px 9px; border-radius: 6px; border: 1px solid var(--line); background: rgba(0,0,0,.45); color: var(--grey-10); font: inherit }
 .presets { display: flex; flex-wrap: wrap; gap: 8px }
 .preset { padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--chip-bg); color: var(--grey-10); font: 500 13px/1.2 var(--font-core); transition: all 200ms var(--ease) }
 .preset:hover { border-color: var(--orange); background: var(--orange-08) }
@@ -199,9 +205,16 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
     <div class="presets" id="presets"></div>
   </div>
 
-  <div class="view-tools sheet-tools" id="sheet-tools">
-    <button class="mini" type="button" id="collapse-all">Collapse all</button>
-    <button class="mini" type="button" id="expand-all">Expand all</button>
+  <div class="sheet-tools" id="sheet-tools">
+    <div class="tool-group">
+      <button class="mini" type="button" id="clear-lens">Clear lens</button>
+      <button class="mini" type="button" id="clear-lighting">Clear lighting</button>
+      <button class="mini" type="button" id="clear-composition">Clear composition</button>
+    </div>
+    <div class="tool-group" id="collapse-tools">
+      <button class="mini" type="button" id="collapse-all">Collapse all</button>
+      <button class="mini" type="button" id="expand-all">Expand all</button>
+    </div>
   </div>
 
   <main class="sheet" id="sheet"></main>
@@ -217,9 +230,12 @@ const SLOTS = [
     { name: "Anamorphic primes", items: ["Panavision C-Series anamorphic lenses","Panavision G-Series anamorphic lenses","Panavision T-Series anamorphic lenses","Ultra Panavision 70 anamorphic lenses","ARRI Master Anamorphic lenses","Cooke Anamorphic/i SF lenses","Hawk V-Lite anamorphic lenses","Atlas Orion anamorphic lenses","vintage Kowa anamorphic lenses","LOMO Roundfront anamorphic lenses"] },
     { name: "Spherical primes, modern", items: ["Zeiss Master Primes","Zeiss Supreme Primes","ARRI Signature Primes","Cooke S4/i lenses","Leica Summilux-C lenses","Panavision Primo 70 lenses","Panavision Sphero 65 lenses"] },
     { name: "Zoom lenses", items: ["ARRI Alura 18-80mm zoom","Angénieux Optimo 24-290mm zoom","Fujinon Premista 28-100mm zoom","Angénieux Optimo Ultra 12x 36-435mm zoom","Angénieux Optimo A2S 30-72mm anamorphic zoom"] },
-    { name: "Primes, vintage and character", items: ["Cooke Panchro/i Classic lenses","Canon K35 lenses","Zeiss Super Speeds","Bausch & Lomb Super Baltar lenses","Zeiss Planar 50mm f/0.7","Helios 44-2 lens with swirly bokeh","Petzval lens","Laowa 24mm probe lens","fisheye lens"] } ] },
+    { name: "Primes, vintage and character", items: ["Cooke Panchro/i Classic lenses","Canon K35 lenses","Zeiss Super Speeds","Bausch & Lomb Super Baltar lenses","Zeiss Planar 50mm f/0.7","Helios 44-2 lens with swirly bokeh","Petzval lens","Laowa 24mm probe lens","fisheye lens"] },
+    { name: "Free choice (any focal length)", items: ["spherical lens","anamorphic lens"] } ] },
   { id: "focal", name: "Lens / focal length", groups: [
     { name: "Focal length", items: ["14mm lens","18mm lens","24mm lens","35mm lens","50mm lens","85mm lens","135mm lens","200mm lens"] } ] },
+  { id: "tstop", name: "Lens / aperture (T-stop)", groups: [
+    { name: "T-stop", items: ["T0.7","T0.95","T1.3","T1.4","T1.8","T2","T2.8","T4","T5.6","T8","T11","T16","T22"] } ] },
   { id: "light", name: "Lighting", groups: [
     { name: "Naturalistic", items: ["soft overcast daylight","golden hour backlight","blue hour ambient light","harsh midday sun with hard shadows","single window source with soft falloff","candlelight only","flickering firelight","cool low-key moonlight"] },
     { name: "Stylized", items: ["chiaroscuro lighting with deep blacks","low-key noir lighting through venetian blinds","high-key shadowless lighting","Rembrandt lighting","silhouette against a bright background","rim light","neon practicals on wet reflective streets","sodium vapor streetlight","mixed tungsten and blue daylight","motivated practicals only","red emergency lighting","green-tinted overhead fluorescents","lightning flashes in darkness","hard top light","soft bounce fill","LED volume interactive lighting"] } ] },
@@ -247,31 +263,33 @@ const SLOTS = [
     { name: "Ratio", items: ["2.39:1 widescreen","1.85:1 aspect ratio","1.90:1 IMAX digital aspect ratio","1.43:1 IMAX aspect ratio","1.37:1 Academy ratio","2.76:1 Ultra Panavision aspect ratio","1.78:1 16:9 HD frame","1.33:1 4:3 TV frame","9:16 vertical"] } ] },
   { id: "texture", name: "Texture / filtration", groups: [
     { name: "Image", items: ["heavy 16mm grain","fine 35mm grain","gate weave","light leaks","halation","anamorphic lens flares","subtle chromatic aberration","soft vignette","Pro-Mist diffusion","Black Pro-Mist bloom"] } ] },
-  { id: "focus", name: "Focus / depth of field", groups: [
-    { name: "Depth", items: ["shallow depth of field","deep focus","split diopter","tilt-shift miniature","oval anamorphic bokeh","soft focus"] } ] }
+  { id: "dof", name: "Depth of field", groups: [
+    { name: "Depth", items: ["very shallow depth of field","shallow depth of field","moderate depth of field","deep focus"] } ] },
+  { id: "ftech", name: "Focus technique", groups: [
+    { name: "Technique", items: ["split diopter","tilt-shift miniature","soft focus","oval anamorphic bokeh"] } ] }
 ];
 
 const PRESETS = [
   { name: "Original", v: { camera: "ARRI Alexa 65", lens: "Ultra Panavision 70 anamorphic lenses", light: "golden hour backlight", atmo: "volumetric god rays through haze", grade: "Kodak Vision3 film emulation", aspect: "2.76:1 Ultra Panavision aspect ratio" } },
-  { name: "16mm intimate", v: { camera: "ARRI 416 Super 16mm", lens: "Zeiss Super Speeds", light: "single window source with soft falloff", grade: "Kodak Vision3 500T film stock", texture: "heavy 16mm grain", aspect: "1.85:1 aspect ratio", size: "medium close-up", move: "handheld" } },
+  { name: "16mm intimate", v: { camera: "ARRI 416 Super 16mm", lens: "Zeiss Super Speeds", focal: "25mm lens", tstop: "T1.3", light: "single window source with soft falloff", grade: "Kodak Vision3 500T film stock", texture: "heavy 16mm grain", aspect: "1.85:1 aspect ratio", size: "medium close-up", move: "handheld" } },
   { name: "IMAX epic", v: { camera: "IMAX 15/70mm film camera", lens: "Panavision Sphero 65 lenses", light: "golden hour backlight", atmo: "thick haze", grade: "Kodak Vision3 250D film stock", aspect: "1.43:1 IMAX aspect ratio", size: "extreme wide establishing shot", move: "helicopter aerial" } },
   { name: "Neon night", v: { camera: "Sony Venice 2", lens: "Cooke Anamorphic/i SF lenses", light: "neon practicals on wet reflective streets", atmo: "backlit rain", grade: "CineStill 800T look with red halation", aspect: "2.39:1 widescreen", texture: "anamorphic lens flares", angle: "low angle" } },
   { name: "Classic noir", v: { camera: "Mitchell BNC vintage 35mm", lens: "Bausch & Lomb Super Baltar lenses", light: "low-key noir lighting through venetian blinds", atmo: "drifting smoke", grade: "Eastman Double-X black and white film", aspect: "1.37:1 Academy ratio", angle: "Dutch angle" } },
   { name: "Gritty war", v: { camera: "ARRI Alexa 35", lens: "Canon K35 lenses", light: "harsh midday sun with hard shadows", atmo: "dust particles in the air", grade: "bleach bypass grade", move: "handheld", speed: "staccato 45 degree shutter", aspect: "2.39:1 widescreen" } },
-  { name: "Period candle", v: { camera: "Mitchell BNC vintage 35mm", lens: "Zeiss Planar 50mm f/0.7", light: "candlelight only", grade: "warm amber nostalgic grade", focus: "shallow depth of field", texture: "fine 35mm grain", size: "close-up", angle: "profile view" } },
+  { name: "Period candle", v: { camera: "Mitchell BNC vintage 35mm", lens: "Zeiss Planar 50mm f/0.7", tstop: "T0.7", light: "candlelight only", grade: "warm amber nostalgic grade", texture: "fine 35mm grain", size: "close-up", angle: "profile view" } },
   { name: "Thriller chase", v: { camera: "RED V-Raptor 8K VV", lens: "ARRI Master Anamorphic lenses", light: "sodium vapor streetlight", grade: "teal and orange grade", move: "Russian arm chase", aspect: "2.39:1 widescreen", texture: "Black Pro-Mist bloom" } },
   // Common everyday setups
-  { name: "Drone establishing", v: { camera: "ARRI Alexa Mini LF", lens: "ARRI Signature Primes", focal: "24mm lens", light: "golden hour backlight", atmo: "light fog", grade: "Kodak Vision3 film emulation", size: "extreme wide establishing shot", angle: "aerial view", move: "drone rising reveal", aspect: "2.39:1 widescreen", focus: "deep focus" } },
-  { name: "Interview", v: { camera: "Sony Burano", lens: "Zeiss Supreme Primes", focal: "85mm lens", light: "single window source with soft falloff", grade: "clean neutral grade", size: "medium close-up", angle: "three-quarter angle", move: "locked-off tripod", aspect: "1.78:1 16:9 HD frame", focus: "shallow depth of field" } },
+  { name: "Drone establishing", v: { camera: "ARRI Alexa Mini LF", lens: "ARRI Signature Primes", focal: "25mm lens", tstop: "T5.6", light: "golden hour backlight", atmo: "light fog", grade: "Kodak Vision3 film emulation", size: "extreme wide establishing shot", angle: "aerial view", move: "drone rising reveal", aspect: "2.39:1 widescreen" } },
+  { name: "Interview", v: { camera: "Sony Burano", lens: "Zeiss Supreme Primes", focal: "85mm lens", tstop: "T2", light: "single window source with soft falloff", grade: "clean neutral grade", size: "medium close-up", angle: "three-quarter angle", move: "locked-off tripod", aspect: "1.78:1 16:9 HD frame" } },
   { name: "Handheld doc", v: { camera: "ARRI Alexa Mini", lens: "Zeiss Super Speeds", focal: "35mm lens", light: "soft overcast daylight", grade: "Kodak 2383 print film emulation", size: "medium shot", angle: "eye level", move: "handheld", speed: "natural motion blur, 180 degree shutter", aspect: "1.85:1 aspect ratio" } },
-  { name: "Dialogue OTS", v: { camera: "ARRI Alexa 35", lens: "Cooke S4/i lenses", focal: "50mm lens", light: "motivated practicals only", grade: "Kodak 2383 print film emulation", size: "medium close-up", angle: "over-the-shoulder", move: "slow dolly push-in", aspect: "2.39:1 widescreen", focus: "shallow depth of field" } },
+  { name: "Dialogue OTS", v: { camera: "ARRI Alexa 35", lens: "Cooke S4/i lenses", focal: "50mm lens", tstop: "T2", light: "motivated practicals only", grade: "Kodak 2383 print film emulation", size: "medium close-up", angle: "over-the-shoulder", move: "slow dolly push-in", aspect: "2.39:1 widescreen" } },
   { name: "Vertical social", v: { camera: "iPhone Pro smartphone", focal: "24mm lens", light: "golden hour backlight", grade: "clean neutral grade", size: "medium shot", angle: "eye level", move: "gimbal tracking", aspect: "9:16 vertical" } },
-  { name: "Car commercial", v: { camera: "RED V-Raptor 8K VV", lens: "ARRI Signature Primes", focal: "35mm lens", light: "golden hour backlight", atmo: "dust particles in the air", grade: "teal and orange grade", size: "wide shot", angle: "three-quarter angle", move: "car mount tracking", aspect: "2.39:1 widescreen", texture: "Pro-Mist diffusion" } },
-  { name: "Sports slow-mo", v: { camera: "Sony Venice 2", lens: "Angénieux Optimo 24-290mm zoom", focal: "135mm lens", light: "harsh midday sun with hard shadows", grade: "clean neutral grade", size: "full shot", angle: "low angle", move: "tracking shot alongside", speed: "slow motion at 120fps", aspect: "1.78:1 16:9 HD frame", focus: "shallow depth of field" } },
-  { name: "Symmetric pastel", v: { camera: "ARRI Alexa Mini", lens: "Cooke S4/i lenses", focal: "24mm lens", light: "high-key shadowless lighting", grade: "muted pastel palette", size: "full shot", angle: "frontal symmetrical framing", move: "locked-off tripod", aspect: "1.85:1 aspect ratio", focus: "deep focus" } },
-  { name: "Western", v: { camera: "Panavision Panaflex Millennium XL2 (35mm)", lens: "Panavision C-Series anamorphic lenses", focal: "50mm lens", light: "golden hour backlight", atmo: "dust particles in the air", grade: "Kodak Vision3 250D film stock", size: "extreme wide establishing shot", angle: "low angle", aspect: "2.39:1 widescreen", texture: "anamorphic lens flares", focus: "deep focus" } },
-  { name: "Horror stalk", v: { camera: "ARRI Alexa Mini", lens: "Cooke Panchro/i Classic lenses", focal: "18mm lens", light: "cool low-key moonlight", atmo: "light fog", grade: "sickly green fluorescent grade", size: "full shot", angle: "low angle", move: "Steadicam follow", aspect: "1.85:1 aspect ratio", focus: "deep focus" } },
-  { name: "Found footage", v: { camera: "VHS camcorder", light: "motivated practicals only", size: "medium shot", angle: "first-person POV", move: "handheld", aspect: "1.33:1 4:3 TV frame", texture: "subtle chromatic aberration", focus: "deep focus" } }
+  { name: "Car commercial", v: { camera: "RED V-Raptor 8K VV", lens: "ARRI Signature Primes", focal: "35mm lens", tstop: "T4", light: "golden hour backlight", atmo: "dust particles in the air", grade: "teal and orange grade", size: "wide shot", angle: "three-quarter angle", move: "car mount tracking", aspect: "2.39:1 widescreen", texture: "Pro-Mist diffusion" } },
+  { name: "Sports slow-mo", v: { camera: "Sony Venice 2", lens: "Angénieux Optimo 24-290mm zoom", focal: "135mm lens", tstop: "T2.8", light: "harsh midday sun with hard shadows", grade: "clean neutral grade", size: "full shot", angle: "low angle", move: "tracking shot alongside", speed: "slow motion at 120fps", aspect: "1.78:1 16:9 HD frame" } },
+  { name: "Symmetric pastel", v: { camera: "ARRI Alexa Mini", lens: "Cooke S4/i lenses", focal: "25mm lens", tstop: "T8", light: "high-key shadowless lighting", grade: "muted pastel palette", size: "full shot", angle: "frontal symmetrical framing", move: "locked-off tripod", aspect: "1.85:1 aspect ratio" } },
+  { name: "Western", v: { camera: "Panavision Panaflex Millennium XL2 (35mm)", lens: "Panavision C-Series anamorphic lenses", focal: "50mm lens", tstop: "T8", light: "golden hour backlight", atmo: "dust particles in the air", grade: "Kodak Vision3 250D film stock", size: "extreme wide establishing shot", angle: "low angle", aspect: "2.39:1 widescreen", texture: "anamorphic lens flares" } },
+  { name: "Horror stalk", v: { camera: "ARRI Alexa Mini", lens: "Cooke Panchro/i Classic lenses", focal: "18mm lens", tstop: "T5.6", light: "cool low-key moonlight", atmo: "light fog", grade: "sickly green fluorescent grade", size: "full shot", angle: "low angle", move: "Steadicam follow", aspect: "1.85:1 aspect ratio" } },
+  { name: "Found footage", v: { camera: "VHS camcorder", light: "motivated practicals only", size: "medium shot", angle: "first-person POV", move: "handheld", aspect: "1.33:1 4:3 TV frame", texture: "subtle chromatic aberration", dof: "deep focus" } }
 ];
 
 /* ---------- state ---------- */
@@ -285,7 +303,7 @@ SLOTS.forEach(s => { locked[s.id] = false; enabled[s.id] = true; if (s.modes) mo
 
 const keyOf = s => s.modes ? s.id + ":" + mode[s.id] : s.id;
 const groupsOf = s => s.modes ? s.modes.find(m => m.id === mode[s.id]).groups : s.groups;
-const itemsOf = s => groupsOf(s).flatMap(g => g.items);
+const itemsOf = (s, a) => s.id === "focal" ? focalItems(a || activeVals()) : groupsOf(s).flatMap(g => g.items);
 const $ = id => document.getElementById(id);
 const esc = t => t.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -301,8 +319,9 @@ applyPreset(PRESETS[0]);
 
 /* ---------- build ---------- */
 function slotHTML(s, i) {
-  const k = keyOf(s), v = vals[k], isCol = view === "chips" && collapsed[s.id];
-  const b = blockedOf(s), off = it => b.all || b.off.has(it);
+  const a = activeVals(), b = blockedOf(s, a), off = it => b.all || b.off.has(it), isCol = view === "chips" && collapsed[s.id];
+  const calc = s.id === "dof" && b.all ? dofCalc(a) : null;
+  const v = calc ? calc.label : vals[keyOf(s)];  // a calculated depth of field shows as the selected chip
   const cls = ["slot", v && enabled[s.id] ? "set" : "", locked[s.id] ? "locked" : "", enabled[s.id] ? "" : "off", isCol ? "collapsed" : "", b.all ? "blocked" : ""].join(" ");
   const titleInner = `<span class="hexdot"></span><span class="slot-name">${s.name}</span>${view === "chips" ? `<span class="caret" aria-hidden="true">▼</span>` : ""}`;
   const title = view === "chips"
@@ -315,41 +334,65 @@ function slotHTML(s, i) {
     <button class="mini" type="button" id="roll-${s.id}">Roll</button>
     <button class="mini on" type="button" id="on-${s.id}" aria-pressed="${enabled[s.id]}">${enabled[s.id] ? "On" : "Off"}</button></div>`;
   const summary = isCol && v ? `<span class="slot-val">${esc(v)}</span>` : "";
+  const r = s.id === "focal" && focalRange(a), groups = s.id === "focal" ? [{ name: "Focal length", items: itemsOf(s, a) }] : groupsOf(s);
   let body = "";
-  if (view === "dd") {
-    body = `<select id="sel-${s.id}" aria-label="${s.name}"${b.all ? " disabled" : ""}><option value="">None</option>${groupsOf(s).map(g =>
+  if (r && !r.fixed && !r.list) {  // zooms and free lenses: any focal length in range, on a log-scale slider plus an exact mm box
+    const f = mm(vals.focal), pos = f ? Math.round(1000 * Math.log(f / r.min) / Math.log(r.max / r.min)) : 500;
+    body = `<div class="focal-dial"><input type="range" id="focal-range" min="0" max="1000" value="${pos}" aria-label="Focal length"${f ? "" : ` class="unset"`}>
+      <label><input type="number" id="focal-num" min="${r.min}" max="${r.max}" step="1" value="${f || ""}" placeholder="${r.min}-${r.max}"> mm</label>
+      ${f ? `<button class="mini" type="button" id="focal-clear">Clear</button>` : ""}</div>`;
+  } else if (view === "dd") {
+    body = `<select id="sel-${s.id}" aria-label="${s.name}"${b.all ? " disabled" : ""}><option value="">None</option>${groups.map(g =>
       `<optgroup label="${esc(g.name)}">${g.items.map(it => `<option${it === v ? " selected" : ""}${off(it) ? " disabled" : ""}>${esc(it)}</option>`).join("")}</optgroup>`).join("")}</select>`;
   } else if (!isCol) {
-    body = groupsOf(s).map((g, gi) => `<div class="group">${groupsOf(s).length > 1 ? `<div class="group-name">${esc(g.name)}</div>` : ""}<div class="chip-list">${
+    body = groups.map((g, gi) => `<div class="group">${groups.length > 1 ? `<div class="group-name">${esc(g.name)}</div>` : ""}<div class="chip-list">${
       g.items.map((it, ii) => `<button type="button" class="chip" id="chip-${s.id}-${mode[s.id] || ""}-${gi}-${ii}" data-slot="${s.id}" data-val="${esc(it)}" aria-pressed="${it === v}"${off(it) ? " disabled" : ""}>${esc(it)}</button>`).join("")}</div></div>`).join("");
   }
   const hint = b.note ? `<p class="slot-hint">${esc(b.note)}</p>` : "";
   return `<section class="${cls}" id="slot-${s.id}"><div class="slot-head"><div style="display:flex;align-items:center;gap:12px;min-width:0;flex-wrap:wrap">${title}${summary}</div>${tools}</div>${hint}${body}</section>`;
 }
 
-// Options the camera and lens physically can't do are greyed out, so lens and focal length can't contradict each other.
-// Returns { all } when the whole slot is set by something else, { off } for the options to disable, and a note explaining why.
-function blockedOf(s) {
-  const none = { off: new Set() }, a = activeVals();
+// What the camera and lens physically allow. Returns { all } when the whole slot is decided by something else,
+// { off } for the options to grey out, and a note explaining why, so lens, focal length, T-stop and depth of field can't contradict.
+function blockedOf(s, a = activeVals()) {
+  const none = { off: new Set() };
   if (s.id === "lens" && CAM[a.camera] && CAM[a.camera].fixed) return { all: true, off: none.off, note: `The ${a.camera} has a built-in lens, so there's no glass to choose. Set the focal length instead.` };
-  if (s.id !== "focal") return none;
-  const r = focalRange(a);
-  if (!r) return { ...none, note: "Pick a lens first: a prime set offers the primes it has, a zoom offers its range." };
-  if (r.fixed) return { all: true, off: none.off, note: `${r.what} is a single lens, fixed at about ${r.fixed}mm, so the focal length is set by the lens.` };
-  const note = r.kind === "zoom" ? `Zoom lens: set where it sits between ${r.min} and ${r.max}mm. Zoom moves are available.`
-    : r.kind === "prime" ? `Prime set: ${r.what} run from about ${r.min} to ${r.max}mm. Pick which prime; primes can't zoom.`
-    : `${r.what} covers about ${r.min} to ${r.max}mm, full-frame equivalent.`;
-  return { off: new Set(itemsOf(s).filter(it => mm(it) < r.min || mm(it) > r.max)), note };
+  if (s.id === "focal") {
+    const r = focalRange(a);
+    if (r.fixed) return { all: true, off: none.off, note: `${r.what} is a single lens, fixed at ${r.fixed}mm, so the focal length is set by the lens.` };
+    return { ...none, note: {
+      prime: () => `Prime set: ${r.what} come in ${r.list.join(", ")}mm. Pick which prime; primes can't zoom.`,
+      zoom: () => `Zoom lens: drag or type anywhere from ${r.min} to ${r.max}mm. Zoom moves are available.`,
+      "built-in": () => r.list ? `${r.what} has ${r.list.join(", ")}mm lenses (full-frame equivalent).` : `${r.what} zooms from ${r.min} to ${r.max}mm (full-frame equivalent).`,
+      free: () => `Free choice: any focal length from ${r.min} to ${r.max}mm.`,
+      none: () => `No lens chosen, so any focal length. Pick a named lens to limit this to the focal lengths it really has.` }[r.kind]() };
+  }
+  if (s.id === "tstop") {
+    const r = stopRange(a);
+    if (r.fixed) return { all: true, off: none.off, note: `${r.what} has a fixed aperture of f/${r.fixed}, so there's no T-stop to set.` };
+    return { off: new Set(itemsOf(s).filter(it => tnum(it) < r.min - .001 || tnum(it) > r.max)), note: `${r.what} opens to T${r.min}${r.max < 22 ? ` and stops down to T${r.max}` : ""}.` };
+  }
+  if (s.id === "dof" && lensSpecific(a)) {
+    const d = dofCalc(a), need = [!focalOf(a) && "a focal length", !stopOf(a) && "a T-stop"].filter(Boolean).join(" and ");
+    const note = d ? `Calculated from ${f1(d.f0)}mm at T${d.N}, subject about ${fmtLen(d.D)} away${d.assumedSize ? " (assuming a full shot)" : ""}: ${isFinite(d.far) ? `${fmtLen(d.total)} in focus, ${fmtLen(d.near)} to ${fmtLen(d.far)}` : `sharp from ${fmtLen(d.near)} to infinity`}.`
+      : `Lens settings are set, so depth of field is calculated rather than picked. Add ${need} to see it, or use Clear lens to pick it by hand.`;
+    return { all: true, off: none.off, note: note + (vals.dof && enabled.dof ? ` Your "${vals.dof}" pick is ignored while lens settings are set.` : "") };
+  }
+  if (s.id === "dof") return { ...none, note: "No lens settings, so you can pick this by hand. Setting a named lens, focal length or T-stop calculates it instead." };
+  return none;
 }
 
-// Keeps lens and focal length consistent after any change: clears what the camera or lens rules out,
-// and snaps the focal length to the nearest one the new lens can do.
+// Keeps lens, focal length and T-stop consistent after any change: clears what the camera or lens rules out,
+// snaps the focal length to the nearest real one, and moves the T-stop inside what the lens can do.
 function reconcile() {
   if (enabled.lens && vals.lens && CAM[activeVals().camera] && CAM[activeVals().camera].fixed) vals.lens = null;
   const r = focalRange(activeVals()), f = mm(vals.focal);
-  if (!r || !vals.focal || (!r.fixed && f >= r.min && f <= r.max)) return;
-  const ok = r.fixed ? [] : itemsOf(SLOTS.find(s => s.id === "focal")).filter(it => mm(it) >= r.min && mm(it) <= r.max);
-  vals.focal = ok.length ? ok.reduce((best, it) => Math.abs(mm(it) - f) < Math.abs(mm(best) - f) ? it : best) : null;
+  if (vals.focal && !focalOk(r, f)) vals.focal = r.fixed ? null
+    : `${r.list ? r.list.reduce((b, x) => Math.abs(x - f) < Math.abs(b - f) ? x : b) : Math.min(r.max, Math.max(r.min, f))}mm lens`;
+  const t = stopRange(activeVals()), n = vals.tstop && tnum(vals.tstop);
+  if (!vals.tstop || (!t.fixed && n >= t.min - .001 && n <= t.max)) return;
+  const ok = t.fixed ? [] : itemsOf(SLOTS.find(s => s.id === "tstop")).filter(it => tnum(it) >= t.min - .001 && tnum(it) <= t.max);
+  vals.tstop = ok.length ? (n < t.min ? ok[0] : ok[ok.length - 1]) : null;
 }
 
 function render() {
@@ -360,45 +403,60 @@ function render() {
   sheet.innerHTML = SLOTS.map(slotHTML).join("");
   $("view-chips").setAttribute("aria-pressed", view === "chips");
   $("view-dd").setAttribute("aria-pressed", view === "dd");
-  $("sheet-tools").style.visibility = view === "chips" ? "" : "hidden";  // keeps its height, so nothing jumps
+  $("collapse-tools").style.visibility = view === "chips" ? "" : "hidden";  // keeps its space, so nothing jumps
   $("fmt-compact").setAttribute("aria-pressed", format === "compact");
   $("fmt-structured").setAttribute("aria-pressed", format === "structured");
   $("out").classList.toggle("structured", format === "structured");
   $("avoid-field").hidden = format !== "structured";
+  renderLive();
+  if (active && $(active)) $(active).focus({ preventScroll: true });
+}
+
+// The prompt, counts, warnings and preview: everything that changes while dragging the focal length slider.
+function renderLive() {
   const t = promptText();
   $("out").textContent = t || "Pick a few options to build a prompt.";
   $("m-slots").textContent = SLOTS.filter(s => vals[keyOf(s)] && enabled[s.id]).length;
   $("m-locked").textContent = SLOTS.filter(s => locked[s.id]).length;
   $("m-chars").textContent = t.length;
   const a = activeVals(), c = conflicts(a);
+  if (lensSpecific(a) && a.dof) c.push(`Your "${a.dof}" pick is ignored: lens settings calculate depth of field`);
   $("warn").hidden = !c.length;
   $("warn").textContent = c.length ? "⚠ " + c.join(" · ") : "";
   $("frame").innerHTML = previewHTML(a);
-  if (active && $(active)) $(active).focus({ preventScroll: true });
+  startPreview();
 }
 
 const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
 const sentence = t => cap(t).replace(/[.\s]*$/, ".");
 const an = t => /^([aeiou]|8|11|18)/i.test(t) ? "an" : "a";  // "an 18mm", "an 85mm"
 
+// Lens and focal length as one phrase: zooms are "set to" a focal length, prime sets are shot "at" one of their primes,
+// a free lens type reads "40mm anamorphic lens", and a bare focal length reads "50mm lens". art adds a/an.
+function lensPhrase(a, art) {
+  const L = LENS[a.lens], f = mm(a.focal), A = t => art ? `${an(t)} ${t}` : t;
+  if (!a.lens) return f ? A(`${f}mm lens`) : "";
+  if (L && L.free) return A(f ? `${f}mm ${a.lens}` : a.lens);
+  const name = /(lenses|Primes)$/.test(a.lens) ? a.lens : A(a.lens);
+  return !f || a.lens in FIXED_FOCAL ? name : name + (L && L.zoom ? ` set to ${f}mm` : ` at ${f}mm`);
+}
+
 // Sectioned prompt: same slot values, grouped into SHOT / CAMERA AND LENS / ... / AVOID. Empty sections are dropped.
 function structuredText() {
-  const a = activeVals(), C = CAM[a.camera], subj = $("subject").value.trim();
+  const a = activeVals(), C = CAM[a.camera], subj = $("subject").value.trim(), d = dofCalc(a), dof = effDof(a);
   const opener = C && C.k === "legacy" ? `An authentic frame of ${a.camera} footage.`
     : C && C.k === "consumer" ? `A photorealistic frame of ${a.camera} footage.`
     : `A photorealistic ${a.move || a.speed ? "shot" : "still frame"} from a major motion picture.`;
-  const L = LENS[a.lens], f = mm(a.focal);
-  // Zooms are "set to" a focal length; prime sets are shot "at" one of their primes; a bare focal length reads as "a 24mm lens".
-  const lens = a.lens ? (/(lenses|Primes)$/.test(a.lens) ? a.lens : `${an(a.lens)} ${a.lens}`) + (f && !(a.lens in FIXED_FOCAL) ? (L && L.zoom ? ` set to ${f}mm` : ` at ${f}mm`) : "")
-    : a.focal && `${an(a.focal)} ${a.focal}`;
+  const lens = lensPhrase(a, true) + (a.tstop ? `, ${a.tstop}` : "");
   const ar = a.aspect && a.aspect.split(" ")[0], r = ar && ratioOf(ar);
   const filmLook = (C && C.k === "film") || /film|grain|halation|gate weave|Kodachrome|Technicolor/i.test(`${a.grade || ""} ${a.texture || ""}`);
   const avoid = $("avoid").value.split(",").map(t => t.trim().replace(/^no\s+/i, "")).filter(Boolean);
   if (filmLook && !avoid.includes("modern digital sharpness")) avoid.push("modern digital sharpness");
+  const dofLine = d ? (isFinite(d.far) ? `${cap(d.label)}, about ${fmtLen(d.total)} in focus around the subject.` : `Deep focus, sharp from ${fmtLen(d.near)} to infinity.`) : dof && sentence(dof);
   const sections = [
     ["SHOT", [opener, subj && sentence(subj)]],
     ["CAMERA AND LENS", [a.camera ? `Shot on ${an(a.camera)} ${a.camera}${lens ? " with " + lens : ""}.` : lens && `Shot with ${lens}.`,
-      a.angle && `Camera angle: ${a.angle}.`, a.focus && sentence(a.focus)]],
+      a.angle && `Camera angle: ${a.angle}.`, dofLine, a.ftech && sentence(a.ftech)]],
     ["COMPOSITION", [a.size && sentence(a.size), ar && `${ar} ${r < 1 ? "vertical" : r > 2 ? "letterboxed widescreen" : r < 1.5 ? "near-square" : "widescreen"} frame.`]],
     ["MOTION", [a.move && sentence(a.move), a.speed && sentence(a.speed)]],
     ["LIGHTING", [a.light && sentence(a.light), a.atmo && sentence(a.atmo)]],
@@ -410,15 +468,20 @@ function structuredText() {
 
 function promptText() {
   if (format === "structured") return structuredText();
-  const parts = SLOTS.filter(s => vals[keyOf(s)] && enabled[s.id]).map(s => (s.prefix || "") + vals[keyOf(s)]);
+  const a = activeVals(), parts = [];
+  SLOTS.forEach(s => {
+    if (s.id === "lens") { const l = lensPhrase(a, false); if (l) parts.push(l); return; }
+    if (s.id === "focal") return;  // folded into the lens phrase
+    if (s.id === "dof") { const d = effDof(a); if (d) parts.push(d); return; }
+    if (a[s.id]) parts.push((s.prefix || "") + a[s.id]);
+  });
   const subj = $("subject").value.trim(), tech = parts.join(", ");
   if (subj && tech) return subj.replace(/[.\s]+$/, "") + ". " + tech;
   return subj || tech;
 }
-
 /* ---------- compatibility ----------
    CAM  k: digital | film | consumer | legacy video; g: format size (1 Super 8, 2 16mm, 3 35mm/Super 35, 4 full frame/LF, 5 65mm);
-        w×h: approximate gate (film back) in mm; slow: can't reach 120fps; fixed: built-in lens (fr: its full-frame equivalent range); heavy: too big for drones and gimbals.
+        w×h: approximate gate (film back) in mm; slow: can't reach 120fps; fixed: built-in lens (fr: its full-frame-equivalent zoom range and t: fastest f-stop, or lenses: [mm, fixed f-stop] for phones and action cameras); heavy: too big for drones and gimbals.
    LENS ana: anamorphic squeeze; c: largest format covered (same scale as g);
         bnc: only fits the modified Mitchell BNC; zoom: [shortest, longest] mm for zoom lenses; view: wide | tele | fish, used by the preview. */
 const CAM = {
@@ -444,31 +507,47 @@ const CAM = {
   "ARRI 416 Super 16mm": { k: "film", g: 2, w: 12.52, h: 7.41, slow: 1 },
   "Aaton XTR Prod 16mm": { k: "film", g: 2, w: 12.52, h: 7.41, slow: 1 },
   "Bolex H16 16mm": { k: "film", g: 2, w: 10.26, h: 7.49, slow: 1 },
-  "Canon 1014 XL-S Super 8": { k: "film", g: 1, w: 5.79, h: 4.01, slow: 1, fixed: 1, zoom: 1, fr: [40, 400] },
+  "Canon 1014 XL-S Super 8": { k: "film", g: 1, w: 5.79, h: 4.01, slow: 1, fixed: 1, zoom: 1, fr: [40, 400], t: 1.4 },
   "Mitchell BNC vintage 35mm": { k: "film", g: 3, w: 21.95, h: 16, slow: 1, heavy: 1 },
-  "iPhone Pro smartphone": { k: "consumer", g: 0, w: 9.8, h: 7.3, fixed: 1, small: 1, fr: [13, 120] },
-  "GoPro HERO action camera": { k: "consumer", g: 0, w: 6.2, h: 4.6, fixed: 1, small: 1, fr: [12, 19] },
+  "iPhone Pro smartphone": { k: "consumer", g: 0, w: 9.8, h: 7.3, fixed: 1, small: 1, lenses: [[13, 2.2], [24, 1.78], [48, 1.78], [100, 2.8]] },
+  "GoPro HERO action camera": { k: "consumer", g: 0, w: 6.2, h: 4.6, fixed: 1, small: 1, lenses: [[12, 2.5], [14, 2.5], [16, 2.5], [19, 2.5]] },
   "DJI Ronin 4D": { k: "digital", g: 4, w: 36, h: 24 },
-  "1990s Sony Handycam MiniDV": { k: "legacy", g: 0, w: 4.8, h: 3.6, slow: 1, fixed: 1, zoom: 1, fr: [40, 400] },
-  "VHS camcorder": { k: "legacy", g: 0, w: 4.8, h: 3.6, slow: 1, fixed: 1, zoom: 1, fr: [40, 320] },
-  "CCTV security camera": { k: "legacy", g: 0, w: 4.8, h: 3.6, slow: 1, fixed: 1, zoom: 1, fr: [20, 90] }
+  "1990s Sony Handycam MiniDV": { k: "legacy", g: 0, w: 4.8, h: 3.6, slow: 1, fixed: 1, zoom: 1, fr: [42, 420], t: 1.6 },
+  "VHS camcorder": { k: "legacy", g: 0, w: 4.8, h: 3.6, slow: 1, fixed: 1, zoom: 1, fr: [40, 320], t: 1.6 },
+  "CCTV security camera": { k: "legacy", g: 0, w: 4.8, h: 3.6, slow: 1, fixed: 1, zoom: 1, fr: [20, 87], t: 1.4 }
 };
-// fr: [shortest, longest] mm of the primes in a set (approximate). zoom: [shortest, longest] of a zoom. Single lenses are in FIXED_FOCAL.
+// primes: [mm, fastest T-stop] for each lens in a set; zoom: [shortest, longest] mm; t: fastest T-stop of a zoom or single lens,
+// tmax: slowest stop when unusual; free: a generic lens type that takes any focal length.
+// Sources: Panavision, ARRI, Zeiss, Cooke, Leica, Fujifilm, Angénieux, Vantage and rental-house (Keslow, AbelCine, ShareGrid, TrueLens) spec pages.
 const LENS = {
-  "Panavision C-Series anamorphic lenses": { ana: 2, c: 3, fr: [30, 180] }, "Panavision G-Series anamorphic lenses": { ana: 2, c: 3, fr: [25, 100] },
-  "Panavision T-Series anamorphic lenses": { ana: 2, c: 3, fr: [28, 180] }, "Ultra Panavision 70 anamorphic lenses": { ana: 1.25, c: 5, fr: [35, 300] },
-  "ARRI Master Anamorphic lenses": { ana: 2, c: 3, fr: [28, 180] }, "Cooke Anamorphic/i SF lenses": { ana: 2, c: 3, fr: [25, 300] },
-  "Hawk V-Lite anamorphic lenses": { ana: 2, c: 3, fr: [28, 180] }, "Atlas Orion anamorphic lenses": { ana: 2, c: 3, fr: [18, 200] },
-  "vintage Kowa anamorphic lenses": { ana: 2, c: 3, fr: [40, 100] }, "LOMO Roundfront anamorphic lenses": { ana: 2, c: 3, fr: [35, 100] },
-  "Zeiss Master Primes": { c: 3, fr: [12, 150] }, "Zeiss Supreme Primes": { c: 4, fr: [15, 200] }, "ARRI Signature Primes": { c: 4, fr: [12, 280] },
-  "Cooke S4/i lenses": { c: 3, fr: [12, 300] }, "Leica Summilux-C lenses": { c: 3, fr: [16, 135] },
-  "Panavision Primo 70 lenses": { c: 5, fr: [24, 250] }, "Panavision Sphero 65 lenses": { c: 6, fr: [24, 300] },
-  "ARRI Alura 18-80mm zoom": { c: 3, zoom: [18, 80] }, "Angénieux Optimo 24-290mm zoom": { c: 3, zoom: [24, 290] },
-  "Fujinon Premista 28-100mm zoom": { c: 4, zoom: [28, 100] }, "Angénieux Optimo Ultra 12x 36-435mm zoom": { c: 4, zoom: [36, 435] },
-  "Angénieux Optimo A2S 30-72mm anamorphic zoom": { ana: 2, c: 3, zoom: [30, 72] },
-  "Cooke Panchro/i Classic lenses": { c: 3, fr: [18, 152] }, "Canon K35 lenses": { c: 3, fr: [18, 85] }, "Zeiss Super Speeds": { c: 3, fr: [18, 85] },
-  "Bausch & Lomb Super Baltar lenses": { c: 3, fr: [20, 152] }, "Zeiss Planar 50mm f/0.7": { c: 3, bnc: 1 }, "Helios 44-2 lens with swirly bokeh": { c: 4 },
-  "Petzval lens": { c: 4, fr: [50, 85] }, "Laowa 24mm probe lens": { c: 4, view: "wide" }, "fisheye lens": { c: 9, fr: [8, 16], view: "fish" }
+  "Panavision C-Series anamorphic lenses": { ana: 2, c: 3, primes: [[35, 2.3], [40, 2.8], [50, 2.3], [60, 2.8], [75, 2.5], [100, 2.8], [150, 3.5], [180, 2.8]] },
+  "Panavision G-Series anamorphic lenses": { ana: 2, c: 3, primes: [[25, 2.6], [30, 2.6], [35, 2.6], [40, 2.6], [50, 2.6], [60, 2.6], [75, 2.6], [100, 3]] },
+  "Panavision T-Series anamorphic lenses": { ana: 2, c: 3, primes: [[28, 2.3], [35, 2.3], [40, 2.3], [50, 2.3], [60, 2.3], [75, 2.3], [100, 2.3], [135, 2.3], [150, 3.1], [180, 2.8]] },
+  "Ultra Panavision 70 anamorphic lenses": { ana: 1.25, c: 5, primes: [[35, 2.8], [40, 2.8], [50, 2.8], [65, 2], [75, 2], [100, 2.8], [180, 2.8], [290, 4], [400, 6]] },
+  "ARRI Master Anamorphic lenses": { ana: 2, c: 3, primes: [[28, 1.9], [35, 1.9], [40, 1.9], [50, 1.9], [60, 1.9], [75, 1.9], [100, 1.9], [135, 1.9], [180, 2.8]] },
+  "Cooke Anamorphic/i SF lenses": { ana: 2, c: 3, primes: [[25, 2.3], [32, 2.3], [40, 2.3], [50, 2.3], [65, 2.6], [75, 2.3], [100, 2.3], [135, 2.3], [180, 2.8], [300, 3.5]] },
+  "Hawk V-Lite anamorphic lenses": { ana: 2, c: 3, primes: [[28, 2.2], [35, 2.2], [45, 2.2], [55, 2.2], [65, 2.2], [80, 2.2], [110, 3], [140, 3.5]] },
+  "Atlas Orion anamorphic lenses": { ana: 2, c: 3, primes: [[18, 2], [21, 2], [25, 2], [28, 2], [32, 2], [40, 2], [50, 2], [65, 2], [80, 2], [100, 2], [135, 2.2], [200, 2.2]] },
+  "vintage Kowa anamorphic lenses": { ana: 2, c: 3, primes: [[40, 2.3], [50, 2.3], [75, 2.8], [100, 3.4]] },
+  "LOMO Roundfront anamorphic lenses": { ana: 2, c: 3, primes: [[35, 2.5], [50, 2.4], [75, 2.5], [100, 3.4], [150, 4]] },
+  "Zeiss Master Primes": { c: 3, primes: [[12, 1.3], [14, 1.3], [16, 1.3], [18, 1.3], [21, 1.3], [25, 1.3], [27, 1.3], [32, 1.3], [35, 1.3], [40, 1.3], [50, 1.3], [65, 1.3], [75, 1.3], [100, 1.3], [135, 1.3], [150, 1.3]] },
+  "Zeiss Supreme Primes": { c: 4, primes: [[15, 1.8], [18, 1.5], [21, 1.5], [25, 1.5], [29, 1.5], [35, 1.5], [40, 1.5], [50, 1.5], [65, 1.5], [85, 1.5], [100, 1.5], [135, 1.5], [150, 1.8], [200, 2.2]] },
+  "ARRI Signature Primes": { c: 4, primes: [[12, 1.8], [15, 1.8], [18, 1.8], [21, 1.8], [25, 1.8], [29, 1.8], [35, 1.8], [40, 1.8], [47, 1.8], [58, 1.8], [75, 1.8], [95, 1.8], [125, 1.8], [150, 1.8], [200, 2.5], [280, 2.8]] },
+  "Cooke S4/i lenses": { c: 3, primes: [[12, 2], [14, 2], [16, 2], [18, 2], [21, 2], [25, 2], [27, 2], [32, 2], [35, 2], [40, 2], [50, 2], [65, 2], [75, 2], [100, 2], [135, 2], [150, 2], [180, 2], [300, 2.8]] },
+  "Leica Summilux-C lenses": { c: 3, primes: [[16, 1.4], [18, 1.4], [21, 1.4], [25, 1.4], [29, 1.4], [35, 1.4], [40, 1.4], [50, 1.4], [65, 1.4], [75, 1.4], [100, 1.4], [135, 1.4]] },
+  "Panavision Primo 70 lenses": { c: 5, primes: [[14, 3.1], [24, 2], [27, 2], [35, 2], [40, 2], [50, 2], [65, 2], [80, 2], [100, 2], [125, 2], [150, 2], [200, 2.8], [250, 2.8]] },
+  "Panavision Sphero 65 lenses": { c: 6, primes: [[24, 2.8], [35, 2.8], [40, 2.8], [50, 2], [75, 2], [100, 2.4], [135, 2.8], [180, 2.8], [300, 2.8]] },
+  "ARRI Alura 18-80mm zoom": { c: 3, zoom: [18, 80], t: 2.6 }, "Angénieux Optimo 24-290mm zoom": { c: 3, zoom: [24, 290], t: 2.8 },
+  "Fujinon Premista 28-100mm zoom": { c: 4, zoom: [28, 100], t: 2.9 }, "Angénieux Optimo Ultra 12x 36-435mm zoom": { c: 4, zoom: [36, 435], t: 4.2 },
+  "Angénieux Optimo A2S 30-72mm anamorphic zoom": { ana: 2, c: 3, zoom: [30, 72], t: 4 },
+  "Cooke Panchro/i Classic lenses": { c: 3, primes: [[18, 2.2], [21, 2.2], [25, 2.2], [27, 2.2], [32, 2.2], [40, 2.2], [50, 2.2], [65, 2.4], [75, 2.2], [100, 2.6], [135, 2.8], [152, 3]] },
+  "Canon K35 lenses": { c: 3, primes: [[18, 1.5], [24, 1.5], [35, 1.3], [55, 1.3], [85, 1.3]] },
+  "Zeiss Super Speeds": { c: 3, primes: [[18, 1.3], [25, 1.3], [35, 1.3], [50, 1.3], [65, 1.3], [85, 1.3]] },
+  "Bausch & Lomb Super Baltar lenses": { c: 3, primes: [[20, 2.3], [25, 2.3], [35, 2.3], [50, 2.3], [75, 2.3], [100, 2.3], [152, 3], [228, 4]] },
+  "Zeiss Planar 50mm f/0.7": { c: 3, bnc: 1, t: .7 }, "Helios 44-2 lens with swirly bokeh": { c: 4, t: 2 },
+  "Petzval lens": { c: 4, primes: [[58, 1.9], [85, 2.2]] }, "Laowa 24mm probe lens": { c: 4, view: "wide", t: 14 },
+  "fisheye lens": { c: 9, zoom: [8, 15], t: 4, view: "fish" },
+  "spherical lens": { c: 9, free: 1 }, "anamorphic lens": { ana: 2, c: 9, free: 1 }
 };
 const groupItems = (slot, group) => SLOTS.find(s => s.id === slot).groups.find(g => g.name === group).items;
 const STOCKS = groupItems("grade", "Film stocks");
@@ -483,16 +562,61 @@ const WIDE_SIZES = ["extreme wide establishing shot", "wide shot", "full shot", 
 const mm = v => v ? parseInt(v, 10) : 0;  // "24mm lens" -> 24
 // Lenses that only come in one focal length (closest option on the list).
 const FIXED_FOCAL = { "Zeiss Planar 50mm f/0.7": 50, "Laowa 24mm probe lens": 24, "Helios 44-2 lens with swirly bokeh": 58 };
-// Which focal lengths the chosen lens (or a camera's built-in lens) can do: { fixed } for a single lens,
-// { min, max } for a prime set, zoom or built-in lens, or null when no lens is chosen and anything goes.
+// Which focal lengths the lens (or a camera's built-in lens) really has: { fixed } for a single lens, { list } for a prime set
+// or a phone's lenses, { min, max } for a zoom, a camcorder's built-in zoom, a free lens type, or no lens at all.
 function focalRange(a) {
   const C = CAM[a.camera], L = LENS[a.lens];
-  if (C && C.fixed) return { min: C.fr[0], max: C.fr[1], what: `The ${a.camera}'s built-in lens`, kind: "built-in" };
+  if (C && C.fixed) return C.lenses ? { list: C.lenses.map(l => l[0]), what: `The ${a.camera}`, kind: "built-in" }
+    : { min: C.fr[0], max: C.fr[1], what: `The ${a.camera}'s built-in zoom`, kind: "built-in" };
   if (a.lens in FIXED_FOCAL) return { fixed: FIXED_FOCAL[a.lens], what: a.lens, kind: "fixed" };
   if (L && L.zoom) return { min: L.zoom[0], max: L.zoom[1], what: a.lens, kind: "zoom" };
-  if (L && L.fr) return { min: L.fr[0], max: L.fr[1], what: a.lens, kind: "prime" };
-  return null;
+  if (L && L.primes) return { list: L.primes.map(p => p[0]), what: a.lens, kind: "prime" };
+  return { min: 8, max: 600, what: a.lens || "No lens", kind: a.lens ? "free" : "none" };
 }
+const focalOk = (r, f) => !r.fixed && (r.list ? r.list.includes(f) : f >= r.min && f <= r.max);
+const FOCAL_STOPS = [8, 10, 12, 14, 16, 18, 21, 24, 25, 28, 32, 35, 40, 50, 65, 75, 85, 100, 135, 150, 180, 200, 250, 300, 400, 600];
+// The focal length options: a set's real primes, or common stops inside a zoom or free range (used for chips and Roll).
+function focalItems(a) {
+  const r = focalRange(a);
+  if (r.fixed) return [];
+  const list = r.list || [...new Set([r.min, ...FOCAL_STOPS.filter(f => f > r.min && f < r.max), r.max])];
+  return list.map(f => `${f}mm lens`);
+}
+const tnum = t => parseFloat(t.slice(1));
+const focalOf = a => mm(a.focal) || FIXED_FOCAL[a.lens] || 0;
+// The apertures the lens can do: the fastest T-stop of the chosen prime (or the set's fastest), a zoom's or single lens's T-stop,
+// a camcorder iris, or { fixed } for a phone or action camera, whose lenses have no iris.
+function stopRange(a) {
+  const C = CAM[a.camera], L = LENS[a.lens], f = focalOf(a);
+  if (C && C.fixed) {
+    if (!C.lenses) return { min: C.t, max: 16, what: `The ${a.camera}'s built-in lens` };
+    const l = C.lenses.reduce((b, x) => Math.abs(x[0] - (f || 24)) < Math.abs(b[0] - (f || 24)) ? x : b);
+    return { fixed: l[1], what: `The ${a.camera}'s ${l[0]}mm lens` };
+  }
+  if (L && L.primes) { const p = f && L.primes.find(x => x[0] === f); return { min: p ? p[1] : Math.min(...L.primes.map(x => x[1])), max: 22, what: p ? `The ${f}mm in the ${a.lens}` : `The fastest of the ${a.lens}` }; }
+  if (L && L.t) return { min: L.t, max: 22, what: `The ${a.lens}` };
+  return { min: .95, max: 22, what: a.lens ? `A free-choice ${a.lens}` : "Without a named lens, a lens" };
+}
+// The aperture actually in use: the chosen T-stop, or a phone's fixed aperture.
+const stopOf = a => { if (a.tstop) return tnum(a.tstop); const r = stopRange(a); return r.fixed || 0; };
+// Lens specifics: a named lens, a focal length or a T-stop. With any of them set, depth of field is calculated, not picked.
+const lensSpecific = a => !!((a.lens && !(LENS[a.lens] || {}).free) || a.focal || a.tstop);
+const DOF_LABELS = ["very shallow depth of field", "shallow depth of field", "moderate depth of field", "deep focus"];
+const fmtLen = m => !isFinite(m) ? "infinity" : m < .01 ? `${Math.round(m * 1000)}mm` : m < 1 ? `${Math.round(m * 100)}cm` : m < 10 ? `${Math.round(m * 100) / 100}m` : `${f1(m)}m`;
+// Depth of field from focal length, T-stop, film back and subject distance (shot size and focal length set the distance).
+// Circle of confusion is the film back diagonal / 1500. Returns null until focal length and T-stop are both known.
+function dofCalc(a) {
+  const g = frameGeom(a), f0 = focalOf(a), N = stopOf(a);
+  if (!f0 || !N) return null;
+  const f = g.C0.fixed ? f0 * g.diag / 43.27 : f0, c = g.diag / 1500, ang = ANGLE[a.angle] || {};
+  const D = Math.max((FIELD[a.size] || FIELD["full shot"]) * 1000 * f / g.ch, (ang.minD || 0) * 1000, f * 1.5);  // mm
+  const H = f * f / (N * c) + f, near = D * (H - f) / (H + D - 2 * f), far = D < H ? D * (H - f) / (H - D) : Infinity;
+  const rel = (far - near) / D;
+  const label = !isFinite(far) ? DOF_LABELS[3] : rel < .04 ? DOF_LABELS[0] : rel < .3 ? DOF_LABELS[1] : rel < 1.5 ? DOF_LABELS[2] : DOF_LABELS[3];
+  return { f0, f, N, D: D / 1000, near: near / 1000, far: far / 1000, total: (far - near) / 1000, label, blurInf: f * f / (N * (D - f)), assumedSize: !a.size };
+}
+// The depth of field that goes in the prompt: calculated when the lens allows it, picked by hand only without lens specifics.
+const effDof = a => { const d = dofCalc(a); return d ? d.label : lensSpecific(a) ? null : a.dof; };
 const AIR_MOVES = ["FPV drone dive", "drone flyover", "drone rising reveal", "top-down drone pull-up", "helicopter aerial", "cable cam glide"];
 const DRONE_MOVES = ["FPV drone dive", "drone flyover", "drone rising reveal", "top-down drone pull-up", "snorricam body mount", "gimbal tracking"];
 const PTZ_MOVES = ["slow pan", "tilt up reveal", "tilt down", "slow zoom in", "locked-off tripod"];
@@ -531,11 +655,11 @@ const RULES = [
   [a => a.atmo === "volumetric god rays through haze" && ["soft overcast daylight", "high-key shadowless lighting", "soft bounce fill", "blue hour ambient light", "candlelight only", "flickering firelight"].includes(a.light), a => `God rays need a strong hard source; ${a.light} can't make them`],
   [a => a.light === "LED volume interactive lighting" && AIR_MOVES.includes(a.move), a => `An LED volume is a stage; ${a.move} happens outdoors`],
   [(a, C, L) => a.texture === "anamorphic lens flares" && (L || C) && !isAna(C, L), () => `Anamorphic flares need an anamorphic lens`],
-  [(a, C, L) => a.focus === "oval anamorphic bokeh" && (L || C) && !isAna(C, L), () => `Oval bokeh needs an anamorphic lens`],
-  [(a, C, L) => a.focus === "deep focus" && L && L.bnc, () => `The f/0.7 Planar is shot wide open; it can't hold deep focus`],
-  [a => a.focus === "deep focus" && a.move === "rack focus pull", () => `A rack focus needs shallow focus to pull between planes`],
-  [(a, C) => ["shallow depth of field", "split diopter"].includes(a.focus) && C && (C.k === "legacy" || a.camera === GOPRO), a => `${a.camera}'s small sensor and fixed lens can't do ${a.focus}`],
-  [a => a.focus === "tilt-shift miniature" && (["close-up", "extreme close-up", "macro insert shot"].includes(a.size) || ["first-person POV", "worm's-eye view"].includes(a.angle)), () => `The tilt-shift miniature look needs a high, wide view`],
+  [(a, C, L) => a.ftech === "oval anamorphic bokeh" && (L || C) && !isAna(C, L), () => `Oval bokeh needs an anamorphic lens`],
+  [a => effDof(a) === "deep focus" && a.move === "rack focus pull", () => `A rack focus needs shallow focus to pull between planes`],
+  [(a, C) => C && (C.k === "legacy" || a.camera === GOPRO) && ((!lensSpecific(a) && DOF_LABELS.slice(0, 2).includes(a.dof)) || a.ftech === "split diopter"),
+    a => `${a.camera}'s small sensor and fixed lens can't do ${a.ftech === "split diopter" ? a.ftech : a.dof}`],
+  [a => a.ftech === "tilt-shift miniature" && (["close-up", "extreme close-up", "macro insert shot"].includes(a.size) || ["first-person POV", "worm's-eye view"].includes(a.angle)), () => `The tilt-shift miniature look needs a high, wide view`],
   [(a, C) => a.texture === "heavy 16mm grain" && C && C.k === "film" && C.g !== 2, a => `${a.camera} isn't a 16mm camera`],
   [(a, C) => a.texture === "fine 35mm grain" && C && C.k === "film" && C.g !== 3, a => `${a.camera} isn't a 35mm camera`],
   [(a, C) => ["heavy 16mm grain", "fine 35mm grain", "gate weave", "halation"].includes(a.texture) && C && C.k === "legacy", a => `${a.texture} is a film artifact; ${a.camera} is video`],
@@ -545,8 +669,10 @@ const RULES = [
   [a => a.speed === "bullet time freeze" && a.move === "locked-off tripod", () => `Bullet time sweeps around a frozen moment; locked-off can't`],
   [a => a.move === "one-take long oner" && ["Bolex H16 16mm", "Canon 1014 XL-S Super 8", IMAX].includes(a.camera), a => `${a.camera} runs out of film or spring wind in minutes, too short for a oner`],
   [(a, C, L) => ZOOM_MOVES.includes(a.move) && (L ? !L.zoom : C && C.fixed && !C.zoom), a => `${a.move} needs a zoom lens, not ${a.lens || a.camera}`],
-  [a => { const r = a.focal && focalRange(a); return r && (r.fixed || mm(a.focal) < r.min || mm(a.focal) > r.max); },
-    a => { const r = focalRange(a); return r.fixed ? `${r.what} is fixed at about ${r.fixed}mm; leave Focal length empty` : `${r.what} covers ${r.min} to ${r.max}mm, not ${mm(a.focal)}mm`; }],
+  [a => a.focal && !focalOk(focalRange(a), mm(a.focal)),
+    a => { const r = focalRange(a); return r.fixed ? `${r.what} is fixed at ${r.fixed}mm; leave Focal length empty` : r.list ? `${r.what} only come in ${r.list.join(", ")}mm` : `${r.what} covers ${r.min} to ${r.max}mm, not ${mm(a.focal)}mm`; }],
+  [a => { if (!a.tstop) return false; const r = stopRange(a), n = tnum(a.tstop); return r.fixed || n < r.min - .001 || n > r.max; },
+    a => { const r = stopRange(a); return r.fixed ? `${r.what} has a fixed f/${r.fixed} aperture` : `${r.what} opens to T${r.min}, not ${a.tstop}`; }],
   [(a, C) => C && C.heavy && DRONE_MOVES.includes(a.move), a => `${a.camera} is too heavy for ${a.move}`],
   [(a, C) => a.move === "FPV drone dive" && C && !C.small, a => `FPV drones carry small cameras, not ${a.camera}`],
   [a => a.camera === BNC && ["handheld", "shoulder-mounted", "Steadicam follow"].includes(a.move), a => `${a.camera} is too heavy for ${a.move}`],
@@ -575,8 +701,8 @@ const RULES = [
   [a => a.move === "snorricam body mount" && WIDE_SIZES.includes(a.size), a => `A snorricam is rigged to the actor, so it can't frame a ${a.size}`],
   [a => a.angle === "over-the-shoulder" && ["extreme wide establishing shot", "macro insert shot", "group shot"].includes(a.size), a => `Over-the-shoulder frames a conversation, not a ${a.size}`],
   [a => a.size === "extreme close-up" && AIR_MOVES.includes(a.move), a => `An extreme close-up can't come from ${a.move}`],
-  [a => a.size === "macro insert shot" && ["deep focus", "split diopter"].includes(a.focus), a => `Macro depth of field is paper-thin; ${a.focus} isn't possible`],
-  [a => a.size === "extreme wide establishing shot" && a.focus === "shallow depth of field", () => `A distant extreme wide shot is in deep focus, not shallow`]
+  [a => a.size === "macro insert shot" && (effDof(a) === "deep focus" || a.ftech === "split diopter"), a => `Macro depth of field is paper-thin; ${a.ftech === "split diopter" ? a.ftech : "deep focus"} isn't possible`],
+  [a => a.size === "extreme wide establishing shot" && !lensSpecific(a) && DOF_LABELS.slice(0, 2).includes(a.dof), () => `A distant extreme wide shot is in deep focus, not shallow`]
 ];
 function conflicts(a) { const C = CAM[a.camera], L = LENS[a.lens]; return RULES.filter(([t]) => t(a, C, L)).map(([, m]) => m(a)); }
 function activeVals() { const a = {}; SLOTS.forEach(s => { if (enabled[s.id] && vals[keyOf(s)]) a[s.id] = vals[keyOf(s)]; }); return a; }
@@ -584,22 +710,41 @@ function activeVals() { const a = {}; SLOTS.forEach(s => { if (enabled[s.id] && 
 // Picks only options that add no new conflict with the other slots in a; leaves the slot empty if nothing fits.
 function rollSlot(s, a = activeVals()) {
   delete a[s.id];
-  const base = conflicts(a).length;
-  const ok = itemsOf(s).filter(it => conflicts({ ...a, [s.id]: it }).length === base);
+  const base = conflicts(a).length, b = blockedOf(s, a);
+  const ok = b.all ? [] : itemsOf(s, a).filter(it => !b.off.has(it) && conflicts({ ...a, [s.id]: it }).length === base);
   const pick = ok.length ? ok[Math.floor(Math.random() * ok.length)] : null;
   vals[keyOf(s)] = pick;
   if (pick) a[s.id] = pick;
   return a;
 }
 
-/* ---------- frame preview: film back (gate), aspect crop, and a simple scene sketch ---------- */
-const HORIZON = { "eye level": .5, "low angle": .74, "high angle": .2, "worm's-eye view": .93, "bird's-eye view": -.3, "overhead top-down": null, "ground level": .86,
-  "knee level": .66, "hip level": .58, "shoulder level": .46, "aerial view": .14, "satellite view": null };
-// Subject height (head to toe) as a multiple of frame height.
-const FIGURE = { "extreme wide establishing shot": .09, "wide shot": .32, "full shot": .8, "medium wide cowboy shot": 1.4, "medium shot": 2, "medium close-up": 3,
-  "close-up": 5, "extreme close-up": 11, "two-shot": 1.5, "group shot": .7 };
-// Lighting looks: sky [top, horizon], ground, key side (left | right | top | back | front | flat | sil), key color (key2 = second source),
-// amb = shadow side color, hard = hard-edged key, src = visible source drawn in the frame, blinds = venetian blind shadow bands.
+/* ---------- frame preview: a small 3D camera ----------
+   The world is a ground plane (y = 0, in metres) with the subject standing at the origin, facing the camera's default side (-z).
+   The camera's distance comes from the shot size and focal length (the same numbers the depth of field uses), its height and
+   direction from the angle, and it aims at the subject. Camera moves are paths through this world, so parallax, horizon shifts,
+   orbits and dolly zooms come out of the projection, and the subject's feet stay on the ground. */
+// Height of the frame at the subject's distance, in metres, per shot size (a person is about 1.75m tall).
+const FIELD = { "extreme wide establishing shot": 20, "wide shot": 5.5, "full shot": 2.2, "medium wide cowboy shot": 1.25, "medium shot": .875,
+  "medium close-up": .58, "close-up": .35, "extreme close-up": .16, "macro insert shot": .06, "two-shot": 1.2, "group shot": 2.6 };
+// Where the camera aims on the subject, in metres above the ground.
+const AIM_Y = { "extreme close-up": 1.62, "close-up": 1.6, "medium close-up": 1.55, "medium shot": 1.4, "medium wide cowboy shot": 1.2, "macro insert shot": .03 };
+// Camera placement per angle: h = fixed height (m), el = elevation above the aim point (degrees), az = position around the subject
+// (degrees, 0 = in front), roll (degrees), minD = minimum distance (m), center = keep the subject centred instead of on a third.
+const ANGLE = {
+  "eye level": { h: 1.6 }, "shoulder level": { h: 1.45 }, "hip level": { h: 1 }, "knee level": { h: .5 }, "ground level": { h: .12 },
+  "low angle": { el: -20 }, "high angle": { el: 25 }, "worm's-eye view": { h: .06 }, "bird's-eye view": { el: 60 },
+  "overhead top-down": { el: 89.5, center: 1 }, "aerial view": { el: 30, minD: 60 }, "satellite view": { el: 89.5, minD: 4000, center: 1 },
+  "profile view": { az: 90 }, "three-quarter angle": { az: 35 }, "from behind": { az: 180 }, "Dutch angle": { roll: 12 },
+  "frontal symmetrical framing": { center: 1 }, "over-the-shoulder": { az: 15 }, "first-person POV": { h: 1.65 }
+};
+// Film back after any crop to the lens's coverage, and the aspect crop inside it, in mm (anamorphic width shown desqueezed).
+function frameGeom(a) {
+  const C0 = CAM[a.camera] || { w: 36, h: 24 }, L = LENS[a.lens] || {}, sq = L.ana || 1;
+  const cropped = C0.k === "digital" && L.c && L.c < C0.g;  // a digital body crops to Super 35 or LF to match the lens
+  const C = cropped ? { ...C0, w: Math.min(C0.w, L.c === 3 ? 24.9 : 36.7), h: Math.min(C0.h, L.c === 3 ? 18.7 : 25.5) } : C0;
+  const gw = C.w * sq, gh = C.h, G = gw / gh, A = (a.aspect && ratioOf(a.aspect)) || G;
+  return { C0, C, L, sq, cropped, gw, gh, G, cw: A >= G ? gw : gh * A, ch: A >= G ? gw / A : gh, diag: Math.hypot(C.w, C.h) };
+}
 const LOOKS = [
   [/golden/, { sky: ["#3a2733", "#e3893c"], ground: "#24180f", side: "back", key: "#ffb45e", amb: "#3a2a20", hard: 1, src: "horizon" }],
   [/blue hour/, { sky: ["#0e1830", "#3d5f93"], ground: "#0e1422", side: "flat", key: "#9cb6ff", amb: "#2a3550" }],
@@ -631,198 +776,320 @@ const ratioOf = v => { const m = v.match(/^([\d.]+):([\d.]+)/); return m ? m[1] 
 const f1 = n => Math.round(n * 10) / 10;
 let REDUCED = false;
 try { REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) {}
-// Camera moves for the preview loop, on three layers: all (whole frame), bg (background) and subj (subject), which gives parallax.
-// t: translate [x, y] as fractions of the frame; s: scale; r: rotate in degrees. Values play there and back unless once is set;
-// kt sets keyTimes for once moves; dur is the loop length in seconds.
+const lerp = (a, b, u) => a + (b - a) * u;
+const RAD = Math.PI / 180;
+const md = (v, m) => ((v % m) + m) % m;
+const norm = v => { const l = Math.hypot(...v) || 1; return v.map(x => x / l); };
+// Smooth, irregular wobble for handheld moves; k picks an independent channel.
+const wobble = (tau, k) => (Math.sin(tau * 1.7 * k + k) + .6 * Math.sin(tau * 3.1 * k + 2 * k) + .3 * Math.sin(tau * 7.3 + k)) / 1.9;
+// Camera moves as camera paths. p is the camera setup: D distance (m), h height, el elevation, az position around the subject,
+// roll, ty aim height, x sideways travel, dh extra height, fwd forward travel, yaw / pitch extra turn (degrees), fMul focal length
+// multiplier, aim (keep re-aiming at the subject), rack (0..1 focus pull). u eases there and back over the loop, t runs 0..1 once
+// per loop for moves that keep going, tau is seconds.
 const MOVES = {
-  "slow dolly push-in": { subj: { s: [1, 1.28] }, bg: { s: [1, 1.1] } },
-  "dolly pull-back reveal": { subj: { s: [1.28, 1] }, bg: { s: [1.1, 1] } },
-  "truck left": { subj: { t: [[-.12, 0], [.12, 0]] }, bg: { t: [[-.04, 0], [.04, 0]] } },
-  "truck right": { subj: { t: [[.12, 0], [-.12, 0]] }, bg: { t: [[.04, 0], [-.04, 0]] } },
-  "tracking shot alongside": { bg: { t: [[.2, 0], [-.2, 0]] } },
-  "leading shot walking backward": { bg: { s: [1.08, 1] }, subj: { t: [[0, 0], [0, -.012], [0, 0], [0, -.012], [0, 0]] } },
-  "following shot from behind": { bg: { s: [1, 1.08] }, subj: { t: [[0, 0], [0, -.012], [0, 0], [0, -.012], [0, 0]] } },
-  "arc shot orbiting the subject": { bg: { t: [[-.22, 0], [.22, 0]] }, subj: { t: [[.03, 0], [-.03, 0]] } },
-  "360 degree orbit": { bg: { t: [[-.9, 0], [.9, 0]] }, dur: 8 },
-  "parallax slide past foreground": { bg: { t: [[.04, 0], [-.04, 0]] }, subj: { t: [[.08, 0], [-.08, 0]] }, fgBar: 1 },
-  "slow pan": { all: { t: [[.12, 0], [-.12, 0]] } },
-  "whip pan": { all: { t: [[0, 0], [0, 0], [-.95, 0], [-.95, 0]], kt: "0;.55;.66;1", once: 1 }, dur: 3 },
-  "tilt up reveal": { all: { t: [[0, -.35], [0, 0]] } },
-  "tilt down": { all: { t: [[0, 0], [0, -.35]] } },
-  "pedestal up": { subj: { t: [[0, -.12], [0, .12]] }, bg: { t: [[0, -.05], [0, .05]] } },
-  "barrel roll": { all: { r: [0, 360], s: [1.6, 1.6], once: 1 }, dur: 6 },
-  "crane rising": { subj: { t: [[0, -.08], [0, .16]], s: [1.05, .9] }, bg: { t: [[0, -.04], [0, .1]] } },
-  "crane descending": { subj: { t: [[0, .16], [0, -.08]], s: [.9, 1.05] }, bg: { t: [[0, .1], [0, -.04]] } },
-  "jib sweep": { all: { t: [[-.16, .06], [0, 0], [.16, .06]] } },
-  "FPV drone dive": { all: { s: [1, 1.7], r: [-6, 5], t: [[0, .12], [0, -.12]] }, dur: 3.5 },
-  "drone flyover": { all: { t: [[0, -.35], [0, .35]] }, dur: 6 },
-  "drone rising reveal": { subj: { s: [1.3, .8] }, bg: { s: [1.15, .95], t: [[0, -.04], [0, .06]] }, dur: 6 },
-  "helicopter aerial": { all: { t: [[.12, 0], [-.12, 0]], r: [-2.5, 2.5] }, dur: 7 },
-  "cable cam glide": { all: { t: [[.22, 0], [-.22, 0]] } },
-  "top-down drone pull-up": { all: { s: [1.6, 1] }, dur: 6 },
-  "handheld": { all: { t: [[0, 0], [.012, -.008], [-.006, .012], [.01, .004], [-.01, -.006], [0, 0]], r: [0, .8, -.5, .4, -.7, 0] }, dur: 2.5 },
-  "shoulder-mounted": { all: { t: [[0, 0], [.007, -.005], [-.004, .007], [.006, .002], [0, 0]], r: [0, .4, -.3, .3, 0] }, dur: 2.5 },
-  "Steadicam follow": { bg: { s: [1, 1.08] }, all: { t: [[0, 0], [.005, -.004], [0, 0]] } },
-  "gimbal tracking": { bg: { t: [[.1, 0], [-.1, 0]] } },
-  "snorricam body mount": { bg: { r: [-5, 5], t: [[-.06, .02], [.06, -.02]] }, dur: 2.5 },
-  "car mount tracking": { bg: { t: [[.9, 0], [-.9, 0]], once: 1 }, dur: 2 },
-  "Russian arm chase": { bg: { t: [[.9, 0], [-.9, 0]], once: 1 }, subj: { s: [1, 1.1] }, dur: 2.2 },
-  "motion control repeat pass": { all: { t: [[-.07, 0], [.07, 0]] } },
-  "one-take long oner": { subj: { s: [1, 1.2] }, bg: { t: [[.12, 0], [-.12, 0]], s: [1, 1.06] }, dur: 8 },
-  "vertigo dolly zoom": { bg: { s: [1.45, 1] }, dur: 4 },
-  "crash zoom": { all: { s: [1, 1, 1.9, 1.9], kt: "0;.5;.58;1", once: 1 }, dur: 3 },
-  "snap zoom": { all: { s: [1, 1, 1.5, 1.5], kt: "0;.5;.54;1", once: 1 }, dur: 2.5 },
-  "slow zoom in": { all: { s: [1, 1.3] } },
-  "rack focus pull": { rack: 1 }
+  "slow dolly push-in": (p, u) => { p.D *= lerp(1.25, .8, u); },
+  "dolly pull-back reveal": (p, u) => { p.D *= lerp(.8, 1.6, u); },
+  "truck left": (p, u) => { p.x = lerp(1, -1, u) * p.D * .3; p.aim = false; },
+  "truck right": (p, u) => { p.x = lerp(-1, 1, u) * p.D * .3; p.aim = false; },
+  "following shot from behind": p => { p.az = 180; },
+  "Steadicam follow": (p, u, t, tau) => { p.az = 180; p.yaw += wobble(tau / 3, 1) * .3; },
+  "gimbal tracking": p => { p.az += 30; },
+  "snorricam body mount": (p, u, t, tau) => { p.az += Math.sin(tau * 1.5) * 8; p.roll += Math.sin(tau * 3) * 3; },
+  "car mount tracking": p => { p.az += 70; },
+  "Russian arm chase": (p, u) => { p.az += lerp(20, 60, u); },
+  "arc shot orbiting the subject": (p, u) => { p.az += lerp(-30, 30, u); },
+  "360 degree orbit": (p, u, t) => { p.az += 360 * t; },
+  "parallax slide past foreground": (p, u) => { p.x = lerp(-1, 1, u) * p.D * .35; p.aim = false; },
+  "slow pan": (p, u) => { p.yaw = lerp(-14, 14, u); },
+  "whip pan": (p, u, t) => { p.yaw = t < .55 ? 0 : t < .66 ? 75 * Math.sin((t - .55) / .11 * Math.PI / 2) : 75; },
+  "tilt up reveal": (p, u) => { p.pitch = lerp(-30, 0, u); },
+  "tilt down": (p, u) => { p.pitch = lerp(0, -30, u); },
+  "pedestal up": (p, u) => { p.dh = lerp(-.4, .8, u) * Math.max(1, p.D * .3); p.aim = false; },
+  "barrel roll": (p, u, t) => { p.roll += 360 * t; },
+  "crane rising": (p, u) => { p.dh = lerp(0, p.D * .9 + 2, u); },
+  "crane descending": (p, u) => { p.dh = lerp(p.D * .9 + 2, 0, u); },
+  "jib sweep": (p, u) => { p.az += lerp(-25, 25, u); p.dh = Math.sin(u * Math.PI) * 1.2; },
+  "FPV drone dive": (p, u, t) => { const e = t * t; p.dh = lerp(25, 0, e); p.D *= lerp(3, 1, e); p.roll += lerp(-18, 4, e); },
+  "drone flyover": (p, u, t) => { p.dh = Math.max(0, 12 - p.h); p.pitch = -35; p.fwd = lerp(-1.2, 1.6, t) * (p.D + 12); p.aim = false; },
+  "drone rising reveal": (p, u) => { p.dh = lerp(0, 20, u); p.D *= lerp(1, 2, u); },
+  "helicopter aerial": (p, u) => { p.dh = Math.max(0, 25 - p.h); p.az += lerp(-25, 25, u); p.roll += lerp(-3, 3, u); },
+  "cable cam glide": (p, u) => { p.x = lerp(-1, 1, u) * (p.D + 4); p.dh = 4; p.aim = false; },
+  "top-down drone pull-up": (p, u) => { p.el = 89.5; p.D *= lerp(.6, 2.4, u); },
+  "handheld": (p, u, t, tau) => { p.yaw += wobble(tau, 1) * .9; p.pitch += wobble(tau, 2) * .6; p.roll += wobble(tau, 3) * 1.1; },
+  "shoulder-mounted": (p, u, t, tau) => { p.yaw += wobble(tau, 1) * .45; p.pitch += wobble(tau, 2) * .3; p.roll += wobble(tau, 3) * .5; },
+  "motion control repeat pass": (p, u) => { p.x = lerp(-1, 1, u) * p.D * .15; p.aim = false; },
+  "one-take long oner": (p, u) => { p.D *= lerp(1.2, .8, u); p.az += lerp(-20, 20, u); },
+  "vertigo dolly zoom": (p, u) => { const k = lerp(1, 2.2, u); p.D *= k; p.fMul *= k; },  // distance and focal length change together
+  "crash zoom": (p, u, t) => { p.fMul *= t < .5 ? 1 : t < .58 ? lerp(1, 2.6, (t - .5) / .08) : 2.6; },
+  "snap zoom": (p, u, t) => { p.fMul *= t < .5 ? 1 : t < .54 ? lerp(1, 1.8, (t - .5) / .04) : 1.8; },
+  "slow zoom in": (p, u) => { p.fMul *= lerp(1, 1.45, u); },
+  "rack focus pull": (p, u) => { p.rack = u; }
 };
+// Moves where the subject walks and the camera travels with them: [axis, direction, grid steps per loop]. Each loop covers a
+// whole number of grid steps so the ground repeats seamlessly; street lights and signs repeat along the way.
+const WALK = { "tracking shot alongside": ["x", 1, 4], "gimbal tracking": ["x", 1, 4], "car mount tracking": ["x", 1, 10], "Russian arm chase": ["x", 1, 10],
+  "leading shot walking backward": ["z", -1, 4], "following shot from behind": ["z", -1, 4], "Steadicam follow": ["z", -1, 4], "snorricam body mount": ["z", -1, 4] };
+const MOVE_DUR = { "360 degree orbit": 10, "whip pan": 3, "crash zoom": 3, "snap zoom": 2.5, "car mount tracking": 3, "Russian arm chase": 3,
+  "FPV drone dive": 4, "drone flyover": 7, "barrel roll": 6 };
 const SPEED_DUR = { "slow motion at 120fps": 2, "timelapse": .4, "hyperlapse": .5 };
+// Key light direction (from the subject towards the light) for looks without a light placed in the world.
+const KEY_DIR = { left: [-1, .8, -.6], right: [1, .8, -.6], back: [0, .3, 1], sil: [0, .06, 1], top: [0, 1, 0], front: [0, .5, -1] };
+// Suns, moons and skies at infinity.
+const SKY_DIR = { horizon: [.25, .07, 1], moon: [.55, .45, 1], zenith: [-.35, 1.6, .4] };
+const GSTEPS = [.02, .05, .1, .25, .5, 1, 2, 5, 10, 25, 50, 100, 250, 500, 1000];
+let pvCtx = null, pvRaf = 0;
 
-function previewHTML(a) {
-  const C0 = CAM[a.camera] || { w: 36, h: 24 }, L = LENS[a.lens] || {}, sq = L.ana || 1;
-  // A digital body crops to the lens's coverage: the Super 35 open area for 35mm-format lenses, LF for full-frame lenses on a 65mm sensor.
-  const cropped = C0.k === "digital" && L.c && L.c < C0.g;
-  const C = cropped ? { ...C0, w: Math.min(C0.w, L.c === 3 ? 24.9 : 36.7), h: Math.min(C0.h, L.c === 3 ? 18.7 : 25.5) } : C0;
-  const gw = C.w * sq, gh = C.h, G = gw / gh, A = (a.aspect && ratioOf(a.aspect)) || G;
-  const cw = A >= G ? gw : gh * A, ch = A >= G ? gw / A : gh;
-  const W = 300, H = 170, s = Math.min((W - 4) / gw, (H - 4) / gh);
-  const fw = cw * s, fh = ch * s, fx = (W - fw) / 2, fy = (H - fh) / 2;
-  const hz = a.angle in HORIZON ? HORIZON[a.angle] : .5, F = FIGURE[a.size] ?? .6, view = L.view;
-  // Focal length: a built-in lens reads it as a full-frame equivalent; otherwise it's the real focal length on this film back.
-  const diag = Math.hypot(C.w, C.h), f = mm(a.focal) || FIXED_FOCAL[a.lens] || 0;
-  const fReal = f && (C0.fixed ? f * diag / 43.27 : f), eq = f && (C0.fixed ? f : f * 43.27 / diag);
-  const hfov = fReal && 2 * Math.atan(cw / (2 * fReal)) * 180 / Math.PI;
-  const wide = eq ? Math.log2(35 / eq) : view ? 1.3 : 0;  // > 0 wider than a normal lens, < 0 longer
-  const spread = Math.min(.7, Math.max(.05, .22 * Math.pow(2, wide))), p = Math.min(2.9, Math.max(1.05, 1.7 + .5 * wide));
-  const lk = (LOOKS.find(([re]) => re.test(a.light || "")) || [0, LOOK_DEFAULT])[1], k2 = lk.key2 || lk.key;
-  const line = lk.lines || "rgba(229,229,229,.14)", hy = hz === null ? -1 : hz * fh, skyVisible = hz !== null && hy > 0;
-  const subjX = (a.angle === "frontal symmetrical framing" ? .5 : F >= 3 ? .45 : 1 / 3) * fw;
-  // Where the key comes from, in frame coordinates: drives glows, god rays and cast shadows.
-  const SRC = { horizon: [subjX + fw * .14, Math.max(hy, 0)], zenith: [fw * .72, -fh * .15], moon: [fw * .82, fh * .16], window: [fw * .1, fh * .4],
-    candle: [subjX + fw * .2, fh * .6], fire: [fw * .8, fh * 1.02], lamp: [fw * .8, fh * .14], neon: [fw * .22, fh * .2], bolt: [fw * .7, fh * .1] };
-  const [sx, sy] = SRC[lk.src] || { left: [-fw * .1, fh * .2], right: [fw * 1.1, fh * .2], top: [fw * .5, -fh * .2], back: [subjX + fw * .1, Math.max(hy, fh * .2)] }[lk.side] || [fw * .2, -fh * .1];
-  const glow = (x, y, r, id = "pv-glow") => `<circle cx="${x}" cy="${y}" r="${r}" fill="url(#${id})"/>`;
-  let skySrc = "", sceneSrc = "";
-  if (lk.src === "horizon" && skyVisible) skySrc = glow(sx, sy, fh * .7) + `<circle cx="${sx}" cy="${sy}" r="${fh * .05}" fill="${lk.key}"/>`;
-  if (lk.src === "zenith") skySrc = glow(sx, sy, fh * .9);
-  if (lk.src === "moon" && skyVisible) skySrc = glow(sx, sy, fh * .22) + `<circle cx="${sx}" cy="${sy}" r="${fh * .045}" fill="${lk.key}"/>`;
-  if (lk.src === "bolt" && skyVisible) skySrc = `<rect width="${fw}" height="${hy}" fill="${lk.key}" opacity=".12"/><polyline points="${sx},0 ${sx - fw * .03},${hy * .35} ${sx + fw * .02},${hy * .45} ${sx - fw * .04},${hy * .9}" fill="none" stroke="${lk.key}" stroke-width="1.5"/>`;
-  if (hz !== null) {
-    if (lk.src === "window") sceneSrc = glow(sx, sy, fh * .5) + `<rect x="${sx - fw * .06}" y="${fh * .14}" width="${fw * .12}" height="${fh * .5}" fill="${lk.key}" opacity=".9"/><path d="M${sx} ${fh * .14}V${fh * .64}M${sx - fw * .06} ${fh * .39}H${sx + fw * .06}" stroke="${lk.ground}" stroke-width="1.5"/>`;
-    if (lk.src === "candle") sceneSrc = glow(sx, sy, fh * .45) + `<rect x="${sx - 1.5}" y="${sy}" width="3" height="${fh * .08}" fill="#e8dcc0"/><ellipse cx="${sx}" cy="${sy - 2.5}" rx="1.5" ry="3" fill="#ffd27a"/>`;
-    if (lk.src === "fire") sceneSrc = glow(sx, sy, fh * .75);
-    if (lk.src === "lamp") sceneSrc = `<polygon points="${sx - 3},${sy} ${sx + 3},${sy} ${sx + fw * .16},${fh} ${sx - fw * .16},${fh}" fill="${lk.key}" opacity=".1"/>` + glow(sx, sy, fh * .3) + `<line x1="${sx + 4}" y1="${sy}" x2="${sx + 4}" y2="${fh}" stroke="#000" stroke-width="2"/>`;
-    if (lk.src === "neon") sceneSrc = [[fw * .14, fh * .16, lk.key, "pv-glow"], [fw * .7, fh * .26, k2, "pv-glow2"]].map(([x, y, c, id]) =>
-      glow(x + fw * .08, y + 3, fh * .3, id) + `<rect x="${x}" y="${y}" width="${fw * .16}" height="${fh * .05}" rx="2" fill="none" stroke="${c}" stroke-width="2"/>`
-      + (hy < fh ? `<rect x="${x + fw * .02}" y="${Math.max(hy, 0) + 2}" width="${fw * .12}" height="${fh - Math.max(hy, 0)}" fill="${c}" opacity=".18" filter="url(#pv-blur)"/>` : "")).join("");
-  }
-  let bg = "";
-  // The background extends a frame beyond each edge so camera moves never reveal an empty border.
-  if (hz === null) {  // looking straight down: flat ground grid
-    bg = `<rect x="${-fw}" y="${-fh}" width="${3 * fw}" height="${3 * fh}" fill="${lk.ground}"/>`;
-    for (let i = -12; i < 24; i++) bg += `<line x1="${i * fw / 12}" y1="${-fh}" x2="${i * fw / 12}" y2="${2 * fh}" stroke="${line}"/><line x1="${-fw}" y1="${i * fw / 12}" x2="${2 * fw}" y2="${i * fw / 12}" stroke="${line}"/>`;
-  } else {
-    const vx = fw * (a.angle === "three-quarter angle" ? .7 : .5), gyTop = Math.max(hy, 0), bow = view === "fish" ? fh * .14 : 0;
-    bg = `<rect x="${-fw}" y="${-fh}" width="${3 * fw}" height="${3 * fh}" fill="url(#pv-sky)"/>${skySrc}<path d="M${-fw} ${gyTop + bow} Q${fw / 2} ${gyTop - bow} ${2 * fw} ${gyTop + bow} V${2 * fh} H${-fw}Z" fill="${lk.ground}"/>`;
-    for (let i = -14; i <= 14; i++) bg += `<line x1="${vx}" y1="${hy}" x2="${vx + 2 * i * fw * spread}" y2="${hy + 2 * (fh - hy)}" stroke="${line}"/>`;
-    for (let j = 1; j < 16; j++) { const y = hy + (fh - hy) * Math.pow(j / 8, p); if (y > gyTop) bg += `<line x1="${-fw}" y1="${y}" x2="${2 * fw}" y2="${y}" stroke="${line}"/>`; }
-    if (hy >= 0 && hy <= fh) bg += `<path d="M${-fw} ${hy + bow} Q${fw / 2} ${hy - bow} ${2 * fw} ${hy + bow}" fill="none" stroke="rgba(255,153,0,.45)"/>`;
-    bg += sceneSrc;
-  }
-  const rim = lk.side === "back" ? ` stroke="${lk.key}" stroke-opacity=".9"` : "";
-  const figure = (cx, scale) => {
-    const hgt = scale * fh, r = hgt / 15;
-    if (hz === null) return a.angle === "satellite view" ? `<circle cx="${cx}" cy="${fh / 2}" r="1.5" fill="#e5e5e5"/>`
-      : `<ellipse cx="${cx}" cy="${fh / 2}" rx="${Math.min(scale, 3) * fh * .16}" ry="${Math.min(scale, 3) * fh * .08}" fill="url(#pv-fig)"/><circle cx="${cx}" cy="${fh / 2}" r="${Math.min(scale, 3) * fh * .07}" fill="url(#pv-fig)"/>`;
-    const ground = Math.min(fh * .94, Math.max(hz, 0) * fh + (fh - Math.max(hz, 0) * fh) * .55);
-    const top = scale <= .9 ? ground - hgt : Math.min(fh * .1, fh * .45 - r), y0 = top + 2 * r, g = top + hgt;
-    let shadow = "";
-    if (scale <= .9 && (lk.side === "flat" || lk.side === "top")) shadow = `<ellipse cx="${cx}" cy="${g}" rx="${r * 1.6}" ry="${r * .4}" fill="#000" opacity="${lk.side === "top" ? .65 : .3}"${lk.hard ? "" : ` filter="url(#pv-soft)"`}/>`;
-    else if (scale <= .9) {  // cast shadow on the ground plane, pointing away from the key
-      const [dx, dy] = { left: [hgt * .9, -hgt * .06], right: [-hgt * .9, -hgt * .06], front: [0, -hgt * .12] }[lk.side] || [(cx - sx) * .25, hgt * .4];
-      shadow = `<path d="M${cx - r * .9} ${g} L${cx + r * .9} ${g} L${cx + dx + r * .5} ${g + dy} L${cx + dx - r * .5} ${g + dy}Z" fill="#000" opacity="${lk.hard ? .6 : .35}"${lk.hard ? "" : ` filter="url(#pv-soft)"`}/>`;
-    }
-    const sw = ` stroke-width="${Math.max(1, r * .18)}"`;
-    return `${shadow}<circle cx="${cx}" cy="${top + r}" r="${r}" fill="url(#pv-fig)"${rim && rim + sw}/><path d="M${cx - r * 1.7} ${y0 + r * .5} Q${cx} ${y0 - r * .3} ${cx + r * 1.7} ${y0 + r * .5} L${cx + r * .9} ${g} L${cx - r * .9} ${g}Z" fill="url(#pv-fig)"${rim && rim + sw}/>`;
+// Keeps the part of a polygon on the same side of line A-B as point Pin (used to split sky from ground at the horizon).
+function clipHalf(poly, A, B, Pin) {
+  const side = q => (B[0] - A[0]) * (q[1] - A[1]) - (B[1] - A[1]) * (q[0] - A[0]), sg = Math.sign(side(Pin)) || 1, out = [];
+  poly.forEach((q, i) => {
+    const r = poly[(i + 1) % poly.length], a = side(q) * sg, b = side(r) * sg;
+    if (a >= 0) out.push(q);
+    if (a * b < 0) { const k = a / (a - b); out.push([lerp(q[0], r[0], k), lerp(q[1], r[1], k)]); }
+  });
+  return out;
+}
+
+// Everything about the shot that doesn't change while a move plays.
+function previewCtx(a) {
+  const g = frameGeom(a), W = 300, H = 170, s = Math.min((W - 4) / g.gw, (H - 4) / g.gh);
+  const fw = g.cw * s, fh = g.ch * s, f0 = focalOf(a);
+  const fReal = f0 ? (g.C0.fixed ? f0 * g.diag / 43.27 : f0) : g.diag;  // no focal length: a normal lens for the format
+  const ang = ANGLE[a.angle] || {}, size = a.size || "full shot";
+  const D = Math.max((FIELD[size] || 2.2) * fReal / g.ch, ang.minD || 0, .05);  // the distance that frames this shot size
+  const lk = (LOOKS.find(([re]) => re.test(a.light || "")) || [0, LOOK_DEFAULT])[1];
+  const d = dofCalc(a), manual = !lensSpecific(a) && a.dof;
+  let blur = d ? Math.min(7, d.blurInf / g.ch * fh * .5) : manual ? { [DOF_LABELS[0]]: 5, [DOF_LABELS[1]]: 3, [DOF_LABELS[2]]: 1.2 }[a.dof] || 0 : 0;
+  if (a.ftech === "oval anamorphic bokeh") blur = Math.max(blur, 2.5);
+  if (size === "macro insert shot" && !d && !manual) blur = 4;
+  const center = ang.center || ["two-shot", "group shot", "macro insert shot"].includes(size);
+  return { a, g, s, W, H, fw, fh, fReal, f0, fpx0: fReal * s, lk, k2: lk.key2 || lk.key, d, manual, blur,
+    base: { D, h: ang.h ?? 1.6, el: ang.el ?? null, az: ang.az || 0, roll: ang.roll || 0, ty: AIM_Y[size] ?? .95,
+      x: 0, dh: 0, fwd: 0, yaw: 0, pitch: 0, fMul: 1, wx: 0, wz: 0, aim: true, rack: 0 },
+    subjX: center ? fw / 2 : ["close-up", "extreme close-up", "medium close-up"].includes(size) ? fw * .42 : fw / 3,
+    figs: size === "two-shot" ? [[-.45, 0], [.45, 0]] : size === "group shot" ? [[-1.2, .3], [-.4, -.1], [.4, .25], [1.2, -.15]] : [[0, 0]],
+    macro: size === "macro insert shot", gstep: GSTEPS.find(x => x >= D / 3) || 1000,
+    mv: !REDUCED && (MOVES[a.move] || WALK[a.move]) ? a.move : null, dur: (MOVE_DUR[a.move] || 6) * (SPEED_DUR[a.speed] || 1) };
+}
+
+// Places and aims the camera for one moment, and returns projections from world (metres) to frame pixels.
+function makeCamera(p, c) {
+  const S = [p.wx, 0, p.wz], azr = p.az * RAD, fpx = c.fpx0 * p.fMul;
+  const place = dh => {
+    if (p.el != null) { const el = p.el * RAD, hd = p.D * Math.cos(el); return [S[0] + hd * Math.sin(azr), Math.max(.03, p.ty + p.D * Math.sin(el)) + dh, S[2] - hd * Math.cos(azr)]; }
+    const hd = Math.sqrt(Math.max(p.D * p.D - (p.h - p.ty) ** 2, .0004));
+    return [S[0] + hd * Math.sin(azr), p.h + dh, S[2] - hd * Math.cos(azr)];
   };
-  let subj;
-  if (a.size === "macro insert shot") subj = `<circle cx="${fw / 2}" cy="${fh / 2}" r="${fh * .36}" fill="url(#pv-fig)"/><circle cx="${fw / 2}" cy="${fh / 2}" r="${fh * .16}" fill="#2a2a2a"/><circle cx="${fw / 2 + fh * .05}" cy="${fh / 2 - fh * .05}" r="${fh * .04}" fill="${lk.key}"/>`;
-  else {
-    const xs = a.size === "two-shot" ? [.36, .64] : a.size === "group shot" ? [.2, .4, .6, .8] : [subjX / fw];
-    subj = xs.map((x, i) => figure(x * fw, F * (a.size === "group shot" ? [1, .92, 1.05, .95][i] : 1))).join("");
-  }
-  // Atmosphere and light quality laid over the scene.
+  const aim = C => { const dx = S[0] - C[0], dy = p.ty - C[1], dz = S[2] - C[2]; return [Math.atan2(dx, dz), Math.atan2(dy, Math.hypot(dx, dz))]; };
+  const [y0, p0] = aim(place(0)), C = place(p.dh);
+  C[0] += Math.cos(y0) * p.x + Math.sin(y0) * p.fwd; C[2] += -Math.sin(y0) * p.x + Math.cos(y0) * p.fwd;
+  let [Y, P] = p.aim ? aim(C) : [y0, p0];
+  Y += p.yaw * RAD + Math.atan((c.fw / 2 - c.subjX) / fpx);  // turn so the subject sits on its third
+  P = Math.max(-89.9 * RAD, Math.min(89.9 * RAD, P + p.pitch * RAD));
+  const F = [Math.sin(Y) * Math.cos(P), Math.sin(P), Math.cos(Y) * Math.cos(P)], R = [Math.cos(Y), 0, -Math.sin(Y)];
+  const U = [F[1] * R[2] - F[2] * R[1], F[2] * R[0] - F[0] * R[2], F[0] * R[1] - F[1] * R[0]];
+  const cr = Math.cos(p.roll * RAD), sr = Math.sin(p.roll * RAD), NEAR = .01;
+  const cam = Q => { const d = [Q[0] - C[0], Q[1] - C[1], Q[2] - C[2]]; return [d[0] * R[0] + d[1] * R[1] + d[2] * R[2], d[0] * U[0] + d[1] * U[1] + d[2] * U[2], d[0] * F[0] + d[1] * F[1] + d[2] * F[2]]; };
+  const scr = ([x, y, z]) => { const sx = fpx * x / z, sy = -fpx * y / z; return [c.fw / 2 + sx * cr - sy * sr, c.fh / 2 + sx * sr + sy * cr]; };
+  const pt = Q => { const q = cam(Q); return q[2] > NEAR ? scr(q) : null; };
+  const cut = (a, b) => { const k = (NEAR - a[2]) / (b[2] - a[2]); return [lerp(a[0], b[0], k), lerp(a[1], b[1], k), NEAR]; };
+  const seg = (A, B) => { let a = cam(A), b = cam(B); if (a[2] <= NEAR && b[2] <= NEAR) return null; if (a[2] <= NEAR) a = cut(a, b); else if (b[2] <= NEAR) b = cut(b, a); return [scr(a), scr(b)]; };
+  return { S, C, F, R, U, Y, P, fpx, cam, pt, seg };
+}
+
+// Draws one moment of the shot into the preview's scene, subject and atmosphere layers.
+function drawPreview(c, tau) {
+  const el = c.el;
+  if (!el || !el.bg || !el.bg.isConnected) return false;
+  const a = c.a, lk = c.lk, fw = c.fw, fh = c.fh, g = c.gstep, w = c.mv && WALK[c.mv];
+  const p = { ...c.base }, t = c.mv ? md(tau, c.dur) / c.dur : 0, u = .5 - .5 * Math.cos(2 * Math.PI * t);
+  if (c.mv && MOVES[c.mv]) MOVES[c.mv](p, u, t, tau);
+  if (w) p[w[0] === "x" ? "wx" : "wz"] = w[1] * t * w[2] * g;
+  const cam = makeCamera(p, c), S = cam.S, n1 = v => f1(v), P = pts => pts.map(q => `${n1(q[0])},${n1(q[1])}`).join(" ");
+  const on = q => q && q[0] > -fw && q[0] < 2 * fw && q[1] > -fh && q[1] < 2 * fh;
+  const glow = (q, r, id = "pv-glow") => q && r > .5 ? `<circle cx="${n1(q[0])}" cy="${n1(q[1])}" r="${n1(Math.min(r, fh * 1.5))}" fill="url(#${id})"/>` : "";
+  const depth = Q => cam.cam(Q)[2];
+  const rpx = (Q, m) => { const z = depth(Q); return z > .01 ? cam.fpx * m / z : 0; };  // m metres at Q, in pixels
+
+  // Sky and ground meet at the horizon: the projection of the ground plane at infinity.
+  const farPt = dy => [cam.C[0] + Math.sin(cam.Y + dy * RAD) * 1e6, 0, cam.C[2] + Math.cos(cam.Y + dy * RAD) * 1e6];
+  const h1 = cam.pt(farPt(-50)), h2 = cam.pt(farPt(50)), f0 = farPt(0), dn = cam.pt([f0[0], -1e5, f0[2]]);
+  const box = [[-fw, -fh], [2 * fw, -fh], [2 * fw, 2 * fh], [-fw, 2 * fh]];
+  const ground = h1 && h2 && dn ? clipHalf(box, h1, h2, dn) : cam.P < 0 ? box : [];
+  const hy = h1 && h2 && Math.abs(h2[0] - h1[0]) > 1e-6 ? h1[1] + (h2[1] - h1[1]) * (fw / 2 - h1[0]) / (h2[0] - h1[0]) : cam.P < 0 ? -fh : 2 * fh;
+  let bg = `<defs><linearGradient id="pv-sky" gradientUnits="userSpaceOnUse" x1="0" y1="${n1(Math.min(hy, fh) - fh * 1.2)}" x2="0" y2="${n1(hy)}"><stop offset="0" stop-color="${lk.sky[0]}"/><stop offset="1" stop-color="${lk.sky[1]}"/></linearGradient></defs>`
+    + `<rect x="${-fw}" y="${-fh}" width="${3 * fw}" height="${3 * fh}" fill="url(#pv-sky)"/>`;
+
+  // Lights. Suns and moons sit at infinity; practicals sit in the world (and repeat along a walk).
+  const sky = SKY_DIR[lk.src] && norm(SKY_DIR[lk.src]), skyPt = sky && cam.pt([cam.C[0] + sky[0] * 1e6, cam.C[1] + sky[1] * 1e6, cam.C[2] + sky[2] * 1e6]);
+  if (skyPt && lk.src !== "zenith") bg += glow(skyPt, fh * (lk.src === "moon" ? .22 : .7)) + (on(skyPt) ? `<circle cx="${n1(skyPt[0])}" cy="${n1(skyPt[1])}" r="${n1(fh * (lk.src === "moon" ? .045 : .05))}" fill="${lk.key}"/>` : "");
+  if (lk.src === "zenith") bg += glow(skyPt && on(skyPt) ? skyPt : [fw * .72, -fh * .15], fh * .9);
+  if (lk.src === "bolt" && hy > 0) bg += `<rect x="${-fw}" y="${-fh}" width="${3 * fw}" height="${n1(hy + fh)}" fill="${lk.key}" opacity="${n1(.08 + .1 * Math.max(0, Math.sin(tau * 5)))}"/><polyline points="${P([[fw * .7, 0], [fw * .67, hy * .35], [fw * .72, hy * .45], [fw * .66, hy * .9]])}" fill="none" stroke="${lk.key}" stroke-width="1.5"/>`;
+  if (ground.length) bg += `<polygon points="${P(ground)}" fill="${lk.ground}"/>`;
+  // Ground grid: lines every g metres, snapped to the world so walking moves repeat seamlessly.
+  const N = 24, ox = Math.round(S[0] / g) * g, oz = Math.round(S[2] / g) * g;
+  let grid = "";
+  for (let i = -N; i <= N; i++) [cam.seg([ox + i * g, 0, oz - N * g], [ox + i * g, 0, oz + N * g]), cam.seg([ox - N * g, 0, oz + i * g], [ox + N * g, 0, oz + i * g])]
+    .forEach(sg => { if (sg) grid += `M${n1(sg[0][0])} ${n1(sg[0][1])}L${n1(sg[1][0])} ${n1(sg[1][1])}`; });
+  bg += `<path d="${grid}" stroke="${lk.lines || "rgba(229,229,229,.14)"}" fill="none"/>`;
+  if (h1 && h2 && hy > -fh && hy < 2 * fh) bg += `<line x1="${n1(h1[0])}" y1="${n1(h1[1])}" x2="${n1(h2[0])}" y2="${n1(h2[1])}" stroke="rgba(255,153,0,.45)"/>`;
+  const reps = w ? [-1, 0, 1, 2].map(k => k * w[2] * g * w[1]) : [0];
+  const R3 = (x, y, z, k) => w && w[0] === "x" ? [x + k, y, z] : [x, y, z + k];
+  let keyPos = null;
+  if (lk.src === "window") reps.forEach(k => {
+    const q = [[-2.4, .8, .7], [-2.4, .8, 1.7], [-2.4, 2.3, 1.7], [-2.4, 2.3, .7]].map(v => cam.pt(R3(...v, k))), mid = R3(-2.4, 1.55, 1.2, k);
+    if (q.every(Boolean)) bg += glow(cam.pt(mid), rpx(mid, 1.6)) + `<polygon points="${P(q)}" fill="${lk.key}" opacity=".9"/>`;
+    if (!k) keyPos = mid;
+  });
+  if (lk.src === "candle") { const q = [S[0] + .45, 1, S[2] - .35], sp = cam.pt(q); keyPos = q; if (sp) bg += glow(sp, rpx(q, .9)) + `<ellipse cx="${n1(sp[0])}" cy="${n1(sp[1])}" rx="${n1(Math.max(1, rpx(q, .012)))}" ry="${n1(Math.max(2, rpx(q, .03)))}" fill="#ffd27a"/>`; }
+  if (lk.src === "fire") { const q = [S[0] + 1.2, .25, S[2] - .7], sp = cam.pt(q); keyPos = q; if (sp) bg += glow(sp, rpx(q, 2.4) * (1 + .08 * Math.sin(tau * 9))); }
+  if (lk.src === "lamp") reps.forEach(k => {
+    const head = R3(3, 4.2, 3, k), base = R3(3, 0, 3, k), hp = cam.pt(head), sg = cam.seg(base, head);
+    const pool = Array.from({ length: 12 }, (_, i) => cam.pt(R3(3 + 1.8 * Math.cos(i * Math.PI / 6), 0, 3 + 1.8 * Math.sin(i * Math.PI / 6), k)));
+    if (pool.every(Boolean)) bg += `<polygon points="${P(pool)}" fill="${lk.key}" opacity=".16"/>`;
+    if (sg) bg += `<line x1="${n1(sg[0][0])}" y1="${n1(sg[0][1])}" x2="${n1(sg[1][0])}" y2="${n1(sg[1][1])}" stroke="#000" stroke-width="${n1(Math.max(1, rpx(base, .12)))}"/>`;
+    bg += glow(hp, rpx(head, 1.6));
+    if (!k) keyPos = head;
+  });
+  if (lk.src === "neon") reps.forEach(k => [[-3, 2.8, 5, 1.6, lk.key, "pv-glow"], [3.2, 2.2, 8, 1.4, c.k2, "pv-glow2"]].forEach(([x, y, z, wd, col, id]) => {
+    const box3 = yy => [[x - wd / 2, yy - .17, z], [x + wd / 2, yy - .17, z], [x + wd / 2, yy + .17, z], [x - wd / 2, yy + .17, z]].map(v => cam.pt(R3(...v, k)));
+    const sign = box3(y), refl = box3(-y), mid = R3(x, y, z, k);
+    if (refl.every(Boolean)) bg += `<polygon points="${P(refl)}" fill="${col}" opacity=".22" filter="url(#pv-blur)"/>`;  // reflection in the wet street
+    if (sign.every(Boolean)) bg += glow(cam.pt(mid), rpx(mid, 2.2), id) + `<polygon points="${P(sign)}" fill="none" stroke="${col}" stroke-width="2"/>`;
+    if (!k && !keyPos) keyPos = mid;
+  }));
+
+  // Key direction from the subject, then the subject's shading and cast shadow follow it as the camera moves around.
+  const key = keyPos ? norm([keyPos[0] - S[0], keyPos[1] - 1.2, keyPos[2] - S[2]]) : sky ? sky : KEY_DIR[lk.side] ? norm(KEY_DIR[lk.side]) : null;
+  const kc = key && [key[0] * cam.R[0] + key[1] * cam.R[1] + key[2] * cam.R[2], key[0] * cam.U[0] + key[1] * cam.U[1] + key[2] * cam.U[2], key[0] * cam.F[0] + key[1] * cam.F[1] + key[2] * cam.F[2]];
+  const hard = lk.hard ? [[0, lk.key], [.42, lk.key], [.58, lk.amb], [1, lk.amb]] : [[0, lk.key], [1, lk.amb]];
+  let dirv = `x1="0" y1="0" x2="0" y2="1"`, stops = hard, rim = "";
+  if (lk.side === "sil") stops = [[0, "#050505"], [1, "#050505"]];
+  else if (!kc || lk.side === "flat") stops = [[0, lk.key], [1, lk.amb]];
+  else if (lk.key2) { dirv = `x1="0" y1="0" x2="1" y2="0"`; stops = [[0, lk.key], [.5, lk.amb], [1, c.k2]]; }
+  else if (kc[2] > .5) { stops = [[0, lk.amb], [1, lk.amb]]; rim = lk.key; }  // light behind the subject: rim light
+  else if (kc[1] < .9) dirv = kc[0] < 0 ? `x1="0" y1="0" x2="1" y2="0"` : `x1="1" y1="0" x2="0" y2="0"`;
+  let subj = `<defs><linearGradient id="pv-fig" ${dirv}>${stops.map(([o, col]) => `<stop offset="${o}" stop-color="${col}"/>`).join("")}</linearGradient></defs>`;
+  const shadowOf = F3 => {
+    const soft = lk.hard ? "" : ` filter="url(#pv-soft)"`;
+    const ring = (r, op) => { const q = Array.from({ length: 12 }, (_, i) => cam.pt([F3[0] + r * Math.cos(i * Math.PI / 6), 0, F3[2] + r * Math.sin(i * Math.PI / 6)])); return q.every(Boolean) ? `<polygon points="${P(q)}" fill="#000" opacity="${op}"${soft}/>` : ""; };
+    if (!key || lk.side === "flat") return ring(.35, .3);
+    if (key[1] > .9) return ring(.3, .6);
+    const away = norm([-key[0], 0, -key[2]]), len = Math.min(6, Math.max(.4, 1.75 * Math.hypot(key[0], key[2]) / Math.max(key[1], .12))), pp = [-away[2], 0, away[0]];
+    const q = [[.2, 0], [-.2, 0], [-.12, len], [.12, len]].map(([s, l]) => cam.pt([F3[0] + pp[0] * s + away[0] * l, 0, F3[2] + pp[2] * s + away[2] * l]));
+    return q.every(Boolean) ? `<polygon points="${P(q)}" fill="#000" opacity="${lk.hard ? .6 : .35}"${soft}/>` : "";
+  };
+  if (c.macro) {
+    const q = [S[0], .025, S[2]], sp = cam.pt(q), r = rpx(q, .025);
+    if (sp) subj += `<circle cx="${n1(sp[0])}" cy="${n1(sp[1])}" r="${n1(r)}" fill="url(#pv-fig)"/><circle cx="${n1(sp[0])}" cy="${n1(sp[1])}" r="${n1(r * .45)}" fill="#2a2a2a"/><circle cx="${n1(sp[0] + r * .15)}" cy="${n1(sp[1] - r * .15)}" r="${n1(r * .12)}" fill="${lk.key}"/>`;
+  } else c.figs.forEach(([ox2, oz2]) => {
+    const F3 = [S[0] + ox2, 0, S[2] + oz2], fp = cam.pt(F3), hp = cam.pt([F3[0], 1.75, F3[2]]);
+    if (!fp || !hp) return;
+    subj += shadowOf(F3);
+    const wpx = rpx(F3, .5), hpx = Math.hypot(hp[0] - fp[0], hp[1] - fp[1]);
+    if (hpx < wpx * .9) {  // seen from above
+      subj += `<ellipse cx="${n1(hp[0])}" cy="${n1(hp[1])}" rx="${n1(wpx * .5)}" ry="${n1(wpx * .25)}" fill="url(#pv-fig)"/><circle cx="${n1(hp[0])}" cy="${n1(hp[1])}" r="${n1(Math.max(.8, wpx * .2))}" fill="url(#pv-fig)"/>`;
+      return;
+    }
+    // Feet pinned to the projected ground point; the body points at the projected head, so it leans with perspective and roll.
+    const r = hpx / 15, y0 = -hpx + 2 * r, ang = Math.atan2(hp[0] - fp[0], fp[1] - hp[1]) / RAD;
+    const stroke = rim ? ` stroke="${rim}" stroke-opacity=".9" stroke-width="${n1(Math.max(1, r * .18))}"` : "";
+    subj += `<g transform="translate(${n1(fp[0])} ${n1(fp[1])}) rotate(${n1(ang)})"><circle cx="0" cy="${n1(-hpx + r)}" r="${n1(r)}" fill="url(#pv-fig)"${stroke}/>`
+      + `<path d="M${n1(-r * 1.7)} ${n1(y0 + r * .5)} Q0 ${n1(y0 - r * .3)} ${n1(r * 1.7)} ${n1(y0 + r * .5)} L${n1(r * .9)} 0 L${n1(-r * .9)} 0Z" fill="url(#pv-fig)"${stroke}/></g>`;
+  });
+
+  // Atmosphere and light quality laid over the frame; particles drift while a move plays.
   const at = a.atmo || "", hazeOp = /thick haze/.test(at) ? .5 : /fog/.test(at) ? .42 : /haze/.test(at) ? .3 : 0, hazeCol = lk.side === "sil" ? lk.sky[1] : lk.key;
-  const dots = (n, c, op, r0, r1) => Array.from({ length: n }, (_, i) => `<circle cx="${rnd(i + 1) * fw}" cy="${rnd(i + 51) * fh}" r="${r0 + rnd(i + 7) * (r1 - r0)}" fill="${c}" opacity="${op}"/>`).join("");
-  let atmo = hazeOp ? `<rect width="${fw}" height="${fh}" fill="url(#pv-haze)"/>` : "";
+  const dots = (n, col, op, r0, r1, dx, dy) => Array.from({ length: n }, (_, i) => `<circle cx="${n1(md(rnd(i + 1) * fw + dx * tau, fw))}" cy="${n1(md(rnd(i + 51) * fh + dy * tau, fh))}" r="${n1(r0 + rnd(i + 7) * (r1 - r0))}" fill="${col}" opacity="${op}"/>`).join("");
+  let atmo = "";
+  if (hazeOp) atmo += `<defs><linearGradient id="pv-haze" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="${n1(fh)}"><stop offset="0" stop-color="${hazeCol}" stop-opacity="${hazeOp * .35}"/><stop offset="${Math.min(.95, Math.max(.05, hy / fh))}" stop-color="${hazeCol}" stop-opacity="${hazeOp}"/><stop offset="1" stop-color="${hazeCol}" stop-opacity="${hazeOp * .25}"/></linearGradient></defs><rect width="${n1(fw)}" height="${n1(fh)}" fill="url(#pv-haze)"/>`;
   if (/god rays/.test(at)) {
-    const [rx, ry] = sy > fh * .7 ? [fw * .2, -fh * .1] : [sx, sy];
-    atmo += `<g filter="url(#pv-blur)">${[-2, -1, 0, 1, 2].map(i => `<polygon points="${rx},${ry} ${fw * (.5 + i * .24 - .05)},${fh * 1.05} ${fw * (.5 + i * .24 + .05)},${fh * 1.05}" fill="${hazeCol}" opacity=".22"/>`).join("")}</g>`;
+    const kp = keyPos && cam.pt(keyPos), [rx, ry] = on(skyPt) && skyPt[1] < fh * .7 ? skyPt : on(kp) ? kp : [fw * .2, -fh * .1];
+    atmo += `<g filter="url(#pv-blur)">${[-2, -1, 0, 1, 2].map(i => `<polygon points="${n1(rx)},${n1(ry)} ${n1(fw * (.5 + i * .24 - .05))},${n1(fh * 1.05)} ${n1(fw * (.5 + i * .24 + .05))},${n1(fh * 1.05)}" fill="${hazeCol}" opacity=".22"/>`).join("")}</g>`;
   }
-  if (/dust/.test(at)) atmo += dots(40, hazeCol, .5, .6, 1.3);
-  if (/embers/.test(at)) atmo += dots(26, "#ff8a2a", .9, .8, 1.8);
-  if (/rain/.test(at)) atmo += Array.from({ length: 70 }, (_, i) => { const x = rnd(i) * fw * 1.1, y = rnd(i + 99) * fh; return `<line x1="${x}" y1="${y}" x2="${x - 2.5}" y2="${y + 9}" stroke="${hazeCol}" stroke-opacity=".45" stroke-width=".8"/>`; }).join("");
+  if (/dust/.test(at)) atmo += dots(40, hazeCol, .5, .6, 1.3, 4, 1.5);
+  if (/embers/.test(at)) atmo += dots(26, "#ff8a2a", .9, .8, 1.8, 3, -14);
+  if (/rain/.test(at)) atmo += Array.from({ length: 70 }, (_, i) => { const x = md(rnd(i) * fw * 1.1 - tau * 20, fw * 1.1), y = md(rnd(i + 99) * fh + tau * fh * 2.2, fh); return `<line x1="${n1(x)}" y1="${n1(y)}" x2="${n1(x - 2.5)}" y2="${n1(y + 9)}" stroke="${hazeCol}" stroke-opacity=".45" stroke-width=".8"/>`; }).join("");
   if (/snow/.test(at)) {
     const ly = Math.min(fh * .8, Math.max(hy, 0) + (fh - Math.max(hy, 0)) * .3);
-    atmo += `<polygon points="${fw * .82},${ly - 2} ${fw * .82},${ly + 2} 0,${ly + fh * .25} 0,${ly - fh * .12}" fill="#fff" opacity=".12"/><circle cx="${fw * .82}" cy="${ly}" r="3" fill="#fff"/><circle cx="${fw * .9}" cy="${ly}" r="3" fill="#fff"/>` + dots(60, "#fff", .85, .8, 1.6);
+    atmo += `<polygon points="${P([[fw * .82, ly - 2], [fw * .82, ly + 2], [0, ly + fh * .25], [0, ly - fh * .12]])}" fill="#fff" opacity=".12"/><circle cx="${n1(fw * .82)}" cy="${n1(ly)}" r="3" fill="#fff"/><circle cx="${n1(fw * .9)}" cy="${n1(ly)}" r="3" fill="#fff"/>` + dots(60, "#fff", .85, .8, 1.6, -3, fh * .25);
   }
-  if (/smoke|steam/.test(at)) atmo += `<g filter="url(#pv-blur)" opacity=".28">${[0, 1, 2, 3].map(i => `<ellipse cx="${fw * (.15 + i * .24)}" cy="${fh * (/steam/.test(at) ? .85 - i % 2 * .2 : .45 + i % 2 * .15)}" rx="${fw * .14}" ry="${fh * .12}" fill="#cfcfcf"/>`).join("")}</g>`;
-  if (/sandstorm/.test(at)) atmo += `<rect width="${fw}" height="${fh}" fill="#c9a36a" opacity=".42"/>` + Array.from({ length: 30 }, (_, i) => `<line x1="${rnd(i) * fw}" y1="${rnd(i + 30) * fh}" x2="${rnd(i) * fw + 14}" y2="${rnd(i + 30) * fh + 2}" stroke="#e8cfa0" stroke-opacity=".5"/>`).join("");
-  if (lk.blinds) atmo += `<g transform="rotate(-16 ${fw / 2} ${fh / 2})" opacity=".62">${Array.from({ length: 14 }, (_, i) => `<rect x="${-fw * .3}" y="${-fh * .3 + i * fh * .13}" width="${fw * 1.6}" height="${fh * .055}" fill="#000"/>`).join("")}</g>`;
-  if (parseInt(lk.amb.slice(1, 3), 16) < 0x30) atmo += `<rect width="${fw}" height="${fh}" fill="url(#pv-vig)"/>`;  // low-key looks fall off at the edges
-  const H2 = lk.hard ? [[0, lk.key], [.42, lk.key], [.58, lk.amb], [1, lk.amb]] : [[0, lk.key], [1, lk.amb]];
-  const stops = lk.side === "sil" ? [[0, "#050505"], [1, "#050505"]] : lk.side === "back" ? [[0, lk.amb], [1, lk.amb]] : lk.key2 ? [[0, lk.key], [.5, lk.amb], [1, k2]] : H2;
-  const dirv = { left: `x2="1" y2="0"`, right: `x1="1" x2="0" y2="0"` }[lk.side] || `x2="0" y2="1"`;
-  const lightDefs = `<linearGradient id="pv-sky" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="${Math.max(hy, 1)}"><stop offset="0" stop-color="${lk.sky[0]}"/><stop offset="1" stop-color="${lk.sky[1]}"/></linearGradient>
-      <linearGradient id="pv-fig" ${dirv}>${stops.map(([o, c]) => `<stop offset="${o}" stop-color="${c}"/>`).join("")}</linearGradient>
-      <radialGradient id="pv-glow"><stop offset="0" stop-color="${lk.key}" stop-opacity=".85"/><stop offset="1" stop-color="${lk.key}" stop-opacity="0"/></radialGradient>
-      <radialGradient id="pv-glow2"><stop offset="0" stop-color="${k2}" stop-opacity=".85"/><stop offset="1" stop-color="${k2}" stop-opacity="0"/></radialGradient>
-      <linearGradient id="pv-haze" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="${fh}"><stop offset="0" stop-color="${hazeCol}" stop-opacity="${hazeOp * .35}"/><stop offset="${Math.min(.95, Math.max(.05, hy / fh))}" stop-color="${hazeCol}" stop-opacity="${hazeOp}"/><stop offset="1" stop-color="${hazeCol}" stop-opacity="${hazeOp * .25}"/></linearGradient>
-      <radialGradient id="pv-vig" r=".75"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".6"/></radialGradient>`;
-  const mv = !REDUCED && MOVES[a.move], dur = f1((mv && mv.dur || 5) * (SPEED_DUR[a.speed] || 1));
-  const animG = (content, spec) => {
-    if (!spec) return content;
-    const loop = v => spec.once ? v : [...v, ...v.slice(0, -1).reverse()];  // there and back, so the loop never jumps
-    const at = (type, v) => v ? `<animateTransform attributeName="transform" type="${type}" values="${loop(v).join(";")}" dur="${dur}s" repeatCount="indefinite"${spec.kt ? ` keyTimes="${spec.kt}"` : ""}/>` : "";
-    const [ax, ay] = [subjX, fh * .5];  // moves pivot on the subject
-    return `<g transform="translate(${ax} ${ay})"><g>${at("scale", spec.s)}<g>${at("rotate", spec.r)}<g transform="translate(${-ax} ${-ay})"><g>${at("translate", spec.t && spec.t.map(([x, y]) => `${f1(x * fw)} ${f1(y * fh)}`))}${content}</g></g></g></g></g>`;
+  if (/smoke|steam/.test(at)) atmo += `<g filter="url(#pv-blur)" opacity=".28">${[0, 1, 2, 3].map(i => `<ellipse cx="${n1(fw * (.15 + i * .24) + Math.sin(tau * .5 + i) * fw * .03)}" cy="${n1(fh * (/steam/.test(at) ? md(.85 - i % 2 * .2 - tau * .04, 1) : .45 + i % 2 * .15))}" rx="${n1(fw * .14)}" ry="${n1(fh * .12)}" fill="#cfcfcf"/>`).join("")}</g>`;
+  if (/sandstorm/.test(at)) atmo += `<rect width="${n1(fw)}" height="${n1(fh)}" fill="#c9a36a" opacity=".42"/>` + Array.from({ length: 30 }, (_, i) => { const x = md(rnd(i) * fw + tau * fw * .6, fw), y = rnd(i + 30) * fh; return `<line x1="${n1(x)}" y1="${n1(y)}" x2="${n1(x + 14)}" y2="${n1(y + 2)}" stroke="#e8cfa0" stroke-opacity=".5"/>`; }).join("");
+  if (lk.blinds) atmo += `<g transform="rotate(-16 ${n1(fw / 2)} ${n1(fh / 2)})" opacity=".62">${Array.from({ length: 14 }, (_, i) => `<rect x="${n1(-fw * .3)}" y="${n1(-fh * .3 + i * fh * .13)}" width="${n1(fw * 1.6)}" height="${n1(fh * .055)}" fill="#000"/>`).join("")}</g>`;
+  if (parseInt(lk.amb.slice(1, 3), 16) < 0x30) atmo += `<rect width="${n1(fw)}" height="${n1(fh)}" fill="url(#pv-vig)"/>`;  // low-key looks fall off at the edges
+
+  el.bg.innerHTML = bg; el.subj.innerHTML = subj; el.atmo.innerHTML = atmo;
+  // Depth of field: the background softens with the calculated blur (scaled by any zoom or dolly); a rack focus swaps it to the subject.
+  const b0 = Math.min(7, c.blur * p.fMul * p.fMul * c.base.D / p.D), rk = Math.max(c.blur, 2.5);
+  el.bgfe.setAttribute("stdDeviation", n1(c.mv === "rack focus pull" ? rk * (1 - p.rack) : b0));
+  el.subjfe.setAttribute("stdDeviation", n1(c.mv === "rack focus pull" ? rk * p.rack : 0));
+  return true;
+}
+
+// Draws the preview and, when a camera move is set, keeps playing it (about 30 frames a second) until the preview is rebuilt.
+function startPreview() {
+  cancelAnimationFrame(pvRaf);
+  const c = pvCtx;
+  if (!c) return;
+  c.el = { bg: $("pv-bg"), subj: $("pv-subj"), atmo: $("pv-atmo"), bgfe: $("pv-bgblur-fe"), subjfe: $("pv-subjblur-fe") };
+  drawPreview(c, 0);
+  if (!c.mv) return;
+  let t0 = null, last = -1e9;
+  const step = now => {
+    if (t0 === null) t0 = now;
+    if (now - last >= 33) { last = now; if (!drawPreview(c, (now - t0) / 1000)) return; }
+    pvRaf = requestAnimationFrame(step);
   };
-  const blur = ["shallow depth of field", "oval anamorphic bokeh"].includes(a.focus) || a.size === "macro insert shot" ? ` filter="url(#pv-blur)"` : "";
-  const rack = mv && mv.rack;
-  let scene = animG(animG(`<g${rack ? ` filter="url(#pv-rackbg)"` : blur}>${bg}</g>`, mv && mv.bg) + animG(rack ? `<g filter="url(#pv-racksubj)">${subj}</g>` : subj, mv && mv.subj), mv && mv.all);
-  if (a.focus === "soft focus") scene = `<g filter="url(#pv-soft)">${scene}</g>`;
-  if (a.angle === "Dutch angle") scene = `<g transform="translate(${fw / 2} ${fh / 2}) rotate(-12) scale(1.35) translate(${-fw / 2} ${-fh / 2})">${scene}</g>`;
+  pvRaf = requestAnimationFrame(step);
+}
+
+// The preview's fixed parts: film back, crop, framing overlays and caption. The scene itself is drawn by drawPreview.
+function previewHTML(a) {
+  const c = pvCtx = previewCtx(a), { W, H, fw, fh, g } = c, view = g.L.view;
+  const glowDef = (id, col) => `<radialGradient id="${id}"><stop offset="0" stop-color="${col}" stop-opacity=".85"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></radialGradient>`;
+  let scene = `<g id="pv-bg" filter="url(#pv-bgblur)"></g><g id="pv-subj" filter="url(#pv-subjblur)"></g>`;
+  if (a.ftech === "soft focus") scene = `<g filter="url(#pv-soft)">${scene}</g>`;
   let fg = "";
   if (a.angle === "over-the-shoulder") fg = `<ellipse cx="${fw * .05}" cy="${fh * 1.05}" rx="${fw * .3}" ry="${fh * .5}" fill="#0a0a0a"/><circle cx="${fw * .06}" cy="${fh * .42}" r="${fh * .26}" fill="#0a0a0a"/>`;
   if (a.angle === "through-foreground framing") fg = `<rect x="${-fw * .04}" width="${fw * .22}" height="${fh}" fill="#0a0a0a" filter="url(#pv-blur)"/>`;
   if (a.angle === "through a doorway") fg = `<path d="M0 0H${fw}V${fh}H${fw * .7}V${fh * .08}H${fw * .3}V${fh}H0Z" fill="#0d0d0d"/>`;
   if (a.angle === "through a car windshield") fg = `<rect width="${fw}" height="${fh * .1}" fill="#0d0d0d"/><path d="M0 ${fh * .8} Q${fw / 2} ${fh * .7} ${fw} ${fh * .8} V${fh} H0Z" fill="#0d0d0d"/>`;
   if (a.angle === "peephole view" || view === "fish" && a.angle !== "satellite view") fg += `<path fill-rule="evenodd" d="M0 0H${fw}V${fh}H0Z M${fw / 2 - fh * .48} ${fh / 2} a${fh * .48} ${fh * .48} 0 1 0 ${fh * .96} 0 a${fh * .48} ${fh * .48} 0 1 0 ${-fh * .96} 0Z" fill="#050505" opacity="${a.angle === "peephole view" ? 1 : .55}"/>`;
-  if (mv && mv.fgBar) fg += `<rect y="0" width="${fw * .12}" height="${fh}" fill="#080808" filter="url(#pv-blur)"><animate attributeName="x" values="${fw * 1.1};${-fw * .3}" dur="${dur}s" repeatCount="indefinite"/></rect>`;
+  if (c.mv === "parallax slide past foreground") fg += `<rect y="0" width="${fw * .12}" height="${fh}" fill="#080808" filter="url(#pv-blur)"><animate attributeName="x" values="${fw * 1.1};${-fw * .3};${fw * 1.1}" dur="${c.dur}s" repeatCount="indefinite"/></rect>`;
   if (["security camera angle", "dashcam view", "body cam view"].includes(a.angle) || a.camera === CCTV) fg += `<text x="8" y="16" fill="#ff4d4d" font-family="Montserrat, Arial" font-size="10" font-weight="600">● REC</text>`;
   const thirds = [1, 2].map(i => `<line x1="${i * fw / 3}" y1="0" x2="${i * fw / 3}" y2="${fh}" stroke="rgba(255,255,255,.08)"/><line x1="0" y1="${i * fh / 3}" x2="${fw}" y2="${i * fh / 3}" stroke="rgba(255,255,255,.08)"/>`).join("");
   const svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Sketch of the framed shot">
     <defs><clipPath id="pv-clip"><rect width="${fw}" height="${fh}"/></clipPath>
       <filter id="pv-blur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.4"/></filter>
       <filter id="pv-soft"><feGaussianBlur stdDeviation=".9"/></filter>
-      ${rack ? [["pv-rackbg", "0;2.6;0"], ["pv-racksubj", "2.6;0;2.6"]].map(([id, v]) => `<filter id="${id}" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="0"><animate attributeName="stdDeviation" values="${v}" dur="${dur}s" repeatCount="indefinite"/></feGaussianBlur></filter>`).join("") : ""}
-      ${lightDefs}</defs>
-    <rect x="${(W - gw * s) / 2}" y="${(H - gh * s) / 2}" width="${gw * s}" height="${gh * s}" fill="#0b0b0b" stroke="#666" stroke-dasharray="4 3"/>
-    <g transform="translate(${fx} ${fy})"><g clip-path="url(#pv-clip)">${scene}${atmo}${fg}${thirds}</g>
+      <filter id="pv-bgblur" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur id="pv-bgblur-fe" stdDeviation="0"/></filter>
+      <filter id="pv-subjblur" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur id="pv-subjblur-fe" stdDeviation="0"/></filter>
+      ${glowDef("pv-glow", c.lk.key)}${glowDef("pv-glow2", c.k2)}
+      <radialGradient id="pv-vig" r=".75"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".6"/></radialGradient></defs>
+    <rect x="${(W - g.gw * c.s) / 2}" y="${(H - g.gh * c.s) / 2}" width="${g.gw * c.s}" height="${g.gh * c.s}" fill="#0b0b0b" stroke="#666" stroke-dasharray="4 3"/>
+    <g transform="translate(${(W - fw) / 2} ${(H - fh) / 2})"><g clip-path="url(#pv-clip)">${scene}<g id="pv-atmo"></g>${fg}${thirds}</g>
       <rect width="${fw}" height="${fh}" fill="none" stroke="#FF9900" stroke-width="1.5"/></g></svg>`;
-  const back = a.camera ? `Film back${C.k === "film" ? "" : " (sensor)"} ≈ ${f1(C.w)} × ${f1(C.h)} mm${cropped ? `, cropped from ${f1(C0.w)} × ${f1(C0.h)} to the lens coverage` : ""}`
+  const C = g.C, d = c.d;
+  const back = a.camera ? `Film back${C.k === "film" ? "" : " (sensor)"} ≈ ${f1(C.w)} × ${f1(C.h)} mm${g.cropped ? `, cropped from ${f1(g.C0.w)} × ${f1(g.C0.h)} to the lens coverage` : ""}`
     : `No camera set, full frame 36 × 24 mm shown`;
-  const squeeze = sq > 1 ? ` · ${sq}x anamorphic, shown desqueezed` : "";
-  const crop = a.aspect ? `${a.aspect.split(" ")[0]} frame uses ${Math.round(cw * ch / (gw * gh) * 100)}% of the gate` : `No aspect set, full gate ${f1(G)}:1`;
-  const lensLine = f ? `<br>${esc(`${f}mm ${C0.fixed ? "(full-frame equivalent)" : `≈ ${Math.round(eq)}mm full-frame equivalent`} · ${Math.round(hfov)}° horizontal field of view`)}` : "";
-  const moveLine = mv ? `<br>${esc(`Looping: ${a.move}${a.speed && SPEED_DUR[a.speed] ? `, ${a.speed}` : ""}`)}` : "";
-  const hint = a.aspect ? "<br>Also set this aspect in your image model's own settings." : "";
-  return `${svg}<figcaption><b>Frame preview</b> ${esc(back + squeeze)}<br>${esc(crop)}${lensLine}${moveLine}${hint}</figcaption>`;
+  const squeeze = g.sq > 1 ? ` · ${g.sq}x anamorphic, shown desqueezed` : "";
+  const crop = a.aspect ? `${a.aspect.split(" ")[0]} frame uses ${Math.round(g.cw * g.ch / (g.gw * g.gh) * 100)}% of the gate` : `No aspect set, full gate ${f1(g.G)}:1`;
+  const eq = c.f0 && (g.C0.fixed ? c.f0 : c.f0 * 43.27 / g.diag), hfov = 2 * Math.atan(g.cw / (2 * c.fReal)) / RAD;
+  const lensLine = c.f0 ? `${c.f0}mm ${g.C0.fixed ? "(full-frame equivalent)" : `≈ ${Math.round(eq)}mm full-frame equivalent`} · ${Math.round(hfov)}° horizontal · camera about ${fmtLen(c.base.D)} from the subject`
+    : `No focal length set, so a normal lens is shown · camera about ${fmtLen(c.base.D)} from the subject`;
+  const dofLine = d ? `T${d.N}: ${isFinite(d.far) ? `${fmtLen(d.total)} in focus (${fmtLen(d.near)} to ${fmtLen(d.far)})` : `sharp from ${fmtLen(d.near)} to infinity`} · ${d.label}`
+    : c.manual ? `Depth of field picked by hand: ${a.dof}` : lensSpecific(a) ? "Add a focal length and T-stop to calculate depth of field" : "";
+  const moveLine = c.mv ? `Looping: ${a.move}${a.speed && SPEED_DUR[a.speed] ? `, ${a.speed}` : ""}` : "";
+  const lines = [back + squeeze, crop, lensLine, dofLine, moveLine, a.aspect && "Also set this aspect in your image model's own settings."].filter(Boolean);
+  return `${svg}<figcaption><b>Frame preview</b> ${lines.map(esc).join("<br>")}</figcaption>`;
 }
 
 /* ---------- events (delegated) ---------- */
 $("sheet").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   if (b.classList.contains("chip")) { const k = keyOf(SLOTS.find(s => s.id === b.dataset.slot)); vals[k] = vals[k] === b.dataset.val ? null : b.dataset.val; return render(); }
+  if (b.id === "focal-clear") { vals.focal = null; return render(); }
   const [kind, id, m] = b.id.split("-");
   const s = SLOTS.find(x => x.id === id); if (!s) return;
   if (kind === "lock") locked[id] = !locked[id];
@@ -833,9 +1100,20 @@ $("sheet").addEventListener("click", e => {
   render();
 });
 $("sheet").addEventListener("change", e => {
+  if (e.target.id === "focal-range") return render();  // drag finished: refresh notes that depend on the focal length
+  if (e.target.id === "focal-num") { const r = focalRange(activeVals()), f = Math.round(+e.target.value); vals.focal = f ? `${Math.min(r.max, Math.max(r.min, f))}mm lens` : null; return render(); }
   if (e.target.tagName !== "SELECT") return;
   const s = SLOTS.find(x => "sel-" + x.id === e.target.id); vals[keyOf(s)] = e.target.value || null; render();
 });
+// Dragging the focal length slider (log scale across the lens's range) updates the prompt and preview live.
+$("sheet").addEventListener("input", e => {
+  if (e.target.id !== "focal-range") return;
+  const r = focalRange(activeVals()), f = Math.round(r.min * Math.pow(r.max / r.min, e.target.value / 1000));
+  vals.focal = `${f}mm lens`; e.target.classList.remove("unset"); $("focal-num").value = f; renderLive();
+});
+// Clear one group of slots at a time (locked slots stay).
+const CLEAR = { lens: ["lens", "focal", "tstop"], lighting: ["light", "atmo"], composition: ["size", "angle", "aspect"] };
+Object.entries(CLEAR).forEach(([k, ids]) => $("clear-" + k).onclick = () => { ids.forEach(id => { if (!locked[id]) vals[id] = null; }); render(); toast(`Cleared ${k}`); });
 $("view-chips").onclick = () => { view = "chips"; store.set("view", view); render(); };
 $("view-dd").onclick = () => { view = "dd"; store.set("view", view); render(); };
 $("collapse-all").onclick = () => { SLOTS.forEach(s => collapsed[s.id] = true); store.set("collapsed", collapsed); render(); };
@@ -844,7 +1122,8 @@ $("roll").onclick = () => {
   const free = SLOTS.filter(s => !locked[s.id] && enabled[s.id]), a = activeVals();
   free.forEach(s => delete a[s.id]);
   // Camera and lens anchor the look, so they pick first; the rest go in random order so no slot always gets first pick.
-  free.map(s => [s.id === "camera" ? -2 : s.id === "lens" ? -1 : Math.random(), s]).sort((x, y) => x[0] - y[0]).forEach(([, s]) => rollSlot(s, a));
+  const first = ["camera", "lens", "focal", "tstop"];  // the lens decides what focal length, T-stop and depth of field can be
+  free.map(s => [first.includes(s.id) ? first.indexOf(s.id) - 9 : Math.random(), s]).sort((x, y) => x[0] - y[0]).forEach(([, s]) => rollSlot(s, a));
   render(); toast("Rolled");
 };
 $("clear").onclick = () => { SLOTS.forEach(s => { if (!locked[s.id]) vals[keyOf(s)] = null; }); render(); };
