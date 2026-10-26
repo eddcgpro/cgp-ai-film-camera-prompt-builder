@@ -90,6 +90,7 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
 #out.structured { max-height: 13em }
 #subject, #avoid { width: 100%; padding: 12px 14px; border-radius: 6px; border: 1px solid var(--line); background: rgba(0,0,0,.45); color: var(--grey-10); font-weight: 400 }
 .view-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end }
+.sheet-tools { margin-bottom: -12px }
 .presets { display: flex; flex-wrap: wrap; gap: 8px }
 .preset { padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--chip-bg); color: var(--grey-10); font: 500 13px/1.2 var(--font-core); transition: all 200ms var(--ease) }
 .preset:hover { border-color: var(--orange); background: var(--orange-08) }
@@ -182,8 +183,6 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
         <button type="button" id="view-chips">Buttons</button>
         <button type="button" id="view-dd">Dropdowns</button>
       </div>
-      <button class="mini" type="button" id="collapse-all">Collapse all</button>
-      <button class="mini" type="button" id="expand-all">Expand all</button>
     </div>
   </div>
 
@@ -195,6 +194,11 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
   <div class="field">
     <span class="lbl">Presets</span>
     <div class="presets" id="presets"></div>
+  </div>
+
+  <div class="view-tools sheet-tools" id="sheet-tools">
+    <button class="mini" type="button" id="collapse-all">Collapse all</button>
+    <button class="mini" type="button" id="expand-all">Expand all</button>
   </div>
 
   <main class="sheet" id="sheet"></main>
@@ -336,7 +340,7 @@ function render() {
   sheet.innerHTML = SLOTS.map(slotHTML).join("");
   $("view-chips").setAttribute("aria-pressed", view === "chips");
   $("view-dd").setAttribute("aria-pressed", view === "dd");
-  $("collapse-all").hidden = $("expand-all").hidden = view !== "chips";
+  $("sheet-tools").style.visibility = view === "chips" ? "" : "hidden";  // keeps its height, so nothing jumps
   $("fmt-compact").setAttribute("aria-pressed", format === "compact");
   $("fmt-structured").setAttribute("aria-pressed", format === "structured");
   $("out").classList.toggle("structured", format === "structured");
