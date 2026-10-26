@@ -122,6 +122,9 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
 .chip { padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--chip-bg); color: var(--grey-10);
   font: 400 13px/1.3 var(--font-core); text-align: left; transition: all 120ms var(--ease) }
 .chip:hover { border-color: var(--orange-40) }
+.chip:disabled { opacity: .28; border-style: dashed; cursor: not-allowed }
+.chip:disabled:hover { border-color: var(--line) }
+.slot.blocked .chip-list, .slot.blocked select { opacity: .6 }
 .chip[aria-pressed="true"] { background: var(--orange-16); border-color: var(--orange); color: var(--grey-10); font-weight: 500 }
 .slot select { width: 100%; padding: 11px 36px 11px 14px; border-radius: 6px; border: 1px solid var(--line); background-color: rgba(0,0,0,.45); color: var(--grey-10);
   appearance: none; -webkit-appearance: none; font-weight: 400;
@@ -255,7 +258,7 @@ const PRESETS = [
   { name: "Neon night", v: { camera: "Sony Venice 2", lens: "Cooke Anamorphic/i SF lenses", light: "neon practicals on wet reflective streets", atmo: "backlit rain", grade: "CineStill 800T look with red halation", aspect: "2.39:1 widescreen", texture: "anamorphic lens flares", angle: "low angle" } },
   { name: "Classic noir", v: { camera: "Mitchell BNC vintage 35mm", lens: "Bausch & Lomb Super Baltar lenses", light: "low-key noir lighting through venetian blinds", atmo: "drifting smoke", grade: "Eastman Double-X black and white film", aspect: "1.37:1 Academy ratio", angle: "Dutch angle" } },
   { name: "Gritty war", v: { camera: "ARRI Alexa 35", lens: "Canon K35 lenses", light: "harsh midday sun with hard shadows", atmo: "dust particles in the air", grade: "bleach bypass grade", move: "handheld", speed: "staccato 45 degree shutter", aspect: "2.39:1 widescreen" } },
-  { name: "Period candle", v: { camera: "Mitchell BNC vintage 35mm", lens: "Zeiss Planar 50mm f/0.7", focal: "50mm lens", light: "candlelight only", grade: "warm amber nostalgic grade", focus: "shallow depth of field", texture: "fine 35mm grain", size: "close-up", angle: "profile view" } },
+  { name: "Period candle", v: { camera: "Mitchell BNC vintage 35mm", lens: "Zeiss Planar 50mm f/0.7", light: "candlelight only", grade: "warm amber nostalgic grade", focus: "shallow depth of field", texture: "fine 35mm grain", size: "close-up", angle: "profile view" } },
   { name: "Thriller chase", v: { camera: "RED V-Raptor 8K VV", lens: "ARRI Master Anamorphic lenses", light: "sodium vapor streetlight", grade: "teal and orange grade", move: "Russian arm chase", aspect: "2.39:1 widescreen", texture: "Black Pro-Mist bloom" } },
   // Common everyday setups
   { name: "Drone establishing", v: { camera: "ARRI Alexa Mini LF", lens: "ARRI Signature Primes", focal: "24mm lens", light: "golden hour backlight", atmo: "light fog", grade: "Kodak Vision3 film emulation", size: "extreme wide establishing shot", angle: "aerial view", move: "drone rising reveal", aspect: "2.39:1 widescreen", focus: "deep focus" } },
@@ -299,7 +302,8 @@ applyPreset(PRESETS[0]);
 /* ---------- build ---------- */
 function slotHTML(s, i) {
   const k = keyOf(s), v = vals[k], isCol = view === "chips" && collapsed[s.id];
-  const cls = ["slot", v && enabled[s.id] ? "set" : "", locked[s.id] ? "locked" : "", enabled[s.id] ? "" : "off", isCol ? "collapsed" : ""].join(" ");
+  const b = blockedOf(s), off = it => b.all || b.off.has(it);
+  const cls = ["slot", v && enabled[s.id] ? "set" : "", locked[s.id] ? "locked" : "", enabled[s.id] ? "" : "off", isCol ? "collapsed" : "", b.all ? "blocked" : ""].join(" ");
   const titleInner = `<span class="hexdot"></span><span class="slot-name">${s.name}</span>${view === "chips" ? `<span class="caret" aria-hidden="true">▼</span>` : ""}`;
   const title = view === "chips"
     ? `<button class="slot-title" type="button" id="col-${s.id}" aria-expanded="${!isCol}">${titleInner}</button>`
@@ -313,27 +317,43 @@ function slotHTML(s, i) {
   const summary = isCol && v ? `<span class="slot-val">${esc(v)}</span>` : "";
   let body = "";
   if (view === "dd") {
-    body = `<select id="sel-${s.id}" aria-label="${s.name}"><option value="">None</option>${groupsOf(s).map(g =>
-      `<optgroup label="${esc(g.name)}">${g.items.map(it => `<option${it === v ? " selected" : ""}>${esc(it)}</option>`).join("")}</optgroup>`).join("")}</select>`;
+    body = `<select id="sel-${s.id}" aria-label="${s.name}"${b.all ? " disabled" : ""}><option value="">None</option>${groupsOf(s).map(g =>
+      `<optgroup label="${esc(g.name)}">${g.items.map(it => `<option${it === v ? " selected" : ""}${off(it) ? " disabled" : ""}>${esc(it)}</option>`).join("")}</optgroup>`).join("")}</select>`;
   } else if (!isCol) {
     body = groupsOf(s).map((g, gi) => `<div class="group">${groupsOf(s).length > 1 ? `<div class="group-name">${esc(g.name)}</div>` : ""}<div class="chip-list">${
-      g.items.map((it, ii) => `<button type="button" class="chip" id="chip-${s.id}-${mode[s.id] || ""}-${gi}-${ii}" data-slot="${s.id}" data-val="${esc(it)}" aria-pressed="${it === v}">${esc(it)}</button>`).join("")}</div></div>`).join("");
+      g.items.map((it, ii) => `<button type="button" class="chip" id="chip-${s.id}-${mode[s.id] || ""}-${gi}-${ii}" data-slot="${s.id}" data-val="${esc(it)}" aria-pressed="${it === v}"${off(it) ? " disabled" : ""}>${esc(it)}</button>`).join("")}</div></div>`).join("");
   }
-  const hint = s.id === "focal" ? `<p class="slot-hint">${esc(focalHint())}</p>` : "";
+  const hint = b.note ? `<p class="slot-hint">${esc(b.note)}</p>` : "";
   return `<section class="${cls}" id="slot-${s.id}"><div class="slot-head"><div style="display:flex;align-items:center;gap:12px;min-width:0;flex-wrap:wrap">${title}${summary}</div>${tools}</div>${hint}${body}</section>`;
 }
 
-// What the focal length means for the lens currently chosen: a zoom position, one prime from the set, or fixed.
-function focalHint() {
-  const lens = enabled.lens && vals.lens, L = LENS[lens], C = enabled.camera && CAM[vals.camera];
-  if (lens in FIXED_FOCAL) return `${lens} is a single lens, fixed at about ${FIXED_FOCAL[lens]}mm.`;
-  if (L && L.zoom) return `Zoom lens: set where it sits between ${L.zoom[0]} and ${L.zoom[1]}mm. Zoom moves are available.`;
-  if (lens) return `Prime set: pick which prime from the ${lens} set. Primes can't zoom; switch to a zoom lens for zoom moves.`;
-  if (C && C.fixed) return `Built-in lens: read this as the full-frame equivalent.`;
-  return `Pick a lens first to see whether this is a prime from a set or a zoom position.`;
+// Options the camera and lens physically can't do are greyed out, so lens and focal length can't contradict each other.
+// Returns { all } when the whole slot is set by something else, { off } for the options to disable, and a note explaining why.
+function blockedOf(s) {
+  const none = { off: new Set() }, a = activeVals();
+  if (s.id === "lens" && CAM[a.camera] && CAM[a.camera].fixed) return { all: true, off: none.off, note: `The ${a.camera} has a built-in lens, so there's no glass to choose. Set the focal length instead.` };
+  if (s.id !== "focal") return none;
+  const r = focalRange(a);
+  if (!r) return { ...none, note: "Pick a lens first: a prime set offers the primes it has, a zoom offers its range." };
+  if (r.fixed) return { all: true, off: none.off, note: `${r.what} is a single lens, fixed at about ${r.fixed}mm, so the focal length is set by the lens.` };
+  const note = r.kind === "zoom" ? `Zoom lens: set where it sits between ${r.min} and ${r.max}mm. Zoom moves are available.`
+    : r.kind === "prime" ? `Prime set: ${r.what} run from about ${r.min} to ${r.max}mm. Pick which prime; primes can't zoom.`
+    : `${r.what} covers about ${r.min} to ${r.max}mm, full-frame equivalent.`;
+  return { off: new Set(itemsOf(s).filter(it => mm(it) < r.min || mm(it) > r.max)), note };
+}
+
+// Keeps lens and focal length consistent after any change: clears what the camera or lens rules out,
+// and snaps the focal length to the nearest one the new lens can do.
+function reconcile() {
+  if (enabled.lens && vals.lens && CAM[activeVals().camera] && CAM[activeVals().camera].fixed) vals.lens = null;
+  const r = focalRange(activeVals()), f = mm(vals.focal);
+  if (!r || !vals.focal || (!r.fixed && f >= r.min && f <= r.max)) return;
+  const ok = r.fixed ? [] : itemsOf(SLOTS.find(s => s.id === "focal")).filter(it => mm(it) >= r.min && mm(it) <= r.max);
+  vals.focal = ok.length ? ok.reduce((best, it) => Math.abs(mm(it) - f) < Math.abs(mm(best) - f) ? it : best) : null;
 }
 
 function render() {
+  reconcile();
   const active = document.activeElement && document.activeElement.id;
   const sheet = $("sheet");
   sheet.className = "sheet" + (view === "dd" ? " dd" : "");
@@ -398,8 +418,8 @@ function promptText() {
 
 /* ---------- compatibility ----------
    CAM  k: digital | film | consumer | legacy video; g: format size (1 Super 8, 2 16mm, 3 35mm/Super 35, 4 full frame/LF, 5 65mm);
-        w×h: approximate gate (film back) in mm; slow: can't reach 120fps; fixed: built-in lens; heavy: too big for drones and gimbals.
-   LENS ana: anamorphic squeeze; c: largest format covered (same scale as g); gen: generic lens type, fits anything;
+        w×h: approximate gate (film back) in mm; slow: can't reach 120fps; fixed: built-in lens (fr: its full-frame equivalent range); heavy: too big for drones and gimbals.
+   LENS ana: anamorphic squeeze; c: largest format covered (same scale as g);
         bnc: only fits the modified Mitchell BNC; zoom: [shortest, longest] mm for zoom lenses; view: wide | tele | fish, used by the preview. */
 const CAM = {
   "ARRI Alexa 65": { k: "digital", g: 5, w: 54.12, h: 25.58, slow: 1, heavy: 1 },
@@ -424,30 +444,31 @@ const CAM = {
   "ARRI 416 Super 16mm": { k: "film", g: 2, w: 12.52, h: 7.41, slow: 1 },
   "Aaton XTR Prod 16mm": { k: "film", g: 2, w: 12.52, h: 7.41, slow: 1 },
   "Bolex H16 16mm": { k: "film", g: 2, w: 10.26, h: 7.49, slow: 1 },
-  "Canon 1014 XL-S Super 8": { k: "film", g: 1, w: 5.79, h: 4.01, slow: 1, fixed: 1, zoom: 1 },
+  "Canon 1014 XL-S Super 8": { k: "film", g: 1, w: 5.79, h: 4.01, slow: 1, fixed: 1, zoom: 1, fr: [40, 400] },
   "Mitchell BNC vintage 35mm": { k: "film", g: 3, w: 21.95, h: 16, slow: 1, heavy: 1 },
-  "iPhone Pro smartphone": { k: "consumer", g: 0, w: 9.8, h: 7.3, fixed: 1, small: 1 },
-  "GoPro HERO action camera": { k: "consumer", g: 0, w: 6.2, h: 4.6, fixed: 1, small: 1 },
+  "iPhone Pro smartphone": { k: "consumer", g: 0, w: 9.8, h: 7.3, fixed: 1, small: 1, fr: [13, 120] },
+  "GoPro HERO action camera": { k: "consumer", g: 0, w: 6.2, h: 4.6, fixed: 1, small: 1, fr: [12, 19] },
   "DJI Ronin 4D": { k: "digital", g: 4, w: 36, h: 24 },
-  "1990s Sony Handycam MiniDV": { k: "legacy", g: 0, w: 4.8, h: 3.6, slow: 1, fixed: 1, zoom: 1 },
-  "VHS camcorder": { k: "legacy", g: 0, w: 4.8, h: 3.6, slow: 1, fixed: 1, zoom: 1 },
-  "CCTV security camera": { k: "legacy", g: 0, w: 4.8, h: 3.6, slow: 1, fixed: 1, zoom: 1 }
+  "1990s Sony Handycam MiniDV": { k: "legacy", g: 0, w: 4.8, h: 3.6, slow: 1, fixed: 1, zoom: 1, fr: [40, 400] },
+  "VHS camcorder": { k: "legacy", g: 0, w: 4.8, h: 3.6, slow: 1, fixed: 1, zoom: 1, fr: [40, 320] },
+  "CCTV security camera": { k: "legacy", g: 0, w: 4.8, h: 3.6, slow: 1, fixed: 1, zoom: 1, fr: [20, 90] }
 };
+// fr: [shortest, longest] mm of the primes in a set (approximate). zoom: [shortest, longest] of a zoom. Single lenses are in FIXED_FOCAL.
 const LENS = {
-  "Panavision C-Series anamorphic lenses": { ana: 2, c: 3 }, "Panavision G-Series anamorphic lenses": { ana: 2, c: 3 },
-  "Panavision T-Series anamorphic lenses": { ana: 2, c: 3 }, "Ultra Panavision 70 anamorphic lenses": { ana: 1.25, c: 5 },
-  "ARRI Master Anamorphic lenses": { ana: 2, c: 3 }, "Cooke Anamorphic/i SF lenses": { ana: 2, c: 3 },
-  "Hawk V-Lite anamorphic lenses": { ana: 2, c: 3 }, "Atlas Orion anamorphic lenses": { ana: 2, c: 3 },
-  "vintage Kowa anamorphic lenses": { ana: 2, c: 3 }, "LOMO Roundfront anamorphic lenses": { ana: 2, c: 3 },
-  "Zeiss Master Primes": { c: 3 }, "Zeiss Supreme Primes": { c: 4 }, "ARRI Signature Primes": { c: 4 }, "Cooke S4/i lenses": { c: 3 },
-  "Leica Summilux-C lenses": { c: 3 }, "Panavision Primo 70 lenses": { c: 5 }, "Panavision Sphero 65 lenses": { c: 6 },
+  "Panavision C-Series anamorphic lenses": { ana: 2, c: 3, fr: [30, 180] }, "Panavision G-Series anamorphic lenses": { ana: 2, c: 3, fr: [25, 100] },
+  "Panavision T-Series anamorphic lenses": { ana: 2, c: 3, fr: [28, 180] }, "Ultra Panavision 70 anamorphic lenses": { ana: 1.25, c: 5, fr: [35, 300] },
+  "ARRI Master Anamorphic lenses": { ana: 2, c: 3, fr: [28, 180] }, "Cooke Anamorphic/i SF lenses": { ana: 2, c: 3, fr: [25, 300] },
+  "Hawk V-Lite anamorphic lenses": { ana: 2, c: 3, fr: [28, 180] }, "Atlas Orion anamorphic lenses": { ana: 2, c: 3, fr: [18, 200] },
+  "vintage Kowa anamorphic lenses": { ana: 2, c: 3, fr: [40, 100] }, "LOMO Roundfront anamorphic lenses": { ana: 2, c: 3, fr: [35, 100] },
+  "Zeiss Master Primes": { c: 3, fr: [12, 150] }, "Zeiss Supreme Primes": { c: 4, fr: [15, 200] }, "ARRI Signature Primes": { c: 4, fr: [12, 280] },
+  "Cooke S4/i lenses": { c: 3, fr: [12, 300] }, "Leica Summilux-C lenses": { c: 3, fr: [16, 135] },
+  "Panavision Primo 70 lenses": { c: 5, fr: [24, 250] }, "Panavision Sphero 65 lenses": { c: 6, fr: [24, 300] },
   "ARRI Alura 18-80mm zoom": { c: 3, zoom: [18, 80] }, "Angénieux Optimo 24-290mm zoom": { c: 3, zoom: [24, 290] },
   "Fujinon Premista 28-100mm zoom": { c: 4, zoom: [28, 100] }, "Angénieux Optimo Ultra 12x 36-435mm zoom": { c: 4, zoom: [36, 435] },
   "Angénieux Optimo A2S 30-72mm anamorphic zoom": { ana: 2, c: 3, zoom: [30, 72] },
-  "Cooke Panchro/i Classic lenses": { c: 3 }, "Canon K35 lenses": { c: 3 }, "Zeiss Super Speeds": { c: 3 }, "Bausch & Lomb Super Baltar lenses": { c: 3 },
-  "Zeiss Planar 50mm f/0.7": { c: 3, bnc: 1 }, "Helios 44-2 lens with swirly bokeh": { c: 4 }, "Petzval lens": { c: 4 },
-  "Laowa 24mm probe lens": { c: 4, view: "wide" },
-  "fisheye lens": { c: 9, gen: 1, view: "fish" }
+  "Cooke Panchro/i Classic lenses": { c: 3, fr: [18, 152] }, "Canon K35 lenses": { c: 3, fr: [18, 85] }, "Zeiss Super Speeds": { c: 3, fr: [18, 85] },
+  "Bausch & Lomb Super Baltar lenses": { c: 3, fr: [20, 152] }, "Zeiss Planar 50mm f/0.7": { c: 3, bnc: 1 }, "Helios 44-2 lens with swirly bokeh": { c: 4 },
+  "Petzval lens": { c: 4, fr: [50, 85] }, "Laowa 24mm probe lens": { c: 4, view: "wide" }, "fisheye lens": { c: 9, fr: [8, 16], view: "fish" }
 };
 const groupItems = (slot, group) => SLOTS.find(s => s.id === slot).groups.find(g => g.name === group).items;
 const STOCKS = groupItems("grade", "Film stocks");
@@ -461,7 +482,17 @@ const BODY_RIGS = ["handheld", "shoulder-mounted", "Steadicam follow", "snorrica
 const WIDE_SIZES = ["extreme wide establishing shot", "wide shot", "full shot", "two-shot", "group shot"];
 const mm = v => v ? parseInt(v, 10) : 0;  // "24mm lens" -> 24
 // Lenses that only come in one focal length (closest option on the list).
-const FIXED_FOCAL = { "Zeiss Planar 50mm f/0.7": 50, "Laowa 24mm probe lens": 24, "Helios 44-2 lens with swirly bokeh": 50 };
+const FIXED_FOCAL = { "Zeiss Planar 50mm f/0.7": 50, "Laowa 24mm probe lens": 24, "Helios 44-2 lens with swirly bokeh": 58 };
+// Which focal lengths the chosen lens (or a camera's built-in lens) can do: { fixed } for a single lens,
+// { min, max } for a prime set, zoom or built-in lens, or null when no lens is chosen and anything goes.
+function focalRange(a) {
+  const C = CAM[a.camera], L = LENS[a.lens];
+  if (C && C.fixed) return { min: C.fr[0], max: C.fr[1], what: `The ${a.camera}'s built-in lens`, kind: "built-in" };
+  if (a.lens in FIXED_FOCAL) return { fixed: FIXED_FOCAL[a.lens], what: a.lens, kind: "fixed" };
+  if (L && L.zoom) return { min: L.zoom[0], max: L.zoom[1], what: a.lens, kind: "zoom" };
+  if (L && L.fr) return { min: L.fr[0], max: L.fr[1], what: a.lens, kind: "prime" };
+  return null;
+}
 const AIR_MOVES = ["FPV drone dive", "drone flyover", "drone rising reveal", "top-down drone pull-up", "helicopter aerial", "cable cam glide"];
 const DRONE_MOVES = ["FPV drone dive", "drone flyover", "drone rising reveal", "top-down drone pull-up", "snorricam body mount", "gimbal tracking"];
 const PTZ_MOVES = ["slow pan", "tilt up reveal", "tilt down", "slow zoom in", "locked-off tripod"];
@@ -477,7 +508,7 @@ const isAna = (C, L) => L ? !!L.ana : !(C && C.fixed);
 const backName = C => C.k === "film" ? "film gate" : "sensor";
 // Each rule: [test(a, C, L), message(a)]. a holds the active slot values; C and L are the camera and lens tags.
 const RULES = [
-  [(a, C, L) => C && L && C.fixed && !L.gen, a => `${a.camera} has a built-in lens, so ${a.lens} can't be fitted`],
+  [(a, C, L) => C && L && C.fixed, a => `${a.camera} has a built-in lens, so ${a.lens} can't be fitted`],
   [(a, C, L) => C && L && L.c < C.g - (C.k === "digital" ? 1 : 0), a => `${a.lens} can't cover the ${backName(CAM[a.camera])} of the ${a.camera}`],
   [(a, C, L) => L && L.bnc && a.camera && a.camera !== BNC, () => `The Zeiss Planar f/0.7 only fits Kubrick's modified Mitchell BNC`],
   [(a, C, L) => L && L.ana === 1.25 && C && C.g < 5, a => `Ultra Panavision 70 needs a 65mm camera, not ${a.camera}`],
@@ -514,11 +545,8 @@ const RULES = [
   [a => a.speed === "bullet time freeze" && a.move === "locked-off tripod", () => `Bullet time sweeps around a frozen moment; locked-off can't`],
   [a => a.move === "one-take long oner" && ["Bolex H16 16mm", "Canon 1014 XL-S Super 8", IMAX].includes(a.camera), a => `${a.camera} runs out of film or spring wind in minutes, too short for a oner`],
   [(a, C, L) => ZOOM_MOVES.includes(a.move) && (L ? !L.zoom : C && C.fixed && !C.zoom), a => `${a.move} needs a zoom lens, not ${a.lens || a.camera}`],
-  [a => a.camera === GOPRO && mm(a.focal) > 18, a => `A GoPro has a fixed ultra-wide lens, not a ${a.focal}`],
-  [a => a.lens in FIXED_FOCAL && a.focal && mm(a.focal) !== FIXED_FOCAL[a.lens], a => `${a.lens} only comes in one focal length; pick ${FIXED_FOCAL[a.lens]}mm`],
-  [(a, C, L) => L && L.zoom && a.focal && (mm(a.focal) < L.zoom[0] || mm(a.focal) > L.zoom[1]), (a) => `${a.lens} zooms from ${LENS[a.lens].zoom[0]} to ${LENS[a.lens].zoom[1]}mm, not ${mm(a.focal)}mm`],
-  [a => a.lens === "fisheye lens" && mm(a.focal) > 18, a => `A fisheye is 8 to 16mm, not ${a.focal}`],
-  [(a, C, L) => L && L.ana && a.focal && mm(a.focal) < 24, a => `Anamorphic primes rarely go wider than about 25mm; ${a.focal} would be spherical`],
+  [a => { const r = a.focal && focalRange(a); return r && (r.fixed || mm(a.focal) < r.min || mm(a.focal) > r.max); },
+    a => { const r = focalRange(a); return r.fixed ? `${r.what} is fixed at about ${r.fixed}mm; leave Focal length empty` : `${r.what} covers ${r.min} to ${r.max}mm, not ${mm(a.focal)}mm`; }],
   [(a, C) => C && C.heavy && DRONE_MOVES.includes(a.move), a => `${a.camera} is too heavy for ${a.move}`],
   [(a, C) => a.move === "FPV drone dive" && C && !C.small, a => `FPV drones carry small cameras, not ${a.camera}`],
   [a => a.camera === BNC && ["handheld", "shoulder-mounted", "Steadicam follow"].includes(a.move), a => `${a.camera} is too heavy for ${a.move}`],
@@ -660,7 +688,7 @@ function previewHTML(a) {
   const fw = cw * s, fh = ch * s, fx = (W - fw) / 2, fy = (H - fh) / 2;
   const hz = a.angle in HORIZON ? HORIZON[a.angle] : .5, F = FIGURE[a.size] ?? .6, view = L.view;
   // Focal length: a built-in lens reads it as a full-frame equivalent; otherwise it's the real focal length on this film back.
-  const diag = Math.hypot(C.w, C.h), f = mm(a.focal);
+  const diag = Math.hypot(C.w, C.h), f = mm(a.focal) || FIXED_FOCAL[a.lens] || 0;
   const fReal = f && (C0.fixed ? f * diag / 43.27 : f), eq = f && (C0.fixed ? f : f * 43.27 / diag);
   const hfov = fReal && 2 * Math.atan(cw / (2 * fReal)) * 180 / Math.PI;
   const wide = eq ? Math.log2(35 / eq) : view ? 1.3 : 0;  // > 0 wider than a normal lens, < 0 longer
