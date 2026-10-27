@@ -15,6 +15,7 @@
   --orange-08: rgba(255,153,0,.08);
   --orange-16: rgba(255,153,0,.16);
   --orange-40: rgba(255,153,0,.40);
+  --green: #8ED47F;
   --grey-10: #E5E5E5;
   --grey-20: #CCCCCC;
   --grey-40: #999999;
@@ -64,6 +65,12 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
 .slate-meta { display: flex; flex-wrap: wrap; gap: 6px 20px; font: 600 11px/1.3 var(--font-core); letter-spacing: .14em; text-transform: uppercase; color: var(--grey-40); }
 .slate-meta b { color: var(--grey-10); font-weight: 600 }
 .slate-meta .live { color: var(--orange) }
+.slate-meta .seg { margin: -4px 0 }
+/* Panel size: "mid" shows only the preview, "min" only the header bar */
+.slate.mid, .slate.min { grid-template-columns: minmax(0, 1fr) }
+.slate.mid > :not(.slate-meta):not(.frame), .slate.min > :not(.slate-meta), .slate.mid .pv-tools, .slate.mid figcaption { display: none }
+.slate.mid .frame { grid-column: 1; grid-row: auto }
+.slate.mid .frame svg { max-height: 36vh }
 #out { margin: 0; font: 400 15px/1.6 var(--font-core); color: var(--grey-10); white-space: pre-wrap; word-break: break-word; max-height: 8em; overflow: auto; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
 .btn { display: inline-flex; align-items: center; gap: 8px; font: 600 12px/1 var(--font-core); letter-spacing: .08em; text-transform: uppercase;
@@ -148,13 +155,28 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
 .chip:hover { border-color: var(--orange-40) }
 .chip:disabled { opacity: .28; border-style: dashed; cursor: not-allowed }
 .chip:disabled:hover { border-color: var(--line) }
-.slot.blocked .chip-list, .slot.blocked select { opacity: .6 }
+.slot.blocked .chip-list, .slot.blocked .dd-btn { opacity: .6 }
 .chip[aria-pressed="true"] { background: var(--orange-16); border-color: var(--orange); color: var(--grey-10); font-weight: 500 }
-.slot select { width: 100%; padding: 11px 36px 11px 14px; border-radius: 6px; border: 1px solid var(--line); background-color: rgba(0,0,0,.45); color: var(--grey-10);
-  appearance: none; -webkit-appearance: none; font-weight: 400;
+/* Dropdown: green group headings, orange option names, white mood tags */
+.dd { position: relative; min-width: 0 }  /* lets the one-line button truncate instead of widening the slot */
+.dd-btn { display: block; width: 100%; padding: 11px 36px 11px 14px; border-radius: 6px; border: 1px solid var(--line); background-color: rgba(0,0,0,.45); color: var(--grey-10);
+  text-align: left; font: 400 13px/1.35 var(--font-core); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   background-image: linear-gradient(45deg, transparent 50%, #FF9900 50%), linear-gradient(135deg, #FF9900 50%, transparent 50%);
   background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
-.slot select option, .slot select optgroup { background: var(--ink); color: var(--grey-10) }
+.dd-btn:disabled { cursor: not-allowed }
+.dd-list { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 4px); max-height: min(60vh, 420px); overflow: auto; padding: 6px;
+  background: #161616; border: 1px solid var(--orange-40); border-radius: 8px; box-shadow: 0 12px 32px rgba(0,0,0,.6) }
+.dd-list[hidden] { display: none }
+.dd-list.up { top: auto; bottom: calc(100% + 4px) }
+.dd-group { font: 600 11px/1.3 var(--font-core); letter-spacing: .14em; text-transform: uppercase; color: var(--green); padding: 12px 8px 4px }
+.dd-opt { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 6px 8px; border-radius: 5px; font: 400 13px/1.4 var(--font-core) }
+.dd-opt:hover, .dd-opt:focus-visible { background: var(--orange-08) }
+.dd-opt[aria-selected="true"] { background: var(--orange-16) }
+.dd-opt:disabled { opacity: .3; cursor: not-allowed }
+.dd-nm { color: var(--orange) }
+.dd-dot { color: var(--grey-40); font-size: 1.3em; line-height: 0; margin: 0 7px; vertical-align: -.08em }
+.dd-tg { color: #fff }
+.dd-none { color: var(--grey-40) }
 
 @media (max-width: 720px) {
   .controls { grid-template-columns: 1fr }
@@ -162,6 +184,7 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
   .slate { border-radius: 18px; padding: 16px; position: static; grid-template-columns: 1fr }
   .frame { grid-column: 1; grid-row: auto }
   .slot-val { max-width: 22ch }
+  .slate.mid, .slate.min { position: sticky }  /* small enough to keep on screen while picking */
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important } }
 </style>
@@ -181,8 +204,11 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
     <p class="sub">Set each slot, lock what you like, roll the rest. Copy the prompt into your image or video model.</p>
   </header>
 
-  <section class="slate" aria-label="Prompt">
+  <section class="slate" id="slate" aria-label="Prompt">
     <div class="slate-meta">
+      <div class="seg small" role="group" aria-label="Panel size" id="slate-size">
+        <button type="button" data-size="min">Min</button><button type="button" data-size="mid">Preview</button><button type="button" data-size="max">Full</button>
+      </div>
       <span class="live">▶ Live prompt</span>
       <span>Slots <b id="m-slots">0</b></span>
       <span>Locked <b id="m-locked">0</b></span>
@@ -367,10 +393,11 @@ function slotHTML(s, i) {
     body = `<div class="focal-dial"><input type="range" id="focal-range" min="0" max="1000" value="${pos}" aria-label="Focal length"${f ? "" : ` class="unset"`}>
       <label><input type="number" id="focal-num" min="${r.min}" max="${r.max}" step="1" value="${f || ""}" placeholder="${r.min}-${r.max}"> mm</label>
       ${f ? `<button class="mini" type="button" id="focal-clear">Clear</button>` : ""}</div>`;
-  } else if (view === "dd") {
-    const tag = it => tone(s.id, it, a) ? ` · ${tone(s.id, it, a)[0]}` : "";
-    body = `<select id="sel-${s.id}" aria-label="${s.name}"${b.all ? " disabled" : ""}><option value="">None</option>${groups.map(g =>
-      `<optgroup label="${esc(g.name)}">${g.items.map(it => `<option value="${esc(it)}"${it === v ? " selected" : ""}${off(it) ? " disabled" : ""}>${esc(it + tag(it))}</option>`).join("")}</optgroup>`).join("")}</select>`;
+  } else if (view === "dd") {  // a custom list rather than a <select>, whose options can't colour the name and its mood tag apart
+    const label = it => { const t = tone(s.id, it, a); return `<span class="dd-nm">${esc(it)}</span>${t ? `<span class="dd-dot" aria-hidden="true">•</span><span class="dd-tg">${esc(t[0])}</span>` : ""}`; };
+    body = `<div class="dd"><button type="button" class="dd-btn" id="sel-${s.id}" aria-haspopup="listbox" aria-expanded="false" aria-label="${s.name}"${b.all ? " disabled" : ""}>${v ? label(v) : `<span class="dd-none">None</span>`}</button>
+      <div class="dd-list" role="listbox" aria-label="${s.name}" hidden><button type="button" class="dd-opt" role="option" data-slot="${s.id}" data-val="" aria-selected="${!v}"><span class="dd-none">None</span></button>${groups.map(g =>
+      `<div class="dd-group">${esc(g.name)}</div>${g.items.map(it => `<button type="button" class="dd-opt" role="option" data-slot="${s.id}" data-val="${esc(it)}" aria-selected="${it === v}"${off(it) ? " disabled" : ""}>${label(it)}</button>`).join("")}`).join("")}</div></div>`;
   } else if (!isCol) {
     const tag = it => tone(s.id, it, a) ? `<span class="tone">${esc(tone(s.id, it, a)[0])}</span>` : "";
     body = groups.map((g, gi) => `<div class="group">${groups.length > 1 ? `<div class="group-name">${esc(g.name)}</div>` : ""}<div class="chip-list">${
@@ -1498,6 +1525,8 @@ renderTools();
 $("sheet").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   if (b.classList.contains("chip")) { const k = keyOf(SLOTS.find(s => s.id === b.dataset.slot)); vals[k] = vals[k] === b.dataset.val ? null : b.dataset.val; return render(); }
+  if (b.classList.contains("dd-btn")) return ddToggle(b);
+  if (b.classList.contains("dd-opt")) { vals[keyOf(SLOTS.find(s => s.id === b.dataset.slot))] = b.dataset.val || null; render(); return $("sel-" + b.dataset.slot).focus(); }
   if (b.id === "focal-clear") { vals.focal = null; return render(); }
   const [kind, id, m] = b.id.split("-");
   const s = SLOTS.find(x => x.id === id); if (!s) return;
@@ -1511,8 +1540,31 @@ $("sheet").addEventListener("click", e => {
 $("sheet").addEventListener("change", e => {
   if (e.target.id === "focal-range") return render();  // drag finished: refresh notes that depend on the focal length
   if (e.target.id === "focal-num") { const r = focalRange(activeVals()), f = Math.round(+e.target.value); vals.focal = f ? `${Math.min(r.max, Math.max(r.min, f))}mm lens` : null; return render(); }
-  if (e.target.tagName !== "SELECT") return;
-  const s = SLOTS.find(x => "sel-" + x.id === e.target.id); vals[keyOf(s)] = e.target.value || null; render();
+});
+// Opens or closes a slot's dropdown (closing any other), opening upward when there's more room above, with the chosen option focused.
+function ddToggle(btn, open = btn.getAttribute("aria-expanded") !== "true") {
+  if (open) document.querySelectorAll('.dd-btn[aria-expanded="true"]').forEach(o => ddToggle(o, false));
+  const list = btn.nextElementSibling;
+  btn.setAttribute("aria-expanded", open); list.hidden = !open;
+  if (!open) return;
+  const r = btn.getBoundingClientRect(), below = innerHeight - r.bottom, sl = $("slate");
+  const above = r.top - (getComputedStyle(sl).position === "sticky" ? Math.max(0, sl.getBoundingClientRect().bottom) : 0);  // the pinned prompt panel covers the top
+  list.classList.toggle("up", below < 280 && above > below);
+  const o = list.querySelector('[aria-selected="true"]') || list.querySelector(".dd-opt");
+  o.focus({ preventScroll: true }); list.scrollTop = o.offsetTop - list.clientHeight / 2;
+}
+// A click elsewhere or tabbing away closes an open dropdown; arrow keys open it and move through its options, Escape closes it.
+document.addEventListener("click", e => { if (!e.target.closest(".dd")) document.querySelectorAll('.dd-btn[aria-expanded="true"]').forEach(b => ddToggle(b, false)); });
+$("sheet").addEventListener("focusout", e => { const dd = e.target.closest(".dd"); if (dd && e.relatedTarget && !dd.contains(e.relatedTarget)) ddToggle(dd.querySelector(".dd-btn"), false); });
+$("sheet").addEventListener("keydown", e => {
+  const dd = e.target.closest(".dd"); if (!dd) return;
+  const btn = dd.querySelector(".dd-btn"), open = btn.getAttribute("aria-expanded") === "true";
+  if (e.key === "Escape" && open) { e.preventDefault(); ddToggle(btn, false); btn.focus(); }
+  if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+  e.preventDefault();
+  if (!open) return ddToggle(btn, true);
+  const os = [...dd.querySelectorAll(".dd-opt:not(:disabled)")], i = os.indexOf(document.activeElement);
+  os[Math.max(0, Math.min(os.length - 1, i + (e.key === "ArrowDown" ? 1 : -1)))].focus();
 });
 // Dragging the focal length slider (log scale across the lens's range) updates the prompt and preview live.
 $("sheet").addEventListener("input", e => {
@@ -1523,6 +1575,13 @@ $("sheet").addEventListener("input", e => {
 // Clear one group of slots at a time (locked slots stay).
 const CLEAR = { lens: ["lens", "focal", "tstop"], lighting: ["light", "atmo"], composition: ["size", "angle", "aspect"] };
 Object.entries(CLEAR).forEach(([k, ids]) => $("clear-" + k).onclick = () => { ids.forEach(id => { if (!locked[id]) vals[id] = null; }); render(); toast(`Cleared ${k}`); });
+// Prompt panel size: full (prompt, tools and preview), the preview only, or just the header bar. Remembered.
+function setSlate(sz) {
+  store.set("slateSize", sz); $("slate").className = "slate" + (sz === "max" ? "" : " " + sz);
+  document.querySelectorAll("#slate-size button").forEach(b => b.setAttribute("aria-pressed", b.dataset.size === sz));
+}
+$("slate-size").onclick = e => { const b = e.target.closest("button"); if (b) setSlate(b.dataset.size); };
+setSlate(store.get("slateSize", "max"));
 $("view-chips").onclick = () => { view = "chips"; store.set("view2", view); render(); };
 $("view-dd").onclick = () => { view = "dd"; store.set("view2", view); render(); };
 $("collapse-all").onclick = () => { SLOTS.forEach(s => collapsed[s.id] = true); store.set("collapsed", collapsed); render(); };
