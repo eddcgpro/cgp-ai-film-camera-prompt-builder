@@ -274,6 +274,11 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
     <div class="presets" id="presets"></div>
   </div>
 
+  <div class="field">
+    <span class="lbl">Roll a look (unlocked slots)</span>
+    <div class="presets" id="looks"></div>
+  </div>
+
   <div class="sheet-tools" id="sheet-tools">
     <div class="tool-group">
       <button class="mini all" type="button" id="clear-all">Clear all</button>
@@ -305,8 +310,8 @@ const SLOTS = [
   { id: "focal", name: "Lens / focal length", groups: [
     { name: "Focal length", items: ["14mm lens","18mm lens","24mm lens","35mm lens","50mm lens","85mm lens","135mm lens","200mm lens"] } ] },
   { id: "tstop", name: "Lens / aperture", groups: [
-    { name: "T-stop (cine lenses)", items: ["T0.7","T0.95","T1.3","T1.4","T1.8","T2","T2.8","T4","T5.6","T8","T11","T16","T22"] },
-    { name: "F-stop (stills lenses)", items: ["f/0.7","f/0.95","f/1.2","f/1.4","f/1.8","f/2","f/2.8","f/4","f/5.6","f/8","f/11","f/16","f/22"] } ] },
+    { name: "F-stop (stills lenses)", items: ["f/0.7","f/0.95","f/1.2","f/1.4","f/1.8","f/2","f/2.8","f/4","f/5.6","f/8","f/11","f/16","f/22"] },
+    { name: "T-stop (cine lenses)", items: ["T0.7","T0.95","T1.3","T1.4","T1.8","T2","T2.8","T4","T5.6","T8","T11","T16","T22"] } ] },
   { id: "light", name: "Lighting", groups: [
     { name: "Naturalistic", items: ["soft overcast daylight","golden hour backlight","blue hour ambient light","harsh midday sun with hard shadows","single window source with soft falloff","candlelight only","flickering firelight","cool low-key moonlight"] },
     { name: "Stylized", items: ["chiaroscuro lighting with deep blacks","low-key noir lighting through venetian blinds","high-key shadowless lighting","Rembrandt lighting","silhouette against a bright background","rim light","neon practicals on wet reflective streets","sodium vapor streetlight","mixed tungsten and blue daylight","motivated practicals only","red emergency lighting","green-tinted overhead fluorescents","lightning flashes in darkness","hard top light","soft bounce fill","LED volume interactive lighting"] } ] },
@@ -1073,12 +1078,139 @@ const RULES = [
 function conflicts(a) { const C = CAM[a.camera], L = LENS[a.lens]; return RULES.filter(([t]) => t(a, C, L)).map(([, m]) => m(a)); }
 function activeVals() { const a = {}; SLOTS.forEach(s => { if (enabled[s.id] && vals[keyOf(s)]) a[s.id] = vals[keyOf(s)]; }); return a; }
 
-// Picks only options that add no new conflict with the other slots in a; leaves the slot empty if nothing fits.
-function rollSlot(s, a = activeVals()) {
+// Looks for Roll: each is a coherent style, with the options that suit it per slot. focal and stop are [shortest, longest] mm
+// and [widest, narrowest] T-stop. Roll picks a look (the one that best fits any locked slots), then fills each slot from that
+// look only; a slot the look doesn't list stays empty. ROLL_CHANCE makes the optional slots appear only some of the time.
+const LOOKS_ROLL = [
+  { name: "Neon noir", camera: ["Sony Venice 2", "ARRI Alexa 35", "RED V-Raptor 8K VV", "ARRI Alexa Mini LF"],
+    lens: ["Cooke Anamorphic/i SF lenses", "Panavision G-Series anamorphic lenses", "Atlas Orion anamorphic lenses", "ARRI Master Anamorphic lenses"], focal: [24, 85], stop: [1.3, 2.8],
+    light: ["neon practicals on wet reflective streets", "sodium vapor streetlight", "mixed tungsten and blue daylight", "red emergency lighting"],
+    atmo: ["backlit rain", "rising steam", "drifting smoke", "atmospheric haze"], grade: ["CineStill 800T look with red halation", "teal and orange grade", "Fujifilm Eterna 500T look"],
+    size: ["wide shot", "medium shot", "medium close-up", "close-up"], angle: ["low angle", "eye level", "Dutch angle", "through a car windshield", "reflection in a mirror"],
+    move: ["slow dolly push-in", "tracking shot alongside", "Steadicam follow", "following shot from behind", "locked-off tripod"], speed: ["natural motion blur, 180 degree shutter", "slow motion at 120fps"],
+    aspect: ["2.39:1 widescreen"], texture: ["anamorphic lens flares", "halation", "Black Pro-Mist bloom"], ftech: ["oval anamorphic bokeh"] },
+  { name: "Classic noir", camera: ["Mitchell BNC vintage 35mm", "ARRICAM LT 35mm", "Panavision Panaflex Millennium XL2 (35mm)"],
+    lens: ["Bausch & Lomb Super Baltar lenses", "Cooke Panchro/i Classic lenses", "Zeiss Super Speeds"], focal: [25, 75], stop: [2, 5.6],
+    light: ["low-key noir lighting through venetian blinds", "chiaroscuro lighting with deep blacks", "hard top light", "Rembrandt lighting", "silhouette against a bright background"],
+    atmo: ["drifting smoke", "light fog", "backlit rain"], grade: ["Eastman Double-X black and white film"],
+    size: ["full shot", "medium shot", "medium close-up", "close-up"], angle: ["low angle", "high angle", "Dutch angle", "through a doorway", "eye level"],
+    move: ["slow dolly push-in", "locked-off tripod", "crane descending", "slow pan"], aspect: ["1.37:1 Academy ratio", "1.85:1 aspect ratio"],
+    texture: ["fine 35mm grain", "soft vignette", "gate weave"] },
+  { name: "Epic landscape", camera: ["ARRI Alexa 65", "IMAX 15/70mm film camera", "Panavision System 65 (65mm film)", "ARRI Alexa Mini LF", "Sony Venice 2"],
+    lens: ["Panavision Sphero 65 lenses", "Panavision Primo 70 lenses", "Ultra Panavision 70 anamorphic lenses", "ARRI Signature Primes", "Panavision T-Series anamorphic lenses"], focal: [18, 50], stop: [4, 11],
+    light: ["golden hour backlight", "blue hour ambient light", "harsh midday sun with hard shadows", "silhouette against a bright background"],
+    atmo: ["atmospheric haze", "light fog", "volumetric god rays through haze", "dust particles in the air", "sandstorm"],
+    grade: ["Kodak Vision3 250D film stock", "Kodak Vision3 50D film stock", "Kodak Vision3 film emulation", "Kodak 2383 print film emulation", "teal and orange grade"],
+    size: ["extreme wide establishing shot", "wide shot"], angle: ["aerial view", "low angle", "eye level", "bird's-eye view"],
+    move: ["drone rising reveal", "helicopter aerial", "crane rising", "slow pan", "drone flyover", "dolly pull-back reveal"], speed: ["natural motion blur, 180 degree shutter", "timelapse"],
+    aspect: ["2.39:1 widescreen", "2.76:1 Ultra Panavision aspect ratio", "1.43:1 IMAX aspect ratio", "1.90:1 IMAX digital aspect ratio"], texture: ["halation", "Pro-Mist diffusion"] },
+  { name: "16mm intimate", camera: ["ARRI 416 Super 16mm", "Aaton XTR Prod 16mm", "ARRI Alexa Mini", "RED Komodo 6K"],
+    lens: ["Zeiss Super Speeds", "Cooke Panchro/i Classic lenses", "Canon K35 lenses"], focal: [25, 85], stop: [1.3, 2.8],
+    light: ["single window source with soft falloff", "soft overcast daylight", "motivated practicals only", "golden hour backlight", "soft bounce fill"],
+    atmo: ["dust particles in the air", "atmospheric haze"],
+    grade: ["Kodak Vision3 500T film stock", "Kodak Vision3 250D film stock", "Kodak Vision3 film emulation", "Fujifilm Eterna 500T look", "faded 1970s print with lifted blacks", "Kodak 2383 print film emulation"],
+    size: ["medium shot", "medium close-up", "close-up", "two-shot"], angle: ["eye level", "three-quarter angle", "profile view", "over-the-shoulder"],
+    move: ["handheld", "shoulder-mounted", "locked-off tripod", "slow dolly push-in"], speed: ["natural motion blur, 180 degree shutter"],
+    aspect: ["1.85:1 aspect ratio", "1.37:1 Academy ratio"], texture: ["heavy 16mm grain", "light leaks", "halation", "soft vignette", "gate weave"] },
+  { name: "Horror", camera: ["ARRI Alexa Mini", "ARRI Alexa 35", "RED Komodo 6K", "Sony Venice 2"],
+    lens: ["Cooke Panchro/i Classic lenses", "Zeiss Master Primes", "Canon K35 lenses", "Hawk V-Lite anamorphic lenses"], focal: [14, 35], stop: [2, 5.6],
+    light: ["cool low-key moonlight", "green-tinted overhead fluorescents", "red emergency lighting", "lightning flashes in darkness", "hard top light", "flickering firelight"],
+    atmo: ["light fog", "thick haze", "drifting smoke", "rising steam"], grade: ["sickly green fluorescent grade", "bleach bypass grade", "Fujifilm Eterna 500T look", "day-for-night blue grade"],
+    size: ["wide shot", "full shot", "medium shot", "close-up", "extreme close-up"], angle: ["low angle", "high angle", "Dutch angle", "through a doorway", "peephole view", "from behind", "overhead top-down"],
+    move: ["Steadicam follow", "slow dolly push-in", "following shot from behind", "handheld", "locked-off tripod", "slow pan"],
+    aspect: ["1.85:1 aspect ratio", "2.39:1 widescreen"], texture: ["soft vignette", "subtle chromatic aberration", "fine 35mm grain"] },
+  { name: "Golden-age Hollywood", camera: ["Mitchell BNC vintage 35mm", "Panavision Panaflex Millennium XL2 (35mm)", "ARRICAM LT 35mm"],
+    lens: ["Bausch & Lomb Super Baltar lenses", "Cooke Panchro/i Classic lenses"], focal: [35, 85], stop: [2.8, 8],
+    light: ["high-key shadowless lighting", "Rembrandt lighting", "rim light", "soft bounce fill", "golden hour backlight"],
+    grade: ["three-strip Technicolor look", "Kodachrome color", "Kodak 2383 print film emulation"],
+    size: ["full shot", "medium shot", "medium close-up", "close-up", "two-shot"], angle: ["eye level", "low angle", "three-quarter angle", "frontal symmetrical framing"],
+    move: ["crane descending", "crane rising", "slow dolly push-in", "locked-off tripod", "jib sweep"], aspect: ["1.37:1 Academy ratio", "1.85:1 aspect ratio"],
+    texture: ["fine 35mm grain", "Pro-Mist diffusion", "soft vignette", "halation"], ftech: ["soft focus"] },
+  { name: "Action blockbuster", camera: ["RED V-Raptor 8K VV", "ARRI Alexa 35", "Sony Venice 2", "ARRI Alexa Mini LF", "Panavision Millennium DXL2"],
+    lens: ["ARRI Master Anamorphic lenses", "Panavision G-Series anamorphic lenses", "Hawk V-Lite anamorphic lenses", "ARRI Signature Primes", "Angénieux Optimo 24-290mm zoom"], focal: [18, 135], stop: [2.8, 5.6],
+    light: ["harsh midday sun with hard shadows", "golden hour backlight", "sodium vapor streetlight", "silhouette against a bright background", "rim light"],
+    atmo: ["dust particles in the air", "drifting smoke", "embers floating", "sandstorm"], grade: ["teal and orange grade", "bleach bypass grade", "Kodak 2383 print film emulation"],
+    size: ["wide shot", "full shot", "medium shot", "close-up"], angle: ["low angle", "eye level", "Dutch angle", "three-quarter angle", "aerial view"],
+    move: ["Russian arm chase", "car mount tracking", "tracking shot alongside", "handheld", "whip pan", "crash zoom", "arc shot orbiting the subject"],
+    speed: ["speed ramp", "staccato 45 degree shutter", "slow motion at 120fps"], aspect: ["2.39:1 widescreen"], texture: ["anamorphic lens flares", "Black Pro-Mist bloom"] },
+  { name: "Gritty war", camera: ["ARRI Alexa 35", "ARRIFLEX 435", "ARRI Alexa Mini", "Aaton XTR Prod 16mm"],
+    lens: ["Canon K35 lenses", "Zeiss Super Speeds", "Cooke Panchro/i Classic lenses"], focal: [18, 50], stop: [2.8, 8],
+    light: ["harsh midday sun with hard shadows", "soft overcast daylight", "flickering firelight", "hard top light"],
+    atmo: ["dust particles in the air", "drifting smoke", "embers floating", "sandstorm"], grade: ["bleach bypass grade", "Kodak Vision3 500T film stock", "Kodak Vision3 250D film stock", "sepia-toned"],
+    size: ["wide shot", "full shot", "medium shot", "close-up"], angle: ["eye level", "low angle", "ground level", "from behind"],
+    move: ["handheld", "shoulder-mounted", "tracking shot alongside", "following shot from behind"], speed: ["staccato 45 degree shutter", "natural motion blur, 180 degree shutter"],
+    aspect: ["2.39:1 widescreen", "1.85:1 aspect ratio"], texture: ["heavy 16mm grain", "fine 35mm grain", "subtle chromatic aberration"] },
+  { name: "Dreamy romance", camera: ["ARRI Alexa Mini LF", "ARRI Alexa 35", "Sony Venice 2", "Panavision Panaflex Millennium XL2 (35mm)"],
+    lens: ["Leica Summilux-C lenses", "Cooke S4/i lenses", "Canon K35 lenses", "Helios 44-2 lens with swirly bokeh", "vintage Kowa anamorphic lenses"], focal: [50, 135], stop: [1.3, 2],
+    light: ["golden hour backlight", "soft bounce fill", "single window source with soft falloff", "rim light", "candlelight only"],
+    atmo: ["atmospheric haze", "dust particles in the air", "volumetric god rays through haze"],
+    grade: ["muted pastel palette", "warm amber nostalgic grade", "Kodak Vision3 film emulation", "Fujifilm Eterna Vivid look", "Kodak Vision3 250D film stock"],
+    size: ["medium shot", "medium close-up", "close-up", "two-shot"], angle: ["eye level", "profile view", "three-quarter angle", "over-the-shoulder"],
+    move: ["slow dolly push-in", "arc shot orbiting the subject", "Steadicam follow", "gimbal tracking"], speed: ["natural motion blur, 180 degree shutter", "slow motion at 120fps"],
+    aspect: ["2.39:1 widescreen", "1.85:1 aspect ratio"], texture: ["Pro-Mist diffusion", "light leaks", "halation", "soft vignette"], ftech: ["soft focus"] },
+  { name: "Documentary", camera: ["Sony Burano", "Canon EOS C700 FF", "ARRI Alexa Mini", "RED Komodo 6K", "Aaton XTR Prod 16mm", "DJI Ronin 4D"],
+    lens: ["Fujinon Premista 28-100mm zoom", "ARRI Alura 18-80mm zoom", "Zeiss Super Speeds", "Zeiss Supreme Primes"], focal: [24, 85], stop: [2.8, 5.6],
+    light: ["soft overcast daylight", "single window source with soft falloff", "motivated practicals only", "harsh midday sun with hard shadows", "mixed tungsten and blue daylight"],
+    grade: ["clean neutral grade", "Kodak 2383 print film emulation", "Kodak Vision3 250D film stock"],
+    size: ["wide shot", "medium shot", "medium close-up", "close-up"], angle: ["eye level", "three-quarter angle", "over-the-shoulder", "shoulder level"],
+    move: ["handheld", "shoulder-mounted", "locked-off tripod", "gimbal tracking", "slow pan"], speed: ["natural motion blur, 180 degree shutter"],
+    aspect: ["1.78:1 16:9 HD frame", "1.85:1 aspect ratio"] },
+  { name: "Retro home movie", camera: ["VHS camcorder", "1990s Sony Handycam MiniDV", "Canon 1014 XL-S Super 8", "Bolex H16 16mm"],
+    light: ["motivated practicals only", "golden hour backlight", "harsh midday sun with hard shadows", "flickering firelight", "mixed tungsten and blue daylight"],
+    grade: ["Kodachrome color", "faded 1970s print with lifted blacks", "warm amber nostalgic grade", "Kodak Ektachrome 100D reversal film", "Kodak Vision3 200T film stock"],
+    size: ["wide shot", "full shot", "medium shot", "group shot"], angle: ["eye level", "first-person POV", "high angle"],
+    move: ["handheld", "slow zoom in", "snap zoom", "crash zoom"], aspect: ["1.33:1 4:3 TV frame"],
+    texture: ["light leaks", "gate weave", "heavy 16mm grain", "subtle chromatic aberration", "soft vignette"] },
+  { name: "Sci-fi", camera: ["ARRI Alexa 65", "Sony Venice 2", "RED Monstro 8K VV", "Blackmagic URSA Cine 12K", "ARRI Alexa Mini LF"],
+    lens: ["ARRI Master Anamorphic lenses", "Panavision T-Series anamorphic lenses", "Zeiss Master Primes", "ARRI Signature Primes", "Hawk V-Lite anamorphic lenses"], focal: [18, 85], stop: [2, 5.6],
+    light: ["LED volume interactive lighting", "hard top light", "rim light", "silhouette against a bright background", "green-tinted overhead fluorescents", "high-key shadowless lighting"],
+    atmo: ["atmospheric haze", "volumetric god rays through haze", "rising steam", "thick haze"], grade: ["teal and orange grade", "clean neutral grade", "bleach bypass grade", "Fujifilm 3513 print film emulation"],
+    size: ["extreme wide establishing shot", "wide shot", "full shot", "medium shot", "close-up"], angle: ["low angle", "frontal symmetrical framing", "overhead top-down", "eye level"],
+    move: ["slow dolly push-in", "crane rising", "motion control repeat pass", "Steadicam follow", "dolly pull-back reveal"],
+    aspect: ["2.39:1 widescreen", "1.90:1 IMAX digital aspect ratio"], texture: ["anamorphic lens flares", "Black Pro-Mist bloom", "subtle chromatic aberration"] },
+  { name: "Symmetric pastel", camera: ["ARRI Alexa Mini", "ARRICAM LT 35mm", "ARRI Alexa 35"],
+    lens: ["Cooke S4/i lenses", "Zeiss Master Primes", "Cooke Panchro/i Classic lenses"], focal: [18, 40], stop: [4, 11],
+    light: ["high-key shadowless lighting", "soft overcast daylight", "soft bounce fill"], grade: ["muted pastel palette", "Kodachrome color", "Fujifilm Eterna Vivid look", "Kodak Vision3 50D film stock"],
+    size: ["wide shot", "full shot", "medium shot", "group shot"], angle: ["frontal symmetrical framing", "overhead top-down", "profile view"],
+    move: ["locked-off tripod", "truck left", "truck right", "whip pan", "slow pan", "tilt down"], aspect: ["1.85:1 aspect ratio", "1.37:1 Academy ratio"],
+    texture: ["fine 35mm grain", "soft vignette"] },
+  { name: "Glossy commercial", camera: ["RED V-Raptor 8K VV", "Sony Venice 2", "ARRI Alexa 35", "Canon EOS C700 FF"],
+    lens: ["ARRI Signature Primes", "Zeiss Supreme Primes", "Leica Summilux-C lenses", "Laowa 24mm probe lens"], focal: [24, 135], stop: [2, 8],
+    light: ["high-key shadowless lighting", "soft bounce fill", "rim light", "golden hour backlight", "LED volume interactive lighting"],
+    grade: ["clean neutral grade", "teal and orange grade", "Fujifilm Eterna Vivid look"],
+    size: ["medium shot", "close-up", "extreme close-up", "macro insert shot"], angle: ["eye level", "low angle", "overhead top-down", "three-quarter angle"],
+    move: ["slow dolly push-in", "arc shot orbiting the subject", "motion control repeat pass", "gimbal tracking", "360 degree orbit"],
+    speed: ["slow motion at 120fps", "speed ramp", "natural motion blur, 180 degree shutter"], aspect: ["1.78:1 16:9 HD frame", "2.39:1 widescreen", "9:16 vertical"],
+    texture: ["Black Pro-Mist bloom", "Pro-Mist diffusion"] }
+];
+const ROLL_CHANCE = { focal: .7, tstop: .5, atmo: .55, move: .6, speed: .35, texture: .5, ftech: .2 };
+// Whether a value suits a look: focal lengths and T-stops by range, everything else by the look's list.
+function inLook(L, id, v) {
+  if (id === "focal") return !!L.focal && mm(v) >= L.focal[0] && mm(v) <= L.focal[1];
+  if (id === "tstop") return !!L.stop && v[0] === "T" && tnum(v) >= L.stop[0] && tnum(v) <= L.stop[1];
+  return !!(L[id] && L[id].includes(v));
+}
+const looksSlot = (L, id) => id === "focal" ? !!L.focal : id === "tstop" ? !!L.stop : !!L[id];
+// The look that best fits the values given (a random one among the best; any look when nothing matches).
+function lookFor(a) {
+  const sc = LOOKS_ROLL.map(L => Object.entries(a).filter(([id, v]) => inLook(L, id, v)).length), top = Math.max(...sc);
+  const best = LOOKS_ROLL.filter((L, i) => sc[i] === top);
+  return best[Math.floor(Math.random() * best.length)];
+}
+
+// Picks only options that add no new conflict with the other slots in a, preferring those that suit look L.
+// strict: with nothing in the look that fits, leave the slot empty rather than pick something off-style.
+function rollSlot(s, a = activeVals(), L = null, strict = false) {
   delete a[s.id];
   const base = conflicts(a).length, b = blockedOf(s, a);
   const ok = b.all ? [] : itemsOf(s, a).filter(it => !b.off.has(it) && conflicts({ ...a, [s.id]: it }).length === base);
-  const pick = ok.length ? ok[Math.floor(Math.random() * ok.length)] : null;
+  const fit = L ? ok.filter(it => inLook(L, s.id, it)) : ok;
+  let from = fit.length || strict ? fit : ok;
+  if (!fit.length && L && L[s.id === "tstop" ? "stop" : s.id] && ["focal", "tstop"].includes(s.id)) {  // the lens can't reach the look's range: the nearest it can
+    const [lo, hi] = s.id === "focal" ? L.focal : L.stop, n = it => s.id === "focal" ? mm(it) : tnum(it), off = it => n(it) < lo ? lo / n(it) : n(it) / hi;
+    from = ok.filter(it => s.id !== "tstop" || it[0] === "T").sort((x, y) => off(x) - off(y)).slice(0, 1);
+  }
+  const pick = from.length ? from[Math.floor(Math.random() * from.length)] : null;
   vals[keyOf(s)] = pick;
   if (pick) a[s.id] = pick;
   return a;
@@ -1558,7 +1690,7 @@ $("sheet").addEventListener("click", e => {
   const [kind, id, m] = b.id.split("-");
   const s = SLOTS.find(x => x.id === id); if (!s) return;
   if (kind === "lock") locked[id] = !locked[id];
-  else if (kind === "roll") rollSlot(s);
+  else if (kind === "roll") { const a = activeVals(); delete a[id]; rollSlot(s, a, lookFor(a)); }
   else if (kind === "on") enabled[id] = !enabled[id];
   else if (kind === "mode") mode[id] = m;
   else if (kind === "col") { collapsed[id] = !collapsed[id]; store.set("collapsed", collapsed); }
@@ -1614,14 +1746,21 @@ $("view-chips").onclick = () => { view = "chips"; store.set("view2", view); rend
 $("view-dd").onclick = () => { view = "dd"; store.set("view2", view); render(); };
 $("collapse-all").onclick = () => { SLOTS.forEach(s => collapsed[s.id] = true); store.set("collapsed", collapsed); render(); };
 $("expand-all").onclick = () => { collapsed = {}; store.set("collapsed", collapsed); render(); };
-$("roll").onclick = () => {
+// Rolls the unlocked slots within one look: the one given, or the one that best fits the locked slots.
+// Slots the look doesn't cover, and optional slots that miss their ROLL_CHANCE, are left empty.
+function rollLook(L) {
   const free = SLOTS.filter(s => !locked[s.id] && enabled[s.id]), a = activeVals();
   free.forEach(s => delete a[s.id]);
+  L = L || lookFor(a);
   // Camera and lens anchor the look, so they pick first; the rest go in random order so no slot always gets first pick.
   const first = ["camera", "lens", "focal", "tstop"];  // the lens decides what focal length, T-stop and depth of field can be
-  free.map(s => [first.includes(s.id) ? first.indexOf(s.id) - 9 : Math.random(), s]).sort((x, y) => x[0] - y[0]).forEach(([, s]) => rollSlot(s, a));
-  render(); toast("Rolled");
-};
+  free.map(s => [first.includes(s.id) ? first.indexOf(s.id) - 9 : Math.random(), s]).sort((x, y) => x[0] - y[0]).forEach(([, s]) => {
+    if (looksSlot(L, s.id) && Math.random() < (ROLL_CHANCE[s.id] ?? 1)) rollSlot(s, a, L, !["focal", "tstop"].includes(s.id));
+    else vals[keyOf(s)] = null;
+  });
+  render(); toast("Rolled: " + L.name);
+}
+$("roll").onclick = () => rollLook();
 $("clear").onclick = () => { SLOTS.forEach(s => { if (!locked[s.id]) vals[keyOf(s)] = null; }); render(); };
 ["subject", "avoid"].forEach(id => $(id).addEventListener("input", () => { const t = promptText(); $("out").textContent = t; $("m-chars").textContent = t.length; }));
 $("fmt-compact").onclick = () => { format = "compact"; store.set("format", format); render(); };
@@ -1630,6 +1769,8 @@ $("fmt-structured").onclick = () => { format = "structured"; store.set("format",
 const presetBox = $("presets");
 PRESETS.forEach(p => { const b = document.createElement("button"); b.type = "button"; b.className = "preset"; b.textContent = p.name;
   b.onclick = () => { applyPreset(p); render(); toast("Loaded " + p.name); }; presetBox.appendChild(b); });
+LOOKS_ROLL.forEach(L => { const b = document.createElement("button"); b.type = "button"; b.className = "preset"; b.textContent = L.name;
+  b.onclick = () => rollLook(L); $("looks").appendChild(b); });
 
 let tt;
 function toast(msg) { $("toast").textContent = msg; clearTimeout(tt); tt = setTimeout(() => $("toast").textContent = "", 1800); }
