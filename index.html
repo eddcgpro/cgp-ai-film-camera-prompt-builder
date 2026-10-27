@@ -61,14 +61,15 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
 /* Slate: glass plate */
 .slate { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); z-index: 5; background: var(--panel);
   border: 1px solid var(--orange); border-radius: 28px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 0 64px rgba(255,153,0,.28); padding: 20px 24px; display: grid; gap: 14px; }
+  box-shadow: 0 18px 44px rgba(0,0,0,.7), 0 4px 12px rgba(0,0,0,.5); padding: 20px 24px; display: grid; gap: 14px; }
 .slate-meta { display: flex; flex-wrap: wrap; gap: 6px 20px; font: 600 11px/1.3 var(--font-core); letter-spacing: .14em; text-transform: uppercase; color: var(--grey-40); }
 .slate-meta b { color: var(--grey-10); font-weight: 600 }
 .slate-meta .live { color: var(--orange) }
 .slate-meta .seg { margin: -4px 0 }
 /* Panel size: "mid" shows only the preview, "min" only the header bar */
 .slate.mid, .slate.min { grid-template-columns: minmax(0, 1fr) }
-.slate.mid > :not(.slate-meta):not(.frame), .slate.min > :not(.slate-meta), .slate.mid .pv-tools, .slate.mid figcaption { display: none }
+.slate.mid .slate-text > :not(.slate-meta), .slate.min .slate-text > :not(.slate-meta), .slate.min .frame, .slate.mid .pv-tools, .slate.mid figcaption { display: none }
+.slate.mid .slate-text, .slate.min .slate-text { contain: none; min-height: 0 }
 .slate.mid .frame { grid-column: 1; grid-row: auto }
 .slate.mid .frame svg { max-height: 36vh }
 #out { margin: 0; font: 400 15px/1.6 var(--font-core); color: var(--grey-10); white-space: pre-wrap; word-break: break-word; max-height: 8em; overflow: auto; }
@@ -91,7 +92,19 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
 .slate .actions { gap: 6px }
 .slate .btn { padding: 8px 13px; font-size: 11px }
 .slate > :not(.frame) { grid-column: 1 }
-.frame { grid-column: 2; grid-row: 1 / span 5; margin: 0; display: grid; gap: 6px; align-content: start }
+.slate-text { display: flex; flex-direction: column; gap: 14px; min-width: 0 }
+.slate-text .actions { flex: none }
+@media (min-width: 721px) {  /* a fixed-height panel: the preview fits inside it and the buttons stay put whatever is chosen */
+  .slate:not(.mid):not(.min) { grid-template-rows: clamp(420px, 60vh, 600px) }
+  .slate:not(.mid):not(.min) .frame { height: 100%; min-height: 0; grid-template-rows: minmax(0, 1fr) auto auto }
+  .slate:not(.mid):not(.min) #pv-view, .slate:not(.mid):not(.min) .frame svg { height: 100%; min-height: 0; max-height: none }
+  .slate-text { contain: size; align-self: stretch }
+  .slate-text #out, .slate-text #out.structured { flex: 1 1 auto; min-height: 7em; max-height: none }
+  .slate-text #reading { flex: 0 1 auto; min-height: 3em; max-height: 35% }
+  .slate-text #warn { flex: none; max-height: 4.5em; overflow: auto }
+  .slate-text .actions { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--line) }
+}
+.frame { grid-column: 2; grid-row: 1; margin: 0; display: grid; gap: 6px; align-content: start }
 .frame svg { width: 100%; height: auto; max-height: 44vh; display: block; border-radius: 6px }
 .frame figcaption { font: 400 11px/1.45 var(--font-core); color: var(--grey-40) }
 .frame figcaption b { font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--orange); margin-right: 6px }
@@ -143,6 +156,8 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
 .mini:hover { border-color: var(--orange) }
 .mini.lock[aria-pressed="true"] { background: var(--orange); border-color: var(--orange); color: var(--black) }
 .mini.on[aria-pressed="false"] { color: var(--grey-40) }
+.mini.all { border-color: var(--orange); color: var(--grey-10) }
+.mini.all:hover { background: var(--orange-16) }
 .slot-tone { margin: 0; font: 400 12px/1.45 var(--font-core); color: var(--grey-40) }
 .slot-tone b { font-weight: 600; color: var(--orange); margin-right: 4px }
 .chip .tone { display: block; font-size: 11px; color: var(--grey-40); font-weight: 400 }
@@ -205,6 +220,7 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
   </header>
 
   <section class="slate" id="slate" aria-label="Prompt">
+    <div class="slate-text">
     <div class="slate-meta">
       <div class="seg small" role="group" aria-label="Panel size" id="slate-size">
         <button type="button" data-size="min">Min</button><button type="button" data-size="mid">Preview</button><button type="button" data-size="max">Full</button>
@@ -216,6 +232,7 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
     </div>
     <pre id="out" aria-live="polite"></pre>
     <p id="reading" hidden></p>
+    <p id="warn" role="status" hidden></p>
     <div class="actions">
       <button class="btn primary" id="copy" type="button">Copy prompt</button>
       <button class="btn" id="roll" type="button">Roll unlocked</button>
@@ -226,7 +243,7 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
       </div>
       <span id="toast" role="status"></span>
     </div>
-    <p id="warn" role="status" hidden></p>
+    </div>
     <figure class="frame" id="frame">
       <div id="pv-view"></div>
       <div class="pv-tools" id="pv-tools" role="group" aria-label="Preview overlays and drawing"></div>
@@ -259,6 +276,7 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
 
   <div class="sheet-tools" id="sheet-tools">
     <div class="tool-group">
+      <button class="mini all" type="button" id="clear-all">Clear all</button>
       <button class="mini" type="button" id="clear-lens">Clear lens</button>
       <button class="mini" type="button" id="clear-lighting">Clear lighting</button>
       <button class="mini" type="button" id="clear-composition">Clear composition</button>
@@ -286,8 +304,9 @@ const SLOTS = [
     { name: "Free choice (any focal length)", items: ["spherical lens","anamorphic lens"] } ] },
   { id: "focal", name: "Lens / focal length", groups: [
     { name: "Focal length", items: ["14mm lens","18mm lens","24mm lens","35mm lens","50mm lens","85mm lens","135mm lens","200mm lens"] } ] },
-  { id: "tstop", name: "Lens / aperture (T-stop)", groups: [
-    { name: "T-stop", items: ["T0.7","T0.95","T1.3","T1.4","T1.8","T2","T2.8","T4","T5.6","T8","T11","T16","T22"] } ] },
+  { id: "tstop", name: "Lens / aperture", groups: [
+    { name: "T-stop (cine lenses)", items: ["T0.7","T0.95","T1.3","T1.4","T1.8","T2","T2.8","T4","T5.6","T8","T11","T16","T22"] },
+    { name: "F-stop (stills lenses)", items: ["f/0.7","f/0.95","f/1.2","f/1.4","f/1.8","f/2","f/2.8","f/4","f/5.6","f/8","f/11","f/16","f/22"] } ] },
   { id: "light", name: "Lighting", groups: [
     { name: "Naturalistic", items: ["soft overcast daylight","golden hour backlight","blue hour ambient light","harsh midday sun with hard shadows","single window source with soft falloff","candlelight only","flickering firelight","cool low-key moonlight"] },
     { name: "Stylized", items: ["chiaroscuro lighting with deep blacks","low-key noir lighting through venetian blinds","high-key shadowless lighting","Rembrandt lighting","silhouette against a bright background","rim light","neon practicals on wet reflective streets","sodium vapor streetlight","mixed tungsten and blue daylight","motivated practicals only","red emergency lighting","green-tinted overhead fluorescents","lightning flashes in darkness","hard top light","soft bounce fill","LED volume interactive lighting"] } ] },
@@ -426,29 +445,30 @@ function blockedOf(s, a = activeVals()) {
   }
   if (s.id === "tstop") {
     const r = stopRange(a);
-    if (r.fixed) return { all: true, off: none.off, note: `${r.what} has a fixed aperture of f/${r.fixed}, so there's no T-stop to set.` };
-    return { off: new Set(itemsOf(s).filter(it => tnum(it) < r.min - .001 || tnum(it) > r.max)), note: `${r.what} opens to T${r.min}${r.max < 22 ? ` and stops down to T${r.max}` : ""}.` };
+    if (r.fixed) return { all: true, off: none.off, note: `${r.what} has a fixed aperture of f/${r.fixed}, so there's no aperture to set.` };
+    return { off: new Set(itemsOf(s).filter(it => !stopFits(it, r))), note: `${r.what} opens to T${r.min}${r.max < 22 ? ` and stops down to T${r.max}` : ""}.`
+      + ` T-stops measure the light that really gets through, as cine lenses are marked; f-stops are the stills-lens figure, a touch faster. Either sets depth of field.` };
   }
   if (s.id === "dof" && lensSpecific(a)) {
-    const d = dofCalc(a), need = [!focalOf(a) && "a focal length", !stopOf(a) && "a T-stop"].filter(Boolean).join(" and ");
-    const note = d ? `Calculated from ${f1(d.f0)}mm at T${d.N}, subject about ${fmtLen(d.D)} away${d.assumedSize ? " (assuming a full shot)" : ""}: ${isFinite(d.far) ? `${fmtLen(d.total)} in focus, ${fmtLen(d.near)} to ${fmtLen(d.far)}` : `sharp from ${fmtLen(d.near)} to infinity`}.`
+    const d = dofCalc(a), need = [!focalOf(a) && "a focal length", !stopOf(a) && "an aperture"].filter(Boolean).join(" and ");
+    const note = d ? `Calculated from ${f1(d.f0)}mm at ${stopName(a, d.N)}, subject about ${fmtLen(d.D)} away${d.assumedSize ? " (assuming a full shot)" : ""}: ${isFinite(d.far) ? `${fmtLen(d.total)} in focus, ${fmtLen(d.near)} to ${fmtLen(d.far)}` : `sharp from ${fmtLen(d.near)} to infinity`}.`
       : `Lens settings are set, so depth of field is calculated rather than picked. Add ${need} to see it, or use Clear lens to pick it by hand.`;
     return { all: true, off: none.off, note: note + (vals.dof && enabled.dof ? ` Your "${vals.dof}" pick is ignored while lens settings are set.` : "") };
   }
-  if (s.id === "dof") return { ...none, note: "No lens settings, so you can pick this by hand. Setting a named lens, focal length or T-stop calculates it instead." };
+  if (s.id === "dof") return { ...none, note: "No lens settings, so you can pick this by hand. Setting a named lens, focal length or aperture calculates it instead." };
   return none;
 }
 
-// Keeps lens, focal length and T-stop consistent after any change: clears what the camera or lens rules out,
-// snaps the focal length to the nearest real one, and moves the T-stop inside what the lens can do.
+// Keeps lens, focal length and aperture consistent after any change: clears what the camera or lens rules out,
+// snaps the focal length to the nearest real one, and moves the T-stop or f-stop inside what the lens can do (keeping its kind).
 function reconcile() {
   if (enabled.lens && vals.lens && CAM[activeVals().camera] && CAM[activeVals().camera].fixed) vals.lens = null;
   const r = focalRange(activeVals()), f = mm(vals.focal);
   if (vals.focal && !focalOk(r, f)) vals.focal = r.fixed ? null
     : `${r.list ? r.list.reduce((b, x) => Math.abs(x - f) < Math.abs(b - f) ? x : b) : Math.min(r.max, Math.max(r.min, f))}mm lens`;
   const t = stopRange(activeVals()), n = vals.tstop && tnum(vals.tstop);
-  if (!vals.tstop || (!t.fixed && n >= t.min - .001 && n <= t.max)) return;
-  const ok = t.fixed ? [] : itemsOf(SLOTS.find(s => s.id === "tstop")).filter(it => tnum(it) >= t.min - .001 && tnum(it) <= t.max);
+  if (!vals.tstop || (!t.fixed && stopFits(vals.tstop, t))) return;
+  const ok = t.fixed ? [] : itemsOf(SLOTS.find(s => s.id === "tstop")).filter(it => it[0] === vals.tstop[0] && stopFits(it, t));
   vals.tstop = ok.length ? (n < t.min ? ok[0] : ok[ok.length - 1]) : null;
 }
 
@@ -923,7 +943,12 @@ function focalItems(a) {
   const list = r.list || [...new Set([r.min, ...FOCAL_STOPS.filter(f => f > r.min && f < r.max), r.max])];
   return list.map(f => `${f}mm lens`);
 }
-const tnum = t => parseFloat(t.slice(1));
+const tnum = t => parseFloat(t.replace(/^(T|f\/)/, ""));
+// Whether an aperture option is inside the lens's range. Ranges are T-stops; an f-stop reads about a fifth of a stop
+// faster than the T-stop of the same lens (a T1.3 lens is roughly f/1.2), so f-stops get that much allowance.
+const stopFits = (it, r) => { const n = tnum(it); return n >= r.min / (it[0] === "f" ? 1.1 : 1) - .001 && n <= r.max; };
+// How an aperture is written: as chosen, or f/ for a phone's fixed aperture.
+const stopName = (a, N) => a.tstop && a.tstop[0] === "T" ? `T${N}` : `f/${N}`;
 const focalOf = a => mm(a.focal) || FIXED_FOCAL[a.lens] || 0;
 // The apertures the lens can do: the fastest T-stop of the chosen prime (or the set's fastest), a zoom's or single lens's T-stop,
 // a camcorder iris, or { fixed } for a phone or action camera, whose lenses have no iris.
@@ -938,14 +963,14 @@ function stopRange(a) {
   if (L && L.t) return { min: L.t, max: 22, what: `The ${a.lens}` };
   return { min: .95, max: 22, what: a.lens ? `A free-choice ${a.lens}` : "Without a named lens, a lens" };
 }
-// The aperture actually in use: the chosen T-stop, or a phone's fixed aperture.
+// The aperture actually in use: the chosen T-stop or f-stop, or a phone's fixed aperture.
 const stopOf = a => { if (a.tstop) return tnum(a.tstop); const r = stopRange(a); return r.fixed || 0; };
-// Lens specifics: a named lens, a focal length or a T-stop. With any of them set, depth of field is calculated, not picked.
+// Lens specifics: a named lens, a focal length or an aperture. With any of them set, depth of field is calculated, not picked.
 const lensSpecific = a => !!((a.lens && !(LENS[a.lens] || {}).free) || a.focal || a.tstop);
 const DOF_LABELS = ["very shallow depth of field", "shallow depth of field", "moderate depth of field", "deep focus"];
 const fmtLen = m => !isFinite(m) ? "infinity" : m < .01 ? `${Math.round(m * 1000)}mm` : m < 1 ? `${Math.round(m * 100)}cm` : m < 10 ? `${Math.round(m * 100) / 100}m` : `${f1(m)}m`;
-// Depth of field from focal length, T-stop, film back and subject distance (shot size and focal length set the distance).
-// Circle of confusion is the film back diagonal / 1500. Returns null until focal length and T-stop are both known.
+// Depth of field from focal length, aperture, film back and subject distance (shot size and focal length set the distance).
+// Circle of confusion is the film back diagonal / 1500. Returns null until focal length and aperture are both known.
 function dofCalc(a) {
   const g = frameGeom(a), f0 = focalOf(a), N = stopOf(a);
   if (!f0 || !N) return null;
@@ -1012,7 +1037,7 @@ const RULES = [
   [(a, C, L) => ZOOM_MOVES.includes(a.move) && (L ? !L.zoom : C && C.fixed && !C.zoom), a => `${a.move} needs a zoom lens, not ${a.lens || a.camera}`],
   [a => a.focal && !focalOk(focalRange(a), mm(a.focal)),
     a => { const r = focalRange(a); return r.fixed ? `${r.what} is fixed at ${r.fixed}mm; leave Focal length empty` : r.list ? `${r.what} only come in ${r.list.join(", ")}mm` : `${r.what} covers ${r.min} to ${r.max}mm, not ${mm(a.focal)}mm`; }],
-  [a => { if (!a.tstop) return false; const r = stopRange(a), n = tnum(a.tstop); return r.fixed || n < r.min - .001 || n > r.max; },
+  [a => { if (!a.tstop) return false; const r = stopRange(a); return r.fixed || !stopFits(a.tstop, r); },
     a => { const r = stopRange(a); return r.fixed ? `${r.what} has a fixed f/${r.fixed} aperture` : `${r.what} opens to T${r.min}, not ${a.tstop}`; }],
   [(a, C) => C && C.heavy && DRONE_MOVES.includes(a.move), a => `${a.camera} is too heavy for ${a.move}`],
   [(a, C) => a.move === "FPV drone dive" && C && !C.small, a => `FPV drones carry small cameras, not ${a.camera}`],
@@ -1394,8 +1419,8 @@ function startPreview() {
 }
 
 // The preview's fixed parts: film back, crop (the scene shows across the whole film back, darkened outside the crop by
-// cropMask), overlays and sketch, returned as { svg, cap } (the caption's HTML).
-// The scene itself is drawn by drawPreview.
+// cropMask), overlays and sketch, returned as { svg, cap } (the caption's HTML). The view box hugs the film back and crop,
+// so no empty margin shows round them. The scene itself is drawn by drawPreview.
 function previewHTML(a) {
   const c = pvCtx = previewCtx(a), { W, H, fw, fh, g } = c, view = g.L.view;
   const glowDef = (id, col) => `<radialGradient id="${id}"><stop offset="0" stop-color="${col}" stop-opacity=".85"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></radialGradient>`;
@@ -1409,7 +1434,9 @@ function previewHTML(a) {
   if (a.angle === "peephole view" || view === "fish" && a.angle !== "satellite view") fg += `<path fill-rule="evenodd" d="M0 0H${fw}V${fh}H0Z M${fw / 2 - fh * .48} ${fh / 2} a${fh * .48} ${fh * .48} 0 1 0 ${fh * .96} 0 a${fh * .48} ${fh * .48} 0 1 0 ${-fh * .96} 0Z" fill="#050505" opacity="${a.angle === "peephole view" ? 1 : .55}"/>`;
   if (c.mv === "parallax slide past foreground") fg += `<rect y="0" width="${fw * .12}" height="${fh}" fill="#080808" filter="url(#pv-blur)"><animate attributeName="x" values="${fw * 1.1};${-fw * .3};${fw * 1.1}" dur="${c.dur}s" repeatCount="indefinite"/></rect>`;
   if (["security camera angle", "dashcam view", "body cam view"].includes(a.angle) || a.camera === CCTV) fg += `<text x="8" y="16" fill="#ff4d4d" font-family="Montserrat, Arial" font-size="10" font-weight="600">● REC</text>`;
-  const svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Sketch of the framed shot">
+  const ox = (W - fw) / 2, oy = (H - fh) / 2, x0 = ox + Math.min(0, c.gx), y0 = oy + Math.min(0, c.gy);
+  const vb = [x0 - 1, y0 - 1, ox + Math.max(fw, c.gx + c.gW) - x0 + 2, oy + Math.max(fh, c.gy + c.gH) - y0 + 2].map(f1).join(" ");
+  const svg = `<svg viewBox="${vb}" role="img" aria-label="Sketch of the framed shot">
     <defs><clipPath id="pv-clip"><rect width="${fw}" height="${fh}"/></clipPath><clipPath id="pv-gate"><rect x="${c.gx}" y="${c.gy}" width="${c.gW}" height="${c.gH}"/></clipPath>
       <filter id="pv-blur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.4"/></filter>
       <filter id="pv-soft"><feGaussianBlur stdDeviation=".9"/></filter>
@@ -1417,7 +1444,7 @@ function previewHTML(a) {
       <filter id="pv-subjblur" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur id="pv-subjblur-fe" stdDeviation="0"/></filter>
       ${glowDef("pv-glow", c.lk.key)}${glowDef("pv-glow2", c.k2)}
       <radialGradient id="pv-vig" r=".75"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".6"/></radialGradient></defs>
-    <g id="pv-fg" transform="translate(${(W - fw) / 2} ${(H - fh) / 2})">
+    <g id="pv-fg" transform="translate(${ox} ${oy})">
       <g clip-path="url(#pv-gate)">${scene}<g id="pv-atmo"></g>
         <path id="pv-mask" d="M${f1(c.gx)} ${f1(c.gy)}h${f1(c.gW)}v${f1(c.gH)}h${f1(-c.gW)}Z M0 0v${f1(fh)}h${f1(fw)}v${f1(-fh)}Z" fill="#000" fill-rule="evenodd" opacity="${cropMask}"/></g>
       <g clip-path="url(#pv-clip)">${fg}${overlaySVG(fw, fh)}</g>
@@ -1432,8 +1459,8 @@ function previewHTML(a) {
   const eq = c.f0 && (g.C0.fixed ? c.f0 : c.f0 * 43.27 / g.diag), hfov = 2 * Math.atan(g.cw / (2 * c.fReal)) / RAD;
   const lensLine = c.f0 ? `${c.f0}mm ${g.C0.fixed ? "(full-frame equivalent)" : `≈ ${Math.round(eq)}mm full-frame equivalent`} · ${Math.round(hfov)}° horizontal · camera about ${fmtLen(c.base.D)} from the subject`
     : `No focal length set, so a normal lens is shown · camera about ${fmtLen(c.base.D)} from the subject`;
-  const dofLine = d ? `T${d.N}: ${isFinite(d.far) ? `${fmtLen(d.total)} in focus (${fmtLen(d.near)} to ${fmtLen(d.far)})` : `sharp from ${fmtLen(d.near)} to infinity`} · ${d.label}`
-    : c.manual ? `Depth of field picked by hand: ${a.dof}` : lensSpecific(a) ? "Add a focal length and T-stop to calculate depth of field" : "";
+  const dofLine = d ? `${stopName(a, d.N)}: ${isFinite(d.far) ? `${fmtLen(d.total)} in focus (${fmtLen(d.near)} to ${fmtLen(d.far)})` : `sharp from ${fmtLen(d.near)} to infinity`} · ${d.label}`
+    : c.manual ? `Depth of field picked by hand: ${a.dof}` : lensSpecific(a) ? "Add a focal length and aperture to calculate depth of field" : "";
   const moveLine = c.mv ? `Looping: ${a.move}${a.speed && SPEED_DUR[a.speed] ? `, ${a.speed}` : ""}` : "";
   const lines = [back + squeeze, crop, lensLine, dofLine, moveLine, a.aspect && "Also set this aspect in your image model's own settings."].filter(Boolean);
   return { svg, cap: `<b>Frame preview</b> ${lines.map(esc).join("<br>")}` };
@@ -1572,7 +1599,8 @@ $("sheet").addEventListener("input", e => {
   const r = focalRange(activeVals()), f = Math.round(r.min * Math.pow(r.max / r.min, e.target.value / 1000));
   vals.focal = `${f}mm lens`; e.target.classList.remove("unset"); $("focal-num").value = f; renderLive();
 });
-// Clear one group of slots at a time (locked slots stay).
+// Clear all empties every slot, locked ones too, and unlocks them; the group buttons clear one group at a time (locked slots stay).
+$("clear-all").onclick = () => { Object.keys(vals).forEach(k => vals[k] = null); SLOTS.forEach(s => locked[s.id] = false); render(); toast("Cleared all"); };
 const CLEAR = { lens: ["lens", "focal", "tstop"], lighting: ["light", "atmo"], composition: ["size", "angle", "aspect"] };
 Object.entries(CLEAR).forEach(([k, ids]) => $("clear-" + k).onclick = () => { ids.forEach(id => { if (!locked[id]) vals[id] = null; }); render(); toast(`Cleared ${k}`); });
 // Prompt panel size: full (prompt, tools and preview), the preview only, or just the header bar. Remembered.
