@@ -1591,7 +1591,7 @@ function previewHTML(a) {
   if (a.angle === "through a car windshield") fg = `<rect width="${fw}" height="${fh * .1}" fill="#0d0d0d"/><path d="M0 ${fh * .8} Q${fw / 2} ${fh * .7} ${fw} ${fh * .8} V${fh} H0Z" fill="#0d0d0d"/>`;
   if (a.angle === "peephole view" || view === "fish" && a.angle !== "satellite view") fg += `<path fill-rule="evenodd" d="M0 0H${fw}V${fh}H0Z M${fw / 2 - fh * .48} ${fh / 2} a${fh * .48} ${fh * .48} 0 1 0 ${fh * .96} 0 a${fh * .48} ${fh * .48} 0 1 0 ${-fh * .96} 0Z" fill="#050505" opacity="${a.angle === "peephole view" ? 1 : .55}"/>`;
   if (c.mv === "parallax slide past foreground") fg += `<rect y="0" width="${fw * .12}" height="${fh}" fill="#080808" filter="url(#pv-blur)"><animate attributeName="x" values="${fw * 1.1};${-fw * .3};${fw * 1.1}" dur="${c.dur}s" repeatCount="indefinite"/></rect>`;
-  if (["security camera angle", "dashcam view", "body cam view"].includes(a.angle) || a.camera === CCTV) fg += `<text x="8" y="16" fill="#ff4d4d" font-family="Montserrat, Arial" font-size="10" font-weight="600">● REC</text>`;
+  if (["security camera angle", "dashcam view", "body cam view"].includes(a.angle) || a.camera === CCTV) fg += `<text x="${fw - 8}" y="16" text-anchor="end" fill="#ff4d4d" font-family="Montserrat, Arial" font-size="10" font-weight="600">● REC</text>`;
   const ox = (W - fw) / 2, oy = (H - fh) / 2, x0 = ox + Math.min(0, c.gx, c.sx), y0 = oy + Math.min(0, c.gy, c.sy);
   const vb = [x0 - 1, y0 - 1, ox + Math.max(fw, c.gx + c.gW, c.sx + c.sW) - x0 + 2, oy + Math.max(fh, c.gy + c.gH, c.sy + c.sH) - y0 + 2].map(f1).join(" ");
   // The film back the lens doesn't use: hatched.
@@ -1609,8 +1609,8 @@ function previewHTML(a) {
   const usedEdge = unused && `<rect x="${c.gx}" y="${c.gy}" width="${c.gW}" height="${c.gH}" fill="none" stroke="#666" stroke-dasharray="4 3"/>`;
   // Labels for the outlines (the Labels overlay): solid grey is the camera's film back, dashed grey the part of it the
   // lens's picture uses (only when that differs), orange the frame. In Fill mode the outer outline is the picture itself.
-  // Sizes go on the film back and the crop; the frame carries its aspect at the bottom right and the lens (focal length, lens,
-  // aperture) at the bottom left, or stacked above the aspect when the frame is too narrow for both on one line (and without
+  // Sizes go on the film back and the crop; the frame carries its aspect at the bottom right (orange) and the lens (focal
+  // length, lens, aperture; green) at the bottom left, or stacked above the aspect when the frame is too narrow for both on one line (and without
   // the lens name when it's too narrow even for that).
   const mmSize = (w, h) => `${f1(w)} × ${f1(h)}mm`;
   const backLbl = (!a.camera ? "Sensor (full frame) " : g.C0.k === "film" ? "Film gate " : "Sensor ") + mmSize(g.C0.w, g.C0.h);
@@ -1620,18 +1620,23 @@ function previewHTML(a) {
   if (lensLbl.length * 3.8 + 6 > fw) lensLbl = [focalOf(a) && `${focalOf(a)}mm`, a.tstop].filter(Boolean).join(" · ");  // too narrow for the lens name
   const T = (x, y, t, col, end) => `<text x="${f1(x)}" y="${f1(y)}" class="pv-lbl" fill="${col}"${end ? ` text-anchor="end"` : ""}>${esc(t.toUpperCase())}</text>`;
   const oneLine = (lensLbl.length + frameLbl.length) * 3.8 + 14 < fw;
-  // The image circle's label runs round the outside of the ring, centred towards the bottom-left corner (in the dark).
+  // The image circle's label runs round the outside of the ring, centred on its left side, in the dark and clear of the
+  // frame's corners (which sit on the ring); with no room beside the ring it sits straight in the bottom-left corner.
   let ringLbl = "";
   if (c.showBack && g.cropped) {
-    const t = `Image circle ≈ ${Math.round(Math.hypot(g.C.w, g.C.h))}mm`, R = Math.hypot(g.C.w, g.C.h) / 2 * c.sW / g.C0.w + 6.5;
-    const t0 = Math.PI - .75 * Math.atan(c.sH / c.sW), dt = t.length * 3.8 / (2 * R) + .05, p = q => `${f1(fw / 2 + R * Math.cos(q))} ${f1(fh / 2 + R * Math.sin(q))}`;
-    ringLbl = `<path id="pv-ring-txt" d="M${p(t0 + dt)}A${f1(R)} ${f1(R)} 0 0 0 ${p(t0 - dt)}" fill="none"/>`
-      + `<text class="pv-lbl" fill="#a8a8a8"><textPath href="#pv-ring-txt" startOffset="50%" text-anchor="middle">${esc(t.toUpperCase())}</textPath></text>`;
+    const t = `Image circle ≈ ${Math.round(Math.hypot(g.C.w, g.C.h))}mm`, R = Math.hypot(g.C.w, g.C.h) / 2 * c.sW / g.C0.w + 6.5, dt = t.length * 3.7 / (2 * R) + .04;
+    const p = q => `${f1(fw / 2 + R * Math.cos(q))} ${f1(fh / 2 + R * Math.sin(q))}`, t0 = Math.PI;
+    ringLbl = R < c.sW / 2 - 1 && R * Math.sin(dt) < c.sH / 2 - 2
+      ? `<path id="pv-ring-txt" d="M${p(t0 + dt)}A${f1(R)} ${f1(R)} 0 0 0 ${p(t0 - dt)}" fill="none"/>`
+        + `<text class="pv-lbl" fill="#a8a8a8"><textPath href="#pv-ring-txt" startOffset="50%" text-anchor="middle">${esc(t.toUpperCase())}</textPath></text>`
+      : T(c.sx + 3, c.sy + c.sH - 3, t, "#a8a8a8");
   }
+  // The crop's label drops to the line below the film back's when they would share a line.
+  const usedY = c.gy + 7 < c.sy + 15 ? c.sy + 15 : c.gy + 7, LENS_COL = "#8ED47F";
   const labels = !overlays.labels ? "" : T(c.sx + 3, c.sy + 7, c.showBack || !usedLbl ? backLbl : usedLbl, "#a8a8a8")
-    + (c.showBack ? T(c.gx + 3, c.gy + 7, usedLbl, "#a8a8a8") : "") + ringLbl
+    + (c.showBack ? T(c.gx + 3, usedY, usedLbl, "#a8a8a8") : "") + ringLbl
     + T(fw - 3, fh - 3, frameLbl, "#FF9900", true)
-    + (lensLbl ? (oneLine ? T(3, fh - 3, lensLbl, "#FF9900") : T(fw - 3, fh - 10, lensLbl, "#FF9900", true)) : "");
+    + (lensLbl ? (oneLine ? T(3, fh - 3, lensLbl, LENS_COL) : T(fw - 3, fh - 10, lensLbl, LENS_COL, true)) : "");
   const svg = `<svg viewBox="${vb}" role="img" aria-label="Sketch of the framed shot">
     <defs><clipPath id="pv-clip"><rect width="${fw}" height="${fh}"/></clipPath><clipPath id="pv-back"><rect x="${c.sx}" y="${c.sy}" width="${c.sW}" height="${c.sH}"/></clipPath><clipPath id="pv-gate"><rect x="${c.gx}" y="${c.gy}" width="${c.gW}" height="${c.gH}"/></clipPath>
       <filter id="pv-blur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.4"/></filter>
