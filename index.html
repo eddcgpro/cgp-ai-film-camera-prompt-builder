@@ -98,6 +98,7 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
   .slate:not(.mid):not(.min) { grid-template-rows: clamp(420px, 60vh, 600px) }
   .slate:not(.mid):not(.min) .frame { height: 100%; min-height: 0; grid-template-rows: minmax(0, 1fr) auto auto }
   .slate:not(.mid):not(.min) #pv-view, .slate:not(.mid):not(.min) .frame svg { height: 100%; min-height: 0; max-height: none }
+  .slate:not(.mid):not(.min) .frame figcaption { height: 7.3em; overflow: auto }  /* a fixed height, so a longer caption doesn't shrink the preview */
   .slate-text { contain: size; align-self: stretch }
   .slate-text #out, .slate-text #out.structured { flex: 1 1 auto; min-height: 7em; max-height: none }
   .slate-text #reading { flex: 0 1 auto; min-height: 3em; max-height: 35% }
@@ -109,6 +110,7 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
 .frame figcaption { font: 400 11px/1.45 var(--font-core); color: var(--grey-40) }
 .frame figcaption b { font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--orange); margin-right: 6px }
 .frame.drawing svg { cursor: crosshair; touch-action: none }
+.frame .pv-note { font: 600 7px/1 var(--font-core); letter-spacing: .04em; fill: #9a9a9a }
 .pv-tools { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; font: 400 11px/1.3 var(--font-core); color: var(--grey-20) }
 .pv-tools label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap }
 .pv-tools input { accent-color: var(--orange); margin: 0 }
@@ -1349,7 +1351,9 @@ function clipHalf(poly, A, B, Pin) {
 
 // Everything about the shot that doesn't change while a move plays.
 function previewCtx(a) {
-  const g = frameGeom(a), W = 300, H = 170, s = Math.min((W - 4) / g.gw, (H - 4) / g.gh);
+  // k: px per mm of the camera's whole film back, so it's drawn the same size whatever the lens. s: px per mm of the picture,
+  // shrunk by any anamorphic squeeze so the desqueezed picture still fits across the film back.
+  const g = frameGeom(a), W = 300, H = 170, k = Math.min((W - 4) / g.C0.w, (H - 4) / g.C0.h), s = k / g.sq;
   const fw = g.cw * s, fh = g.ch * s, f0 = focalOf(a);
   const fReal = f0 ? (g.C0.fixed ? f0 * g.diag / 43.27 : f0) : g.diag;  // no focal length: a normal lens for the format
   const ang = ANGLE[a.angle] || {}, size = a.size || "full shot";
@@ -1360,8 +1364,8 @@ function previewCtx(a) {
   if (a.ftech === "oval anamorphic bokeh") blur = Math.max(blur, 2.5);
   if (size === "macro insert shot" && !d && !manual) blur = 4;
   const center = ang.center || ["two-shot", "group shot", "macro insert shot"].includes(size);
-  const gW = g.gw * s, gH = g.gh * s;  // the whole film back, centred on the crop
-  return { a, g, s, W, H, fw, fh, gW, gH, gx: (fw - gW) / 2, gy: (fh - gH) / 2, fReal, f0, fpx0: fReal * s, lk, k2: lk.key2 || lk.key, d, manual, blur,
+  const gW = g.gw * s, gH = g.gh * s, sW = g.C0.w * k, sH = g.C0.h * k;  // the area the lens covers, and the whole film back, centred on the crop
+  return { a, g, s, W, H, fw, fh, gW, gH, gx: (fw - gW) / 2, gy: (fh - gH) / 2, sW, sH, sx: (fw - sW) / 2, sy: (fh - sH) / 2, fReal, f0, fpx0: fReal * s, lk, k2: lk.key2 || lk.key, d, manual, blur,
     base: { D, h: ang.h ?? 1.6, el: ang.el ?? null, az: ang.az || 0, roll: ang.roll || 0, ty: AIM_Y[size] ?? .95,
       x: 0, dh: 0, fwd: 0, yaw: 0, pitch: 0, fMul: 1, wx: 0, wz: 0, aim: true, rack: 0 },
     subjX: center ? fw / 2 : ["close-up", "extreme close-up", "medium close-up"].includes(size) ? fw * .42 : fw / 3,
@@ -1550,8 +1554,10 @@ function startPreview() {
 }
 
 // The preview's fixed parts: film back, crop (the scene shows across the whole film back, darkened outside the crop by
-// cropMask), overlays and sketch, returned as { svg, cap } (the caption's HTML). The view box hugs the film back and crop,
-// so no empty margin shows round them. The scene itself is drawn by drawPreview.
+// cropMask), overlays and sketch, returned as { svg, cap } (the caption's HTML). The camera's whole film back is drawn the
+// same size whatever the lens; the picture sits inside it, smaller when the lens covers less of it, or scaled down to fit
+// when an anamorphic squeeze makes it wider, with the unused part hatched and labelled. The view box hugs the film back,
+// so no empty margin shows round it. The scene itself is drawn by drawPreview.
 function previewHTML(a) {
   const c = pvCtx = previewCtx(a), { W, H, fw, fh, g } = c, view = g.L.view;
   const glowDef = (id, col) => `<radialGradient id="${id}"><stop offset="0" stop-color="${col}" stop-opacity=".85"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></radialGradient>`;
@@ -1565,8 +1571,17 @@ function previewHTML(a) {
   if (a.angle === "peephole view" || view === "fish" && a.angle !== "satellite view") fg += `<path fill-rule="evenodd" d="M0 0H${fw}V${fh}H0Z M${fw / 2 - fh * .48} ${fh / 2} a${fh * .48} ${fh * .48} 0 1 0 ${fh * .96} 0 a${fh * .48} ${fh * .48} 0 1 0 ${-fh * .96} 0Z" fill="#050505" opacity="${a.angle === "peephole view" ? 1 : .55}"/>`;
   if (c.mv === "parallax slide past foreground") fg += `<rect y="0" width="${fw * .12}" height="${fh}" fill="#080808" filter="url(#pv-blur)"><animate attributeName="x" values="${fw * 1.1};${-fw * .3};${fw * 1.1}" dur="${c.dur}s" repeatCount="indefinite"/></rect>`;
   if (["security camera angle", "dashcam view", "body cam view"].includes(a.angle) || a.camera === CCTV) fg += `<text x="8" y="16" fill="#ff4d4d" font-family="Montserrat, Arial" font-size="10" font-weight="600">● REC</text>`;
-  const ox = (W - fw) / 2, oy = (H - fh) / 2, x0 = ox + Math.min(0, c.gx), y0 = oy + Math.min(0, c.gy);
-  const vb = [x0 - 1, y0 - 1, ox + Math.max(fw, c.gx + c.gW) - x0 + 2, oy + Math.max(fh, c.gy + c.gH) - y0 + 2].map(f1).join(" ");
+  const ox = (W - fw) / 2, oy = (H - fh) / 2, x0 = ox + Math.min(0, c.gx, c.sx), y0 = oy + Math.min(0, c.gy, c.sy);
+  const vb = [x0 - 1, y0 - 1, ox + Math.max(fw, c.gx + c.gW, c.sx + c.sW) - x0 + 2, oy + Math.max(fh, c.gy + c.gH, c.sy + c.sH) - y0 + 2].map(f1).join(" ");
+  // The film back the lens doesn't use: hatched, with a label in the widest gap (along the side when the gap is there).
+  let unused = "";
+  if (g.cropped || g.sq > 1) {
+    const note = g.cropped ? `Lens covers ${g.L.c === 3 ? "Super 35" : "full frame"} only` : `${g.sq}x squeeze, shown desqueezed`, top = c.gy - c.sy, side = c.gx - c.sx;
+    unused = `<path d="M${f1(c.sx)} ${f1(c.sy)}h${f1(c.sW)}v${f1(c.sH)}h${f1(-c.sW)}Z M${f1(c.gx)} ${f1(c.gy)}v${f1(c.gH)}h${f1(c.gW)}v${f1(-c.gH)}Z" fill="url(#pv-hatch)" fill-rule="evenodd"/>`
+      + (top >= 10 ? `<text x="${f1(c.sx + 4)}" y="${f1(c.sy + Math.min(top, 14) / 2 + 3)}" class="pv-note">${note}</text>`
+        : side >= 10 ? `<text transform="translate(${f1(c.sx + Math.min(side, 14) / 2 + 3)} ${f1(c.sy + c.sH - 4)}) rotate(-90)" class="pv-note">${note}</text>` : "");
+  }
+  const usedEdge = unused && `<rect x="${c.gx}" y="${c.gy}" width="${c.gW}" height="${c.gH}" fill="none" stroke="#666" stroke-dasharray="4 3"/>`;
   const svg = `<svg viewBox="${vb}" role="img" aria-label="Sketch of the framed shot">
     <defs><clipPath id="pv-clip"><rect width="${fw}" height="${fh}"/></clipPath><clipPath id="pv-gate"><rect x="${c.gx}" y="${c.gy}" width="${c.gW}" height="${c.gH}"/></clipPath>
       <filter id="pv-blur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.4"/></filter>
@@ -1574,18 +1589,19 @@ function previewHTML(a) {
       <filter id="pv-bgblur" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur id="pv-bgblur-fe" stdDeviation="0"/></filter>
       <filter id="pv-subjblur" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur id="pv-subjblur-fe" stdDeviation="0"/></filter>
       ${glowDef("pv-glow", c.lk.key)}${glowDef("pv-glow2", c.k2)}
-      <radialGradient id="pv-vig" r=".75"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".6"/></radialGradient></defs>
-    <g id="pv-fg" transform="translate(${ox} ${oy})">
+      <radialGradient id="pv-vig" r=".75"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".6"/></radialGradient>
+      <pattern id="pv-hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="#0b0b0b"/><path d="M0 0V5" stroke="#2a2a2a" stroke-width="1.6"/></pattern></defs>
+    <g id="pv-fg" transform="translate(${ox} ${oy})">${unused}
       <g clip-path="url(#pv-gate)">${scene}<g id="pv-atmo"></g>
         <path id="pv-mask" d="M${f1(c.gx)} ${f1(c.gy)}h${f1(c.gW)}v${f1(c.gH)}h${f1(-c.gW)}Z M0 0v${f1(fh)}h${f1(fw)}v${f1(-fh)}Z" fill="#000" fill-rule="evenodd" opacity="${cropMask}"/></g>
       <g clip-path="url(#pv-clip)">${fg}${overlaySVG(fw, fh)}</g>
       <g clip-path="url(#pv-gate)"><path id="pv-ink" d="${inkPath(fw, fh)}" fill="none" stroke="#FF9900" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></g>
-      <rect x="${c.gx}" y="${c.gy}" width="${c.gW}" height="${c.gH}" fill="none" stroke="#666" stroke-dasharray="4 3"/>
+      ${usedEdge}<rect x="${c.sx}" y="${c.sy}" width="${c.sW}" height="${c.sH}" fill="none" stroke="#777"${g.cropped || g.sq > 1 ? "" : ` stroke-dasharray="4 3"`}/>
       <rect width="${fw}" height="${fh}" fill="none" stroke="#FF9900" stroke-width="1.5"/></g></svg>`;
   const C = g.C, d = c.d;
-  const back = a.camera ? `Film back${C.k === "film" ? "" : " (sensor)"} ≈ ${f1(C.w)} × ${f1(C.h)} mm${g.cropped ? `, cropped from ${f1(g.C0.w)} × ${f1(g.C0.h)} to the lens coverage` : ""}`
+  const back = a.camera ? `Film back${C.k === "film" ? "" : " (sensor)"} ≈ ${f1(g.C0.w)} × ${f1(g.C0.h)} mm${g.cropped ? `; the lens only covers ${f1(C.w)} × ${f1(C.h)} mm of it, so the camera records that area and the hatched rest goes unused` : ""}`
     : `No camera set, full frame 36 × 24 mm shown`;
-  const squeeze = g.sq > 1 ? ` · ${g.sq}x anamorphic, shown desqueezed` : "";
+  const squeeze = g.sq > 1 ? ` · ${g.sq}x anamorphic: a picture ${g.sq}x as wide is squeezed onto the ${g.cropped ? "covered area" : backName(C)}, shown desqueezed and scaled to fit` : "";
   const crop = a.aspect ? `${a.aspect.split(" ")[0]} frame uses ${Math.round(g.cw * g.ch / (g.gw * g.gh) * 100)}% of the gate` : `No aspect set, full gate ${f1(g.G)}:1`;
   const eq = c.f0 && (g.C0.fixed ? c.f0 : c.f0 * 43.27 / g.diag), hfov = 2 * Math.atan(g.cw / (2 * c.fReal)) / RAD;
   const lensLine = c.f0 ? `${c.f0}mm ${g.C0.fixed ? "(full-frame equivalent)" : `≈ ${Math.round(eq)}mm full-frame equivalent`} · ${Math.round(hfov)}° horizontal · camera about ${fmtLen(c.base.D)} from the subject`
