@@ -75,6 +75,9 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
 .btn.primary:active { background: var(--orange-press) }
 .btn.quiet { border-color: var(--line); color: var(--grey-20) }
 #toast { font: 600 11px/1 var(--font-core); letter-spacing: .14em; text-transform: uppercase; color: var(--orange) }
+#reading { margin: 0; font: 400 12px/1.5 var(--font-core); color: var(--grey-40) }
+#reading b { font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--orange); margin-right: 6px }
+#reading span { color: var(--grey-20) }
 #warn { margin: 0; font: 500 13px/1.45 var(--font-core); color: var(--orange) }
 .slate { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); column-gap: 24px; align-items: start }
 .slate #out { font-size: 13px; line-height: 1.55 }
@@ -133,6 +136,9 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
 .mini:hover { border-color: var(--orange) }
 .mini.lock[aria-pressed="true"] { background: var(--orange); border-color: var(--orange); color: var(--black) }
 .mini.on[aria-pressed="false"] { color: var(--grey-40) }
+.slot-tone { margin: 0; font: 400 12px/1.45 var(--font-core); color: var(--grey-40) }
+.slot-tone b { font-weight: 600; color: var(--orange); margin-right: 4px }
+.chip .tone { display: block; font-size: 11px; color: var(--grey-40); font-weight: 400 }
 .slot-hint { margin: -4px 0 0; font: 400 12px/1.45 var(--font-core); color: var(--grey-40) }
 .group { display: grid; gap: 8px }
 .group-name { font: 600 11px/1.3 var(--font-core); letter-spacing: .14em; text-transform: uppercase; color: var(--grey-40) }
@@ -183,6 +189,7 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
       <span>Chars <b id="m-chars">0</b></span>
     </div>
     <pre id="out" aria-live="polite"></pre>
+    <p id="reading" hidden></p>
     <div class="actions">
       <button class="btn primary" id="copy" type="button">Copy prompt</button>
       <button class="btn" id="roll" type="button">Roll unlocked</button>
@@ -361,14 +368,18 @@ function slotHTML(s, i) {
       <label><input type="number" id="focal-num" min="${r.min}" max="${r.max}" step="1" value="${f || ""}" placeholder="${r.min}-${r.max}"> mm</label>
       ${f ? `<button class="mini" type="button" id="focal-clear">Clear</button>` : ""}</div>`;
   } else if (view === "dd") {
+    const tag = it => TAGGED.includes(s.id) && tone(s.id, it, a) ? ` · ${tone(s.id, it, a)[0]}` : "";
     body = `<select id="sel-${s.id}" aria-label="${s.name}"${b.all ? " disabled" : ""}><option value="">None</option>${groups.map(g =>
-      `<optgroup label="${esc(g.name)}">${g.items.map(it => `<option${it === v ? " selected" : ""}${off(it) ? " disabled" : ""}>${esc(it)}</option>`).join("")}</optgroup>`).join("")}</select>`;
+      `<optgroup label="${esc(g.name)}">${g.items.map(it => `<option value="${esc(it)}"${it === v ? " selected" : ""}${off(it) ? " disabled" : ""}>${esc(it + tag(it))}</option>`).join("")}</optgroup>`).join("")}</select>`;
   } else if (!isCol) {
+    const tag = it => TAGGED.includes(s.id) && tone(s.id, it, a) ? `<span class="tone">${esc(tone(s.id, it, a)[0])}</span>` : "";
     body = groups.map((g, gi) => `<div class="group">${groups.length > 1 ? `<div class="group-name">${esc(g.name)}</div>` : ""}<div class="chip-list">${
-      g.items.map((it, ii) => `<button type="button" class="chip" id="chip-${s.id}-${mode[s.id] || ""}-${gi}-${ii}" data-slot="${s.id}" data-val="${esc(it)}" aria-pressed="${it === v}"${off(it) ? " disabled" : ""}>${esc(it)}</button>`).join("")}</div></div>`).join("");
+      g.items.map((it, ii) => `<button type="button" class="chip" id="chip-${s.id}-${mode[s.id] || ""}-${gi}-${ii}" data-slot="${s.id}" data-val="${esc(it)}" aria-pressed="${it === v}"${off(it) ? " disabled" : ""}>${esc(it)}${tag(it)}</button>`).join("")}</div></div>`).join("");
   }
   const hint = b.note ? `<p class="slot-hint">${esc(b.note)}</p>` : "";
-  return `<section class="${cls}" id="slot-${s.id}"><div class="slot-head"><div style="display:flex;align-items:center;gap:12px;min-width:0;flex-wrap:wrap">${title}${summary}</div>${tools}</div>${hint}${body}</section>`;
+  const t = !isCol && enabled[s.id] && tone(s.id, s.id === "focal" ? focalOf(a) : v, a);  // the chosen option's note, as a teaching aid
+  const why = t ? `<p class="slot-tone"><b>${esc(t[0])}</b> ${esc(t[1])}</p>` : "";
+  return `<section class="${cls}" id="slot-${s.id}"><div class="slot-head"><div style="display:flex;align-items:center;gap:12px;min-width:0;flex-wrap:wrap">${title}${summary}</div>${tools}</div>${hint}${body}${why}</section>`;
 }
 
 // What the camera and lens physically allow. Returns { all } when the whole slot is decided by something else,
@@ -442,6 +453,7 @@ function renderLive() {
   if (lensSpecific(a) && a.dof) c.push(`Your "${a.dof}" pick is ignored: lens settings calculate depth of field`);
   $("warn").hidden = !c.length;
   $("warn").textContent = c.length ? "⚠ " + c.join(" · ") : "";
+  const rd = readingHTML(a); $("reading").hidden = !rd; $("reading").innerHTML = rd;
   const pv = previewHTML(a);
   $("pv-view").innerHTML = pv.svg; $("pv-cap").innerHTML = pv.cap;
   startPreview();
@@ -569,6 +581,141 @@ const LENS = {
   "fisheye lens": { c: 9, zoom: [8, 15], t: 4, view: "fish" },
   "spherical lens": { c: 9, free: 1 }, "anamorphic lens": { ana: 2, c: 9, free: 1 }
 };
+// Teaching notes: what a choice tends to make the audience feel. [tag, note] per option; the tag sits beside lighting and lens
+// options, the note shows in the slot once chosen, and both feed the "Reads as" summary under the prompt.
+const TONE = {
+  light: {
+    "soft overcast daylight": ["gentle, melancholy", "Even, shadowless light takes the drama out; quiet, honest and a little sad."],
+    "golden hour backlight": ["nostalgic, romantic", "Low warm sun rims the subject; reads as memory, longing and beauty."],
+    "blue hour ambient light": ["wistful, liminal", "Cool, fading light between day and night; lonely and in-between."],
+    "harsh midday sun with hard shadows": ["exposed, oppressive", "Overhead sun sinks the eyes into shadow; hot, unforgiving, nowhere to hide."],
+    "single window source with soft falloff": ["intimate, painterly", "One soft side source shapes the face while the room falls dark; private and still."],
+    "candlelight only": ["intimate, fragile", "Small warm pools in darkness; private, period and vulnerable."],
+    "flickering firelight": ["primal, unstable", "Moving warm light makes faces shift; storytelling, warmth against danger."],
+    "cool low-key moonlight": ["mysterious, lonely", "Dim blue light and deep shadow; secrets, isolation, night-time threat."],
+    "chiaroscuro lighting with deep blacks": ["dramatic, conflicted", "Bright light cut against deep black; moral struggle and high drama."],
+    "low-key noir lighting through venetian blinds": ["paranoid, trapped", "Bars of shadow cage the subject; suspicion, guilt, fate closing in."],
+    "high-key shadowless lighting": ["clean, upbeat", "Bright, low-contrast light hides nothing; optimism, comedy, or sterile perfection."],
+    "Rembrandt lighting": ["classic, soulful", "A triangle of light on the shadow cheek; serious, dignified, portrait-like."],
+    "silhouette against a bright background": ["anonymous, iconic", "Hides the face and keeps the shape; mystery, a symbol rather than a person."],
+    "rim light": ["heroic, separated", "A bright edge outlines the subject against the dark; they stand apart, almost glowing."],
+    "neon practicals on wet reflective streets": ["electric, alienated", "Saturated colour reflected everywhere; seduction and loneliness in the city at night."],
+    "sodium vapor streetlight": ["gritty, uneasy", "Single-colour orange street light; late nights, urban decay, something wrong."],
+    "mixed tungsten and blue daylight": ["conflicted, real", "Warm and cool sources fight in one frame; tension between two worlds, documentary realism."],
+    "motivated practicals only": ["grounded, lived-in", "Only lamps you can see light the scene; natural and believable."],
+    "red emergency lighting": ["alarm, danger", "Everything bathed in red; crisis, panic, adrenaline."],
+    "green-tinted overhead fluorescents": ["sickly, institutional", "Flat greenish light from above; offices, hospitals, quiet decay."],
+    "lightning flashes in darkness": ["shock, dread", "Brief flashes reveal, then hide; horror and sudden revelation."],
+    "hard top light": ["interrogated, ominous", "Light straight down hollows the eyes; menace, judgement, isolation."],
+    "soft bounce fill": ["gentle, flattering", "Lifted, soft shadows; kind, approachable, easy on the subject."],
+    "LED volume interactive lighting": ["immersive, synthetic", "Light from a screen world wraps the subject; seamless, sometimes slick."]
+  },
+  lens: {
+    "Panavision C-Series anamorphic lenses": ["classic epic", "1970s-90s anamorphic: oval bokeh, blue streak flares, soft edges; big-screen nostalgia."],
+    "Panavision G-Series anamorphic lenses": ["polished epic", "Sharper modern anamorphic with controlled flares; widescreen grandeur, little vintage softness."],
+    "Panavision T-Series anamorphic lenses": ["clean widescreen", "Compact modern anamorphic; crisp, consistent, contemporary blockbuster."],
+    "Ultra Panavision 70 anamorphic lenses": ["grand, sweeping", "Very wide 2.76:1 frame on 65mm; spectacle, landscapes, epic scale."],
+    "ARRI Master Anamorphic lenses": ["pristine widescreen", "Clean, low-distortion anamorphic with subtle flare; elegant and controlled."],
+    "Cooke Anamorphic/i SF lenses": ["warm, flared", "Warm Cooke skin tones with bold special-flare streaks; romantic and stylish."],
+    "Hawk V-Lite anamorphic lenses": ["organic widescreen", "Gentle falloff and a slightly vintage feel; natural-looking anamorphic."],
+    "Atlas Orion anamorphic lenses": ["bold, indie", "Modern anamorphic with strong blue flares; stylish, music-video energy."],
+    "vintage Kowa anamorphic lenses": ["dreamy, flawed", "Old anamorphics, soft and flaring; nostalgic and handmade."],
+    "LOMO Roundfront anamorphic lenses": ["wild, vintage", "Soviet anamorphics with unpredictable flares and swirl; raw and textured."],
+    "Zeiss Master Primes": ["clinical, precise", "Extremely sharp, flare-resistant, distortion-free; exact and hyper-real."],
+    "Zeiss Supreme Primes": ["smooth, modern", "Sharp but gentle large-format look with soft falloff; refined and contemporary."],
+    "ARRI Signature Primes": ["natural, flattering", "Fine detail with soft skin rendering and creamy bokeh; modern and kind."],
+    "Cooke S4/i lenses": ["warm, classic", "The Cooke look: warm, smooth and kind to faces; classic drama."],
+    "Leica Summilux-C lenses": ["crisp, luminous", "Bright, sharp, clean contrast; a glossy modern look."],
+    "Panavision Primo 70 lenses": ["immersive, clean", "Large-format sharpness and shallow focus; modern scale."],
+    "Panavision Sphero 65 lenses": ["painterly epic", "Rehoused vintage 65mm glass; gentle and soft yet grand."],
+    "ARRI Alura 18-80mm zoom": ["neutral, practical", "A clean workhorse zoom that stays out of the way and lets the scene speak."],
+    "Angénieux Optimo 24-290mm zoom": ["observational", "The classic long cinema zoom; reframing and zooms from a distance, 1970s and documentary grammar."],
+    "Fujinon Premista 28-100mm zoom": ["smooth, modern", "Large-format zoom with soft falloff; modern and gentle."],
+    "Angénieux Optimo Ultra 12x 36-435mm zoom": ["watching from afar", "Huge telephoto reach; observation at a distance, wildlife and sports feel."],
+    "Angénieux Optimo A2S 30-72mm anamorphic zoom": ["widescreen, flexible", "Anamorphic character with the freedom to zoom."],
+    "Cooke Panchro/i Classic lenses": ["gentle vintage", "Remakes of 1930s-60s Speed Panchros; soft contrast and golden-age warmth."],
+    "Canon K35 lenses": ["warm 70s glow", "Late-1970s glass with low contrast and warm flare; nostalgic and organic."],
+    "Zeiss Super Speeds": ["raw, intimate", "Fast 1980s primes, a little soft wide open; low light, gritty indie feel."],
+    "Bausch & Lomb Super Baltar lenses": ["golden-age Hollywood", "1950s-60s studio glass; soft, glowing, classic Hollywood."],
+    "Zeiss Planar 50mm f/0.7": ["candlelit, dreamlike", "The NASA lens Kubrick used for Barry Lyndon; razor-thin focus in real candlelight."],
+    "Helios 44-2 lens with swirly bokeh": ["swirly, dreamy", "Soviet lens with swirling bokeh; surreal and memory-like."],
+    "Petzval lens": ["hypnotic, antique", "Nineteenth-century design: sharp centre, swirling edges; antique and hypnotic."],
+    "Laowa 24mm probe lens": ["intrusive, tactile", "A long thin probe that gets inside spaces; a bug's-eye view, strange and close."],
+    "fisheye lens": ["distorted, frantic", "Bends every straight line; disorienting, comic or paranoid."],
+    "spherical lens": ["neutral", "Standard round-bokeh glass; transparent and natural."],
+    "anamorphic lens": ["cinematic widescreen", "Oval bokeh, horizontal flares and a wide frame; instantly reads as movie."]
+  },
+  size: {
+    "extreme wide establishing shot": ["small, isolated", "The world dominates the person; scale, isolation, where we are."],
+    "wide shot": ["contextual", "The person in their surroundings; place and behaviour over emotion."],
+    "full shot": ["physical", "Head to toe; body language, costume and action."],
+    "medium wide cowboy shot": ["poised, confrontational", "Mid-thigh up, the western stand-off; readiness and attitude."],
+    "medium shot": ["conversational", "Waist up; the everyday distance of talking to someone."],
+    "medium close-up": ["engaged", "Chest up; we follow their thoughts as well as their words."],
+    "close-up": ["emotional", "The face fills the frame; we feel what they feel."],
+    "extreme close-up": ["intense, intrusive", "Only the eyes or a detail; obsession and tension, a moment magnified."],
+    "macro insert shot": ["significant", "A tiny thing made huge; a clue, a texture, something that matters."],
+    "two-shot": ["relational", "Two people share the frame; the relationship is the subject."],
+    "group shot": ["collective", "A group as one unit; belonging, hierarchy, the team."]
+  },
+  angle: {
+    "eye level": ["neutral, equal", "Meets the subject as an equal; honest and unbiased."],
+    "low angle": ["powerful, imposing", "Looking up makes the subject dominant, heroic or threatening."],
+    "high angle": ["vulnerable, small", "Looking down diminishes the subject; weakness, defeat, being watched."],
+    "worm's-eye view": ["towering, monumental", "From the ground straight up; awe and overwhelming power."],
+    "bird's-eye view": ["detached, fated", "From well above; a godlike view where people become pieces."],
+    "overhead top-down": ["graphic, clinical", "Straight down; pattern, ritual, a map of the action."],
+    "ground level": ["grounded, childlike", "Camera on the floor; tactile, a child's or animal's world."],
+    "knee level": ["grounded, kinetic", "Low and close to the action; feet, motion, a little heroic."],
+    "hip level": ["tense, ready", "Gunslinger height; the western draw, quiet tension."],
+    "shoulder level": ["natural, assured", "Just under the eyeline; quiet stature without obvious power."],
+    "aerial view": ["epic, free", "High above the land; journeys, scale and freedom."],
+    "satellite view": ["remote, surveilled", "From orbit; the world as a map, people insignificant."],
+    "Dutch angle": ["uneasy, unhinged", "A tilted horizon; something is wrong, madness, disorientation."],
+    "frontal symmetrical framing": ["formal, controlled", "Centred and square-on; order, control, a direct stare."],
+    "profile view": ["contemplative, guarded", "Side-on; we observe rather than connect."],
+    "three-quarter angle": ["natural, dimensional", "The classic flattering angle; depth and engagement."],
+    "from behind": ["mysterious, anticipating", "We share their view but not their face; the unknown ahead."],
+    "over-the-shoulder": ["in dialogue", "Beside one character facing another; conversation or confrontation."],
+    "first-person POV": ["subjective, immersive", "We become the character; immediacy, identification, sometimes threat."],
+    "through-foreground framing": ["voyeuristic, layered", "Something sits between us and them; watching, secrets, depth."],
+    "reflection in a mirror": ["divided, introspective", "Identity, duality and self-examination."],
+    "through a doorway": ["observed, contained", "A frame within the frame; exclusion, watching, being trapped."],
+    "through a car windshield": ["in transit, together", "Characters boxed in on the move; talk, escape, the road."],
+    "peephole view": ["paranoid", "Distorted spying; a threat at the door."],
+    "security camera angle": ["surveilled, cold", "High, distant and recorded; being watched, evidence."],
+    "dashcam view": ["raw, documentary", "A fixed forward recording; real events, found footage."],
+    "body cam view": ["chaotic, real", "Chest-mounted and shaky; urgency and found footage."]
+  }
+};
+// Focal length by full-frame-equivalent mm: [up to, tag, note].
+const FOCAL_TONE = [
+  [20, "distorted, uneasy", "Ultra wide: stretches space and faces; scale and disorientation."],
+  [30, "immersive, dynamic", "Wide: pulls you into the space and exaggerates movement."],
+  [45, "observational", "Mildly wide: close to how we take in a room; present and documentary."],
+  [70, "neutral, honest", "Normal: close to human perspective; the lens makes no comment."],
+  [110, "intimate, flattering", "Portrait: flatters faces and softens the background; closeness and emotion."],
+  [250, "compressed, isolated", "Telephoto: flattens depth and cuts the subject out of the world; watching, longing."],
+  [Infinity, "voyeuristic, distant", "Long telephoto: spying from far away; surveillance, stacked crowds, heat haze."]
+];
+// [tag, note] for a slot value, or null. A focal length (number or "85mm lens") is read as its full-frame equivalent on the
+// chosen camera, since the feel comes from the angle of view; the note says so when that differs from the marked mm.
+function tone(id, v, a = activeVals()) {
+  if (!v) return null;
+  if (id !== "focal") return (TONE[id] || {})[v] || null;
+  const f = mm(v), C = CAM[a.camera];
+  if (!f) return null;
+  const e = Math.round(C && C.fixed ? f : f * 43.27 / frameGeom(a).diag), t = FOCAL_TONE.find(([m]) => e < m);
+  return [t[1], t[2] + (Math.abs(e / f - 1) > .15 ? ` On this camera it frames like ${an(String(e))} ${e}mm on full frame.` : "")];
+}
+const TAGGED = ["light", "lens", "focal"];  // slots whose options show their tag
+const READS = [["light", "Lighting"], ["lens", "Lens"], ["focal", "Focal length"], ["size", "Framing"], ["angle", "Angle"]];
+// The "Reads as" summary under the prompt: the tags of the choices that carry the mood, then a line on each.
+function readingHTML(a) {
+  const r = READS.map(([id, k]) => [k, tone(id, id === "focal" ? focalOf(a) : a[id], a)]).filter(([, t]) => t);
+  return r.length ? `<b>Reads as</b> ${r.map(([, t]) => esc(t[0])).join(" · ")}${r.map(([k, t]) => `<br><span>${k}:</span> ${esc(t[1])}`).join("")}` : "";
+}
+
 const groupItems = (slot, group) => SLOTS.find(s => s.id === slot).groups.find(g => g.name === group).items;
 const STOCKS = groupItems("grade", "Film stocks");
 // Rigs that can't leave the ground (drone orbits, follows and tracking shots are fine from the air).
