@@ -75,7 +75,7 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
 .btn.primary:active { background: var(--orange-press) }
 .btn.quiet { border-color: var(--line); color: var(--grey-20) }
 #toast { font: 600 11px/1 var(--font-core); letter-spacing: .14em; text-transform: uppercase; color: var(--orange) }
-#reading { margin: 0; font: 400 12px/1.5 var(--font-core); color: var(--grey-40) }
+#reading { margin: 0; font: 400 12px/1.5 var(--font-core); color: var(--grey-40); max-height: 13.5em; overflow: auto }
 #reading b { font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--orange); margin-right: 6px }
 #reading span { color: var(--grey-20) }
 #warn { margin: 0; font: 500 13px/1.45 var(--font-core); color: var(--orange) }
@@ -368,16 +368,16 @@ function slotHTML(s, i) {
       <label><input type="number" id="focal-num" min="${r.min}" max="${r.max}" step="1" value="${f || ""}" placeholder="${r.min}-${r.max}"> mm</label>
       ${f ? `<button class="mini" type="button" id="focal-clear">Clear</button>` : ""}</div>`;
   } else if (view === "dd") {
-    const tag = it => TAGGED.includes(s.id) && tone(s.id, it, a) ? ` · ${tone(s.id, it, a)[0]}` : "";
+    const tag = it => tone(s.id, it, a) ? ` · ${tone(s.id, it, a)[0]}` : "";
     body = `<select id="sel-${s.id}" aria-label="${s.name}"${b.all ? " disabled" : ""}><option value="">None</option>${groups.map(g =>
       `<optgroup label="${esc(g.name)}">${g.items.map(it => `<option value="${esc(it)}"${it === v ? " selected" : ""}${off(it) ? " disabled" : ""}>${esc(it + tag(it))}</option>`).join("")}</optgroup>`).join("")}</select>`;
   } else if (!isCol) {
-    const tag = it => TAGGED.includes(s.id) && tone(s.id, it, a) ? `<span class="tone">${esc(tone(s.id, it, a)[0])}</span>` : "";
+    const tag = it => tone(s.id, it, a) ? `<span class="tone">${esc(tone(s.id, it, a)[0])}</span>` : "";
     body = groups.map((g, gi) => `<div class="group">${groups.length > 1 ? `<div class="group-name">${esc(g.name)}</div>` : ""}<div class="chip-list">${
       g.items.map((it, ii) => `<button type="button" class="chip" id="chip-${s.id}-${mode[s.id] || ""}-${gi}-${ii}" data-slot="${s.id}" data-val="${esc(it)}" aria-pressed="${it === v}"${off(it) ? " disabled" : ""}>${esc(it)}${tag(it)}</button>`).join("")}</div></div>`).join("");
   }
   const hint = b.note ? `<p class="slot-hint">${esc(b.note)}</p>` : "";
-  const t = !isCol && enabled[s.id] && tone(s.id, s.id === "focal" ? focalOf(a) : v, a);  // the chosen option's note, as a teaching aid
+  const t = !isCol && enabled[s.id] && tone(s.id, moodVal(s.id, a), a);  // the chosen option's note, as a teaching aid
   const why = t ? `<p class="slot-tone"><b>${esc(t[0])}</b> ${esc(t[1])}</p>` : "";
   return `<section class="${cls}" id="slot-${s.id}"><div class="slot-head"><div style="display:flex;align-items:center;gap:12px;min-width:0;flex-wrap:wrap">${title}${summary}</div>${tools}</div>${hint}${body}${why}</section>`;
 }
@@ -581,9 +581,68 @@ const LENS = {
   "fisheye lens": { c: 9, zoom: [8, 15], t: 4, view: "fish" },
   "spherical lens": { c: 9, free: 1 }, "anamorphic lens": { ana: 2, c: 9, free: 1 }
 };
-// Teaching notes: what a choice tends to make the audience feel. [tag, note] per option; the tag sits beside lighting and lens
-// options, the note shows in the slot once chosen, and both feed the "Reads as" summary under the prompt.
+// Teaching notes: what a choice tends to make the audience feel. [tag, note] per option; the tag sits beside each option,
+// the note shows in the slot once chosen, and both feed the "Reads as" summary under the prompt.
 const TONE = {
+  camera: {  // film and character formats only: the digital cinema bodies look alike and carry no mood of their own
+    "IMAX 15/70mm film camera": ["overwhelming, immersive", "The biggest film frame there is; fills your vision with awe and total clarity."],
+    "Panavision System 65 (65mm film)": ["epic, lush", "65mm film; grand scale with fine, rich detail."],
+    "Panavision Panaflex Millennium XL2 (35mm)": ["classic cinema", "35mm film; organic grain and the feel of decades of features."],
+    "ARRICAM LT 35mm": ["classic cinema", "35mm film; organic grain and classic film colour."],
+    "ARRIFLEX 435": ["kinetic, filmic", "High-speed 35mm body; film texture for action and slow motion."],
+    "ARRI 416 Super 16mm": ["intimate, indie", "Super 16 grain; documentary closeness and indie grit."],
+    "Aaton XTR Prod 16mm": ["verité, handheld", "The shoulder-friendly 16mm; documentary intimacy."],
+    "Bolex H16 16mm": ["experimental, handmade", "Wind-up 16mm; art films and handmade texture."],
+    "Canon 1014 XL-S Super 8": ["home-movie memory", "Super 8; childhood, flashbacks, faded memory."],
+    "Mitchell BNC vintage 35mm": ["golden-age Hollywood", "The studio camera of the 1930s-60s; classic Hollywood."],
+    "iPhone Pro smartphone": ["immediate, personal", "Phone footage; candid, everyday, social."],
+    "GoPro HERO action camera": ["visceral, action", "A wide strapped-on view; extreme sports and first-person thrill."],
+    "DJI Ronin 4D": ["fluid, modern", "A self-stabilising cinema camera; smooth, contemporary moves."],
+    "1990s Sony Handycam MiniDV": ["Y2K home video", "Late-90s tape; home video and raw early-internet feel."],
+    "VHS camcorder": ["found footage, retro", "Smeared tape; 80s memories and found-footage horror."],
+    "CCTV security camera": ["surveilled, cold", "A fixed security view; evidence, watching, menace."]
+  },
+  atmo: {
+    "atmospheric haze": ["soft, layered", "A light veil adds depth and softens contrast; distance and calm."],
+    "thick haze": ["dreamlike, obscured", "Heavy haze swallows the background; mystery, heat or a dream."],
+    "light fog": ["mysterious, hushed", "Fog hides what lies ahead; uncertainty and stillness."],
+    "dust particles in the air": ["lived-in, nostalgic", "Dust catching the light; abandoned rooms, time passing."],
+    "backlit rain": ["melancholy, dramatic", "Rain lit from behind sparkles; grief, romance, a climax."],
+    "drifting smoke": ["noir, aftermath", "Smoke hangs in the air; bars, battlefields, something just happened."],
+    "rising steam": ["gritty, sensual", "Steam from vents or bodies; city grit, or heat and intimacy."],
+    "snow falling through headlights": ["lonely, hushed", "Snow in a beam of light; isolation and cold silence."],
+    "embers floating": ["ruin, aftermath", "Burning flecks drift; loss, war, beauty in destruction."],
+    "sandstorm": ["hostile, overwhelming", "Nature swallowing everything; survival and chaos."],
+    "volumetric god rays through haze": ["spiritual, awe", "Visible shafts of light; revelation, the sacred, wonder."]
+  },
+  grade: {
+    "Kodak Vision3 500T film stock": ["rich, nocturnal", "Fast tungsten stock with visible grain; warm skin, deep shadows."],
+    "Kodak Vision3 250D film stock": ["natural daylight", "Daylight stock with fine grain; honest colour with film warmth."],
+    "Kodak Vision3 50D film stock": ["pristine, luminous", "The finest-grain daylight stock; crisp, saturated and polished."],
+    "Kodak Vision3 200T film stock": ["balanced, filmic", "Clean tungsten stock with gentle grain."],
+    "Kodak Ektachrome 100D reversal film": ["punchy, vivid", "Reversal film: saturated colour and hard contrast; retro vibrancy."],
+    "Eastman Double-X black and white film": ["timeless, stark", "Classic black and white; memory, documentary weight, noir."],
+    "Kodak Vision3 film emulation": ["warm, filmic", "Digital made to feel like film; gentle highlight roll-off and warmth."],
+    "Fujifilm Eterna 500T look": ["muted, moody", "Low saturation and cool greens; subdued and reflective."],
+    "Fujifilm Eterna Vivid look": ["fresh, lively", "Fuji colour with more punch; clean and bright."],
+    "Kodak 2383 print film emulation": ["classic cinema", "The look of a release print; rich blacks, warm contrast."],
+    "Fujifilm 3513 print film emulation": ["cool, cinematic", "Fuji print stock; slightly cooler, smoother contrast."],
+    "CineStill 800T look with red halation": ["nocturnal, glowing", "Red halos round every light; nostalgic city nights."],
+    "bleach bypass grade": ["harsh, gritty", "Desaturated and high-contrast; war, violence, moral grit."],
+    "three-strip Technicolor look": ["lush, classic", "Saturated primaries of 1940s-50s Hollywood; fantasy and spectacle."],
+    "two-strip Technicolor look": ["antique, otherworldly", "The red-cyan early colour of the 1920s-30s; strange and old."],
+    "cross-processed color": ["edgy, unreal", "Shifted colour and harsh contrast; 90s music videos, altered states."],
+    "Kodachrome color": ["warm memory", "Mid-century slide colour; family albums and nostalgia."],
+    "teal and orange grade": ["blockbuster", "Warm skin against cool shadows; modern action, punchy."],
+    "muted pastel palette": ["whimsical, gentle", "Soft pastel colour; storybook, quirky, tender."],
+    "day-for-night blue grade": ["eerie, unreal", "Daylight graded to fake night; old-school and dreamlike."],
+    "sepia-toned": ["historical", "Brown monochrome; the past, old photographs."],
+    "monochrome with selective red": ["symbolic, haunting", "One colour survives; that thing matters above all."],
+    "faded 1970s print with lifted blacks": ["nostalgic, worn", "Lifted blacks and faded colour; the past as remembered."],
+    "clean neutral grade": ["honest, contemporary", "No stylisation; truthful, documentary or commercial."],
+    "sickly green fluorescent grade": ["diseased, wrong", "A green cast over everything; unease and decay."],
+    "warm amber nostalgic grade": ["nostalgic, safe", "Golden amber warmth; memory, comfort, the good old days."]
+  },
   light: {
     "soft overcast daylight": ["gentle, melancholy", "Even, shadowless light takes the drama out; quiet, honest and a little sad."],
     "golden hour backlight": ["nostalgic, romantic", "Low warm sun rims the subject; reads as memory, longing and beauty."],
@@ -644,6 +703,92 @@ const TONE = {
     "fisheye lens": ["distorted, frantic", "Bends every straight line; disorienting, comic or paranoid."],
     "spherical lens": ["neutral", "Standard round-bokeh glass; transparent and natural."],
     "anamorphic lens": ["cinematic widescreen", "Oval bokeh, horizontal flares and a wide frame; instantly reads as movie."]
+  },
+  move: {
+    "slow dolly push-in": ["building tension", "Slowly closing in; realisation, rising emotion, focus."],
+    "dolly pull-back reveal": ["revealing, isolating", "Pulling away shows the bigger picture or leaves them alone in it."],
+    "truck left": ["observational", "Sliding sideways past the scene; we survey rather than engage."],
+    "truck right": ["observational", "Sliding sideways past the scene; we survey rather than engage."],
+    "tracking shot alongside": ["companionship", "Moving beside the subject; we travel with them."],
+    "leading shot walking backward": ["driven, purposeful", "The subject walks into camera; momentum, talk on the move."],
+    "following shot from behind": ["pursuit, anticipation", "We follow into the unknown; suspense, or being stalked."],
+    "arc shot orbiting the subject": ["heightened, heroic", "Circling the subject; a pivotal moment, romance or triumph."],
+    "360 degree orbit": ["dizzying, climactic", "A full circle; the world spins round a turning point."],
+    "parallax slide past foreground": ["layered, voyeuristic", "Foreground slides past; depth, watching from hiding."],
+    "slow pan": ["surveying, calm", "Turning to take in the space; scale and quiet discovery."],
+    "whip pan": ["energetic, abrupt", "A blur from one thing to the next; shock, comedy, connection."],
+    "tilt up reveal": ["awe, scale", "Looking up to reveal; power and size."],
+    "tilt down": ["discovering", "Looking down to find something; a clue, or a fall."],
+    "pedestal up": ["rising, revealing", "Camera rises straight up; a lifted view, new information."],
+    "barrel roll": ["disoriented, unhinged", "The world turns over; chaos, dreams, losing control."],
+    "crane rising": ["release, finale", "Lifting away from the subject; endings, freedom, smallness."],
+    "crane descending": ["arrival, entering", "Coming down into the scene; we join the story."],
+    "jib sweep": ["graceful, grand", "A sweeping arc through space; elegance and scale."],
+    "FPV drone dive": ["thrilling, kinetic", "A plunging drone run; adrenaline and speed."],
+    "drone flyover": ["journeying, free", "Gliding over the land; travel, scale, freedom."],
+    "drone rising reveal": ["awe, revelation", "Rising to reveal the vista; wonder and context."],
+    "helicopter aerial": ["epic, sweeping", "Big aerial moves; spectacle and arrival."],
+    "cable cam glide": ["floating, spectacular", "Smooth flight over a space; events and grandeur."],
+    "top-down drone pull-up": ["isolating, final", "Rising straight up from above; the subject shrinks, alone."],
+    "handheld": ["urgent, raw", "Human shake; realism, panic, being there."],
+    "shoulder-mounted": ["grounded, documentary", "Steadier handheld; reportage and intimate realism."],
+    "Steadicam follow": ["dreamlike, immersive", "Floating with the subject; we glide through their world."],
+    "gimbal tracking": ["smooth, modern", "Stable, flowing movement; contemporary and polished."],
+    "snorricam body mount": ["panicked, disoriented", "Camera fixed to the body; the world lurches round them."],
+    "car mount tracking": ["speed, momentum", "Moving with the vehicle; chases and road movies."],
+    "Russian arm chase": ["high-octane", "A swooping crane on a car; spectacular chase energy."],
+    "motion control repeat pass": ["precise, uncanny", "Machine-perfect moves; clones, effects, a controlled world."],
+    "locked-off tripod": ["still, observational", "No movement; the frame just watches, deadpan or formal."],
+    "one-take long oner": ["immersive, real-time", "No cuts; tension builds and we can't look away."],
+    "vertigo dolly zoom": ["dread, realisation", "The background warps while the subject holds; the world shifts under them."],
+    "crash zoom": ["shock, punchy", "A sudden zoom; surprise, 70s grit or comedy."],
+    "slow zoom in": ["creeping, scrutinising", "An optical push in; slow-burn tension, 70s observation."],
+    "snap zoom": ["punchy, stylised", "A quick zoom hit; emphasis and energy."],
+    "rack focus pull": ["shifting attention", "Focus moves between subjects; links them and redirects the eye."]
+  },
+  speed: {
+    "natural motion blur, 180 degree shutter": ["natural, real", "Normal motion blur; it looks like life."],
+    "staccato 45 degree shutter": ["jittery, violent", "Crisp, choppy motion; combat and anxiety."],
+    "speed ramp": ["stylised impact", "Speed shifts mid-shot; action beats and emphasis."],
+    "slow motion at 120fps": ["significant, beautiful", "Time stretches; we savour, or dread, the moment."],
+    "timelapse": ["passing time", "Hours in seconds; change, routine, the world moving on."],
+    "hyperlapse": ["frenetic journey", "A moving timelapse; travel and city energy."],
+    "bullet time freeze": ["frozen, heightened", "Time stops while the camera moves; a peak moment held."]
+  },
+  aspect: {
+    "2.39:1 widescreen": ["epic, cinematic", "The wide scope frame; landscapes, space around people, big-screen feel."],
+    "1.85:1 aspect ratio": ["classic, balanced", "The standard flat film frame; versatile and natural."],
+    "1.90:1 IMAX digital aspect ratio": ["immersive, large", "Tall for widescreen; IMAX-scale presence."],
+    "1.43:1 IMAX aspect ratio": ["towering, immersive", "A near-square giant frame; height and overwhelming scale."],
+    "1.37:1 Academy ratio": ["classic, intimate", "The old Hollywood frame; faces, height, period feel."],
+    "2.76:1 Ultra Panavision aspect ratio": ["grand, panoramic", "Ultra-wide; epic spectacle and sweeping vistas."],
+    "1.78:1 16:9 HD frame": ["familiar", "The everyday screen shape; neutral and familiar."],
+    "1.33:1 4:3 TV frame": ["nostalgic, confined", "The old TV frame; home movies, the past, characters boxed in."],
+    "9:16 vertical": ["personal, social", "Phone-shaped; direct, social-media intimacy."]
+  },
+  texture: {
+    "heavy 16mm grain": ["raw, nostalgic", "Visible grain; indie, documentary, memory."],
+    "fine 35mm grain": ["filmic, organic", "Subtle grain; classic film texture."],
+    "gate weave": ["vintage, handmade", "The frame drifts slightly; old projection, home movies."],
+    "light leaks": ["dreamy, youthful", "Warm flashes of stray light; memories, youth, music video."],
+    "halation": ["glowing, filmic", "A red-orange glow round highlights; film warmth."],
+    "anamorphic lens flares": ["cinematic, sci-fi", "Horizontal streaks across the frame; spectacle and futurism."],
+    "subtle chromatic aberration": ["imperfect, vintage", "Colour fringing; a lens with character."],
+    "soft vignette": ["focused, intimate", "Darkened edges draw the eye inward."],
+    "Pro-Mist diffusion": ["soft, dreamy", "Highlights bloom and contrast drops; romance and nostalgia."],
+    "Black Pro-Mist bloom": ["polished, glowing", "A glow on lights while blacks stay deep; modern cinematic sheen."]
+  },
+  dof: {
+    "very shallow depth of field": ["isolated, dreamy", "Only a sliver is sharp; the subject alone in their own head."],
+    "shallow depth of field": ["focused, intimate", "Subject crisp, world soft; attention on them."],
+    "moderate depth of field": ["grounded, connected", "Subject and setting both readable."],
+    "deep focus": ["objective, complex", "Everything sharp; the audience chooses where to look."]
+  },
+  ftech: {
+    "split diopter": ["tense, divided", "Two distances sharp at once; two characters, two worlds."],
+    "tilt-shift miniature": ["toy-like, detached", "Real places look like models; irony and fragility."],
+    "soft focus": ["romantic, dreamy", "A gentle blur over everything; memory, glamour, fantasy."],
+    "oval anamorphic bokeh": ["cinematic, lush", "Oval highlights in the blur; reads as big-screen film."]
   },
   size: {
     "extreme wide establishing shot": ["small, isolated", "The world dominates the person; scale, isolation, where we are."],
@@ -708,11 +853,13 @@ function tone(id, v, a = activeVals()) {
   const e = Math.round(C && C.fixed ? f : f * 43.27 / frameGeom(a).diag), t = FOCAL_TONE.find(([m]) => e < m);
   return [t[1], t[2] + (Math.abs(e / f - 1) > .15 ? ` On this camera it frames like ${an(String(e))} ${e}mm on full frame.` : "")];
 }
-const TAGGED = ["light", "lens", "focal"];  // slots whose options show their tag
-const READS = [["light", "Lighting"], ["lens", "Lens"], ["focal", "Focal length"], ["size", "Framing"], ["angle", "Angle"]];
+const READS = [["camera", "Format"], ["light", "Lighting"], ["atmo", "Atmosphere"], ["grade", "Grade"], ["lens", "Lens"], ["focal", "Focal length"], ["dof", "Depth of field"],
+  ["ftech", "Focus"], ["size", "Framing"], ["angle", "Angle"], ["move", "Movement"], ["speed", "Motion"], ["aspect", "Aspect"], ["texture", "Texture"]];
+// The value whose mood counts: the focal length in use (a single lens has one), and the calculated depth of field when lens settings set it.
+const moodVal = (id, a) => id === "focal" ? focalOf(a) : id === "dof" ? effDof(a) : a[id];
 // The "Reads as" summary under the prompt: the tags of the choices that carry the mood, then a line on each.
 function readingHTML(a) {
-  const r = READS.map(([id, k]) => [k, tone(id, id === "focal" ? focalOf(a) : a[id], a)]).filter(([, t]) => t);
+  const r = READS.map(([id, k]) => [k, tone(id, moodVal(id, a), a)]).filter(([, t]) => t);
   return r.length ? `<b>Reads as</b> ${r.map(([, t]) => esc(t[0])).join(" · ")}${r.map(([k, t]) => `<br><span>${k}:</span> ${esc(t[1])}`).join("")}` : "";
 }
 
