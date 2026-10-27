@@ -91,6 +91,8 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
 #reading { margin: 0; font: 400 12px/1.5 var(--font-core); color: var(--grey-40); max-height: 13.5em; overflow: auto }
 #reading b { font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--orange); margin-right: 6px }
 #reading span { color: var(--grey-20) }
+#reading em { font-style: normal }
+#out .hl, #reading .hl { color: var(--orange) }  /* camera, lens and focal length */
 #warn { margin: 0; font: 500 13px/1.45 var(--font-core); color: var(--orange) }
 .slate { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); column-gap: 24px; align-items: start }
 .slate #out { font-size: 13px; line-height: 1.55 }
@@ -502,12 +504,12 @@ function render() {
 
 // The prompt, counts, warnings and preview: everything that changes while dragging the focal length slider.
 function renderLive() {
-  const t = promptText();
-  $("out").textContent = t || "Pick a few options to build a prompt.";
+  const t = promptText(), a = activeVals();
+  $("out").innerHTML = t ? promptHTML(t, a) : "Pick a few options to build a prompt.";
   $("m-slots").textContent = SLOTS.filter(s => vals[keyOf(s)] && enabled[s.id]).length;
   $("m-locked").textContent = SLOTS.filter(s => locked[s.id]).length;
   $("m-chars").textContent = t.length;
-  const a = activeVals(), c = conflicts(a);
+  const c = conflicts(a);
   if (lensSpecific(a) && a.dof) c.push(`Your "${a.dof}" pick is ignored: lens settings calculate depth of field`);
   $("warn").hidden = !c.length;
   $("warn").textContent = c.length ? "⚠ " + c.join(" · ") : "";
@@ -554,6 +556,14 @@ function structuredText() {
     ["AVOID", [avoid.length && `No ${avoid.join(", no ")}.`]]
   ];
   return sections.map(([h, lines]) => [h, lines.filter(Boolean)]).filter(([, l]) => l.length).map(([h, l]) => `${h}\n${l.join(" ")}`).join("\n\n");
+}
+
+// The prompt as HTML with the camera, lens and focal length highlighted (the copied prompt stays plain text).
+function promptHTML(t, a) {
+  const f = mm(a.focal), keys = [a.camera, a.lens, f && `${f}mm`].filter(Boolean).sort((x, y) => y.length - x.length);
+  if (!keys.length) return esc(t);
+  const re = new RegExp(keys.map(k => esc(k).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), "g");
+  return esc(t).replace(re, m => `<span class="hl">${m}</span>`);
 }
 
 function promptText() {
@@ -916,9 +926,11 @@ const READS = [["camera", "Format"], ["light", "Lighting"], ["atmo", "Atmosphere
 // The value whose mood counts: the focal length in use (a single lens has one), and the calculated depth of field when lens settings set it.
 const moodVal = (id, a) => id === "focal" ? focalOf(a) : id === "dof" ? effDof(a) : a[id];
 // The "Reads as" summary under the prompt: the tags of the choices that carry the mood, then a line on each.
+// Camera, lens and focal length are highlighted, as in the prompt.
+const READ_HL = ["camera", "lens", "focal"];
 function readingHTML(a) {
-  const r = READS.map(([id, k]) => [k, tone(id, moodVal(id, a), a)]).filter(([, t]) => t);
-  return r.length ? `<b>Reads as</b> ${r.map(([, t]) => esc(t[0])).join(" · ")}${r.map(([k, t]) => `<br><span>${k}:</span> ${esc(t[1])}`).join("")}` : "";
+  const r = READS.map(([id, k]) => [id, k, tone(id, moodVal(id, a), a)]).filter(([, , t]) => t), hl = id => READ_HL.includes(id) ? ` class="hl"` : "";
+  return r.length ? `<b>Reads as</b> ${r.map(([id, , t]) => `<em${hl(id)}>${esc(t[0])}</em>`).join(" · ")}${r.map(([id, k, t]) => `<br><span${hl(id)}>${k}:</span> ${esc(t[1])}`).join("")}` : "";
 }
 
 const groupItems = (slot, group) => SLOTS.find(s => s.id === slot).groups.find(g => g.name === group).items;
@@ -1582,7 +1594,7 @@ function previewHTML(a) {
   if (["security camera angle", "dashcam view", "body cam view"].includes(a.angle) || a.camera === CCTV) fg += `<text x="8" y="16" fill="#ff4d4d" font-family="Montserrat, Arial" font-size="10" font-weight="600">● REC</text>`;
   const ox = (W - fw) / 2, oy = (H - fh) / 2, x0 = ox + Math.min(0, c.gx, c.sx), y0 = oy + Math.min(0, c.gy, c.sy);
   const vb = [x0 - 1, y0 - 1, ox + Math.max(fw, c.gx + c.gW, c.sx + c.sW) - x0 + 2, oy + Math.max(fh, c.gy + c.gH, c.sy + c.sH) - y0 + 2].map(f1).join(" ");
-  // The film back the lens doesn't use: hatched, with a label in the widest gap (along the side when the gap is there).
+  // The film back the lens doesn't use: hatched.
   let unused = "";
   if (c.showBack) {
     unused = `<path d="M${f1(c.sx)} ${f1(c.sy)}h${f1(c.sW)}v${f1(c.sH)}h${f1(-c.sW)}Z M${f1(c.gx)} ${f1(c.gy)}v${f1(c.gH)}h${f1(c.gW)}v${f1(-c.gH)}Z" fill="url(#pv-hatch)" fill-rule="evenodd"/>`;
@@ -1597,13 +1609,29 @@ function previewHTML(a) {
   const usedEdge = unused && `<rect x="${c.gx}" y="${c.gy}" width="${c.gW}" height="${c.gH}" fill="none" stroke="#666" stroke-dasharray="4 3"/>`;
   // Labels for the outlines (the Labels overlay): solid grey is the camera's film back, dashed grey the part of it the
   // lens's picture uses (only when that differs), orange the frame. In Fill mode the outer outline is the picture itself.
-  const backLbl = !a.camera ? "Sensor (full frame)" : g.C0.k === "film" ? "Film gate" : "Sensor";
-  const usedLbl = [g.cropped && `${g.L.c === 3 ? "Super 35" : "Full frame"} crop`, g.sq > 1 && `${g.sq}x squeeze, desqueezed`].filter(Boolean).join(", ");
+  // Sizes go on the film back and the crop; the frame carries its aspect at the bottom right and the lens (focal length, lens,
+  // aperture) at the bottom left, or stacked above the aspect when the frame is too narrow for both on one line (and without
+  // the lens name when it's too narrow even for that).
+  const mmSize = (w, h) => `${f1(w)} × ${f1(h)}mm`;
+  const backLbl = (!a.camera ? "Sensor (full frame) " : g.C0.k === "film" ? "Film gate " : "Sensor ") + mmSize(g.C0.w, g.C0.h);
+  const usedLbl = [g.cropped && `${g.L.c === 3 ? "Super 35" : "Full frame"} crop ${mmSize(g.C.w, g.C.h)}`, g.sq > 1 && `${g.sq}x squeeze, desqueezed`].filter(Boolean).join(", ");
+  const frameLbl = a.aspect ? `${a.aspect.split(" ")[0]} frame` : "Frame (full gate)";
+  let lensLbl = [focalOf(a) && `${focalOf(a)}mm`, a.lens && a.lens.replace(/ lenses?$/i, ""), a.tstop].filter(Boolean).join(" · ");
+  if (lensLbl.length * 3.8 + 6 > fw) lensLbl = [focalOf(a) && `${focalOf(a)}mm`, a.tstop].filter(Boolean).join(" · ");  // too narrow for the lens name
   const T = (x, y, t, col, end) => `<text x="${f1(x)}" y="${f1(y)}" class="pv-lbl" fill="${col}"${end ? ` text-anchor="end"` : ""}>${esc(t.toUpperCase())}</text>`;
+  const oneLine = (lensLbl.length + frameLbl.length) * 3.8 + 14 < fw;
+  // The image circle's label runs round the outside of the ring, centred towards the bottom-left corner (in the dark).
+  let ringLbl = "";
+  if (c.showBack && g.cropped) {
+    const t = `Image circle ≈ ${Math.round(Math.hypot(g.C.w, g.C.h))}mm`, R = Math.hypot(g.C.w, g.C.h) / 2 * c.sW / g.C0.w + 6.5;
+    const t0 = Math.PI - .75 * Math.atan(c.sH / c.sW), dt = t.length * 3.8 / (2 * R) + .05, p = q => `${f1(fw / 2 + R * Math.cos(q))} ${f1(fh / 2 + R * Math.sin(q))}`;
+    ringLbl = `<path id="pv-ring-txt" d="M${p(t0 + dt)}A${f1(R)} ${f1(R)} 0 0 0 ${p(t0 - dt)}" fill="none"/>`
+      + `<text class="pv-lbl" fill="#a8a8a8"><textPath href="#pv-ring-txt" startOffset="50%" text-anchor="middle">${esc(t.toUpperCase())}</textPath></text>`;
+  }
   const labels = !overlays.labels ? "" : T(c.sx + 3, c.sy + 7, c.showBack || !usedLbl ? backLbl : usedLbl, "#a8a8a8")
-    + (c.showBack ? T(c.gx + 3, c.gy + 7, usedLbl, "#a8a8a8") : "")
-    + (c.showBack && g.cropped ? T(c.sx + 3, c.sy + c.sH - 3, `Image circle ≈ ${Math.round(Math.hypot(g.C.w, g.C.h))}mm`, "#a8a8a8") : "")
-    + T(fw - 3, fh - 3, a.aspect ? `${a.aspect.split(" ")[0]} frame` : "Frame (full gate)", "#FF9900", true);
+    + (c.showBack ? T(c.gx + 3, c.gy + 7, usedLbl, "#a8a8a8") : "") + ringLbl
+    + T(fw - 3, fh - 3, frameLbl, "#FF9900", true)
+    + (lensLbl ? (oneLine ? T(3, fh - 3, lensLbl, "#FF9900") : T(fw - 3, fh - 10, lensLbl, "#FF9900", true)) : "");
   const svg = `<svg viewBox="${vb}" role="img" aria-label="Sketch of the framed shot">
     <defs><clipPath id="pv-clip"><rect width="${fw}" height="${fh}"/></clipPath><clipPath id="pv-back"><rect x="${c.sx}" y="${c.sy}" width="${c.sW}" height="${c.sH}"/></clipPath><clipPath id="pv-gate"><rect x="${c.gx}" y="${c.gy}" width="${c.gW}" height="${c.gH}"/></clipPath>
       <filter id="pv-blur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.4"/></filter>
@@ -1802,7 +1830,7 @@ function rollLook(L) {
   render(); toast("Rolled: " + L.name);
 }
 $("roll").onclick = () => rollLook();
-["subject", "avoid"].forEach(id => $(id).addEventListener("input", () => { const t = promptText(); $("out").textContent = t; $("m-chars").textContent = t.length; }));
+["subject", "avoid"].forEach(id => $(id).addEventListener("input", () => { const t = promptText(); $("out").innerHTML = promptHTML(t, activeVals()); $("m-chars").textContent = t.length; }));
 $("fmt-compact").onclick = () => { format = "compact"; store.set("format", format); render(); };
 $("fmt-structured").onclick = () => { format = "structured"; store.set("format", format); render(); };
 
