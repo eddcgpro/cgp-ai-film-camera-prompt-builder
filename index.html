@@ -82,7 +82,12 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
 .btn.primary:hover { background: var(--orange-hover) }
 .btn.primary:active { background: var(--orange-press) }
 .btn.quiet { border-color: var(--line); color: var(--grey-20) }
-#toast { font: 600 11px/1 var(--font-core); letter-spacing: .14em; text-transform: uppercase; color: var(--orange) }
+/* Toast: overlaid on the top of the preview, held, then faded, so it never moves the buttons */
+#toast { position: absolute; z-index: 2; top: 10px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 20px); pointer-events: none;
+  font: 600 11px/1.3 var(--font-core); letter-spacing: .14em; text-transform: uppercase; color: var(--orange); text-align: center;
+  background: rgba(10,10,10,.85); border: 1px solid var(--orange-40); border-radius: 999px; padding: 8px 16px; opacity: 0; transition: opacity 700ms var(--ease) }
+#toast.show { opacity: 1; transition: none }
+#toast:empty { display: none }
 #reading { margin: 0; font: 400 12px/1.5 var(--font-core); color: var(--grey-40); max-height: 13.5em; overflow: auto }
 #reading b { font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--orange); margin-right: 6px }
 #reading span { color: var(--grey-20) }
@@ -105,7 +110,7 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
   .slate-text #warn { flex: none; max-height: 4.5em; overflow: auto }
   .slate-text .actions { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--line) }
 }
-.frame { grid-column: 2; grid-row: 1; margin: 0; display: grid; gap: 6px; align-content: start }
+.frame { position: relative; grid-column: 2; grid-row: 1; margin: 0; display: grid; gap: 6px; align-content: start }
 .frame svg { width: 100%; height: auto; max-height: 44vh; display: block; border-radius: 6px }
 .frame figcaption { font: 400 11px/1.45 var(--font-core); color: var(--grey-40) }
 .frame figcaption b { font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--orange); margin-right: 6px }
@@ -242,10 +247,10 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
         <button type="button" id="fmt-compact">Compact</button>
         <button type="button" id="fmt-structured">Structured</button>
       </div>
-      <span id="toast" role="status"></span>
     </div>
     </div>
     <figure class="frame" id="frame">
+      <span id="toast" role="status"></span>
       <div id="pv-view"></div>
       <div class="pv-tools" id="pv-tools" role="group" aria-label="Preview overlays and drawing"></div>
       <figcaption id="pv-cap"></figcaption>
@@ -1234,7 +1239,7 @@ const ANGLE = {
   "low angle": { el: -20 }, "high angle": { el: 25 }, "worm's-eye view": { h: .06 }, "bird's-eye view": { el: 60 },
   "overhead top-down": { el: 89.5, center: 1 }, "aerial view": { el: 30, minD: 60 }, "satellite view": { el: 89.5, minD: 4000, center: 1 },
   "profile view": { az: 90 }, "three-quarter angle": { az: 35 }, "from behind": { az: 180 }, "Dutch angle": { roll: 12 },
-  "frontal symmetrical framing": { center: 1 }, "over-the-shoulder": { az: 15 }, "first-person POV": { h: 1.65 }
+  "frontal symmetrical framing": { center: 1 }, "through a doorway": { center: 1 }, "over-the-shoulder": { az: 15 }, "first-person POV": { h: 1.65 }
 };
 // Film back after any crop to the lens's coverage, and the aspect crop inside it, in mm (anamorphic width shown desqueezed).
 function frameGeom(a) {
@@ -1351,9 +1356,11 @@ function clipHalf(poly, A, B, Pin) {
 
 // Everything about the shot that doesn't change while a move plays.
 function previewCtx(a) {
-  // k: px per mm of the camera's whole film back, so it's drawn the same size whatever the lens. s: px per mm of the picture,
-  // shrunk by any anamorphic squeeze so the desqueezed picture still fits across the film back.
-  const g = frameGeom(a), W = 300, H = 170, k = Math.min((W - 4) / g.C0.w, (H - 4) / g.C0.h), s = k / g.sq;
+  // True scale (the default): k is px per mm of the camera's whole film back, so it's drawn the same size whatever the lens,
+  // and s, px per mm of the picture, is shrunk by any anamorphic squeeze so the desqueezed picture still fits across it.
+  // Fill (fillPic): the picture the lens makes fills the preview and the film back round it isn't drawn.
+  const g = frameGeom(a), W = 300, H = 170, showBack = !fillPic && (g.cropped || g.sq > 1);
+  const k = showBack ? Math.min((W - 4) / g.C0.w, (H - 4) / g.C0.h) : 0, s = showBack ? k / g.sq : Math.min((W - 4) / g.gw, (H - 4) / g.gh);
   const fw = g.cw * s, fh = g.ch * s, f0 = focalOf(a);
   const fReal = f0 ? (g.C0.fixed ? f0 * g.diag / 43.27 : f0) : g.diag;  // no focal length: a normal lens for the format
   const ang = ANGLE[a.angle] || {}, size = a.size || "full shot";
@@ -1364,8 +1371,8 @@ function previewCtx(a) {
   if (a.ftech === "oval anamorphic bokeh") blur = Math.max(blur, 2.5);
   if (size === "macro insert shot" && !d && !manual) blur = 4;
   const center = ang.center || ["two-shot", "group shot", "macro insert shot"].includes(size);
-  const gW = g.gw * s, gH = g.gh * s, sW = g.C0.w * k, sH = g.C0.h * k;  // the area the lens covers, and the whole film back, centred on the crop
-  return { a, g, s, W, H, fw, fh, gW, gH, gx: (fw - gW) / 2, gy: (fh - gH) / 2, sW, sH, sx: (fw - sW) / 2, sy: (fh - sH) / 2, fReal, f0, fpx0: fReal * s, lk, k2: lk.key2 || lk.key, d, manual, blur,
+  const gW = g.gw * s, gH = g.gh * s, sW = showBack ? g.C0.w * k : gW, sH = showBack ? g.C0.h * k : gH;  // the area the lens covers, and the whole film back, centred on the crop
+  return { a, g, s, W, H, fw, fh, gW, gH, showBack, gx: (fw - gW) / 2, gy: (fh - gH) / 2, sW, sH, sx: (fw - sW) / 2, sy: (fh - sH) / 2, fReal, f0, fpx0: fReal * s, lk, k2: lk.key2 || lk.key, d, manual, blur,
     base: { D, h: ang.h ?? 1.6, el: ang.el ?? null, az: ang.az || 0, roll: ang.roll || 0, ty: AIM_Y[size] ?? .95,
       x: 0, dh: 0, fwd: 0, yaw: 0, pitch: 0, fMul: 1, wx: 0, wz: 0, aim: true, rack: 0 },
     subjX: center ? fw / 2 : ["close-up", "extreme close-up", "medium close-up"].includes(size) ? fw * .42 : fw / 3,
@@ -1566,7 +1573,9 @@ function previewHTML(a) {
   let fg = "";
   if (a.angle === "over-the-shoulder") fg = `<ellipse cx="${fw * .05}" cy="${fh * 1.05}" rx="${fw * .3}" ry="${fh * .5}" fill="#0a0a0a"/><circle cx="${fw * .06}" cy="${fh * .42}" r="${fh * .26}" fill="#0a0a0a"/>`;
   if (a.angle === "through-foreground framing") fg = `<rect x="${-fw * .04}" width="${fw * .22}" height="${fh}" fill="#0a0a0a" filter="url(#pv-blur)"/>`;
-  if (a.angle === "through a doorway") fg = `<path d="M0 0H${fw}V${fh}H${fw * .7}V${fh * .08}H${fw * .3}V${fh}H0Z" fill="#0d0d0d"/>`;
+  // The wall round a doorway gets a tone and a lit edge on the frame, so it reads as a door rather than a second crop.
+  if (a.angle === "through a doorway") fg = `<path d="M0 0H${fw}V${fh}H${fw * .7}V${fh * .08}H${fw * .3}V${fh}H0Z" fill="#221d17"/>`
+    + `<path d="M${fw * .3} ${fh}V${fh * .08}H${fw * .7}V${fh}" fill="none" stroke="#4a4136" stroke-width="2.5"/>`;
   if (a.angle === "through a car windshield") fg = `<rect width="${fw}" height="${fh * .1}" fill="#0d0d0d"/><path d="M0 ${fh * .8} Q${fw / 2} ${fh * .7} ${fw} ${fh * .8} V${fh} H0Z" fill="#0d0d0d"/>`;
   if (a.angle === "peephole view" || view === "fish" && a.angle !== "satellite view") fg += `<path fill-rule="evenodd" d="M0 0H${fw}V${fh}H0Z M${fw / 2 - fh * .48} ${fh / 2} a${fh * .48} ${fh * .48} 0 1 0 ${fh * .96} 0 a${fh * .48} ${fh * .48} 0 1 0 ${-fh * .96} 0Z" fill="#050505" opacity="${a.angle === "peephole view" ? 1 : .55}"/>`;
   if (c.mv === "parallax slide past foreground") fg += `<rect y="0" width="${fw * .12}" height="${fh}" fill="#080808" filter="url(#pv-blur)"><animate attributeName="x" values="${fw * 1.1};${-fw * .3};${fw * 1.1}" dur="${c.dur}s" repeatCount="indefinite"/></rect>`;
@@ -1575,7 +1584,7 @@ function previewHTML(a) {
   const vb = [x0 - 1, y0 - 1, ox + Math.max(fw, c.gx + c.gW, c.sx + c.sW) - x0 + 2, oy + Math.max(fh, c.gy + c.gH, c.sy + c.sH) - y0 + 2].map(f1).join(" ");
   // The film back the lens doesn't use: hatched, with a label in the widest gap (along the side when the gap is there).
   let unused = "";
-  if (g.cropped || g.sq > 1) {
+  if (c.showBack) {
     const note = g.cropped ? `Lens covers ${g.L.c === 3 ? "Super 35" : "full frame"} only` : `${g.sq}x squeeze, shown desqueezed`, top = c.gy - c.sy, side = c.gx - c.sx;
     unused = `<path d="M${f1(c.sx)} ${f1(c.sy)}h${f1(c.sW)}v${f1(c.sH)}h${f1(-c.sW)}Z M${f1(c.gx)} ${f1(c.gy)}v${f1(c.gH)}h${f1(c.gW)}v${f1(-c.gH)}Z" fill="url(#pv-hatch)" fill-rule="evenodd"/>`
       + (top >= 10 ? `<text x="${f1(c.sx + 4)}" y="${f1(c.sy + Math.min(top, 14) / 2 + 3)}" class="pv-note">${note}</text>`
@@ -1596,12 +1605,12 @@ function previewHTML(a) {
         <path id="pv-mask" d="M${f1(c.gx)} ${f1(c.gy)}h${f1(c.gW)}v${f1(c.gH)}h${f1(-c.gW)}Z M0 0v${f1(fh)}h${f1(fw)}v${f1(-fh)}Z" fill="#000" fill-rule="evenodd" opacity="${cropMask}"/></g>
       <g clip-path="url(#pv-clip)">${fg}${overlaySVG(fw, fh)}</g>
       <g clip-path="url(#pv-gate)"><path id="pv-ink" d="${inkPath(fw, fh)}" fill="none" stroke="#FF9900" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></g>
-      ${usedEdge}<rect x="${c.sx}" y="${c.sy}" width="${c.sW}" height="${c.sH}" fill="none" stroke="#777"${g.cropped || g.sq > 1 ? "" : ` stroke-dasharray="4 3"`}/>
+      ${usedEdge}<rect x="${c.sx}" y="${c.sy}" width="${c.sW}" height="${c.sH}" fill="none" stroke="#777"${c.showBack ? "" : ` stroke-dasharray="4 3"`}/>
       <rect width="${fw}" height="${fh}" fill="none" stroke="#FF9900" stroke-width="1.5"/></g></svg>`;
   const C = g.C, d = c.d;
-  const back = a.camera ? `Film back${C.k === "film" ? "" : " (sensor)"} ≈ ${f1(g.C0.w)} × ${f1(g.C0.h)} mm${g.cropped ? `; the lens only covers ${f1(C.w)} × ${f1(C.h)} mm of it, so the camera records that area and the hatched rest goes unused` : ""}`
+  const back = a.camera ? `Film back${C.k === "film" ? "" : " (sensor)"} ≈ ${f1(g.C0.w)} × ${f1(g.C0.h)} mm${g.cropped ? `; the lens only covers ${f1(C.w)} × ${f1(C.h)} mm of it, so the camera records that area and the ${c.showBack ? "hatched " : ""}rest goes unused` : ""}`
     : `No camera set, full frame 36 × 24 mm shown`;
-  const squeeze = g.sq > 1 ? ` · ${g.sq}x anamorphic: a picture ${g.sq}x as wide is squeezed onto the ${g.cropped ? "covered area" : backName(C)}, shown desqueezed and scaled to fit` : "";
+  const squeeze = g.sq > 1 ? ` · ${g.sq}x anamorphic: a picture ${g.sq}x as wide is squeezed onto the ${g.cropped ? "covered area" : backName(C)}, shown desqueezed${c.showBack ? " and scaled to fit" : ""}` : "";
   const crop = a.aspect ? `${a.aspect.split(" ")[0]} frame uses ${Math.round(g.cw * g.ch / (g.gw * g.gh) * 100)}% of the gate` : `No aspect set, full gate ${f1(g.G)}:1`;
   const eq = c.f0 && (g.C0.fixed ? c.f0 : c.f0 * 43.27 / g.diag), hfov = 2 * Math.atan(g.cw / (2 * c.fReal)) / RAD;
   const lensLine = c.f0 ? `${c.f0}mm ${g.C0.fixed ? "(full-frame equivalent)" : `≈ ${Math.round(eq)}mm full-frame equivalent`} · ${Math.round(hfov)}° horizontal · camera about ${fmtLen(c.base.D)} from the subject`
@@ -1621,6 +1630,7 @@ const OVERLAYS = [["thirds", "Rule of thirds"], ["phi", "Golden ratio"], ["spira
 const PHI = (1 + Math.sqrt(5)) / 2;
 let overlays = store.get("overlays", { thirds: true });
 let cropMask = store.get("cropMask", .7);  // how dark the film back outside the crop is: 0 shows it all, 1 hides it
+let fillPic = store.get("fillPic", false);  // fill the preview with the picture instead of showing the whole film back at true scale
 
 // The checked overlays as SVG, in frame coordinates (fw × fh).
 function overlaySVG(fw, fh) {
@@ -1666,6 +1676,7 @@ const inkPt = e => { const q = new DOMPoint(e.clientX, e.clientY).matrixTransfor
 function toolsHTML() {
   return OVERLAYS.map(([k, label]) => `<label><input type="checkbox" id="ov-${k}"${overlays[k] ? " checked" : ""}>${label}</label>`).join("")
     + `<span class="sep"></span><label class="mask">Outside crop <input type="range" id="pv-mask-range" min="0" max="100" step="5" value="${Math.round(cropMask * 100)}" aria-label="Darken the film back outside the crop"><span id="pv-mask-val">${Math.round(cropMask * 100)}%</span></label>`
+    + `<label title="Off: the whole film back at true scale, with what the lens doesn't use hatched. On: the picture fills the preview."><input type="checkbox" id="pv-fill"${fillPic ? " checked" : ""}>Fill preview</label>`
     + `<span class="sep"></span><button class="mini" type="button" id="ink-on" aria-pressed="${inkOn}">${inkOn ? "Drawing: drag on the frame" : "Draw"}</button>`
     + `<button class="mini" type="button" id="ink-undo">Undo</button><button class="mini" type="button" id="ink-reset">Reset drawing</button>`;
 }
@@ -1677,6 +1688,7 @@ $("pv-tools").addEventListener("input", e => {
   $("pv-mask-val").textContent = e.target.value + "%"; if ($("pv-mask")) $("pv-mask").setAttribute("opacity", cropMask);
 });
 $("pv-tools").addEventListener("change", e => {
+  if (e.target.id === "pv-fill") { fillPic = e.target.checked; store.set("fillPic", fillPic); return renderLive(); }
   if (!e.target.id.startsWith("ov-")) return;
   const k = e.target.id.replace(/^ov-/, ""); overlays[k] = e.target.checked; store.set("overlays", overlays); renderLive();
 });
@@ -1787,7 +1799,8 @@ LOOKS_ROLL.forEach(L => { const b = document.createElement("button"); b.type = "
   b.onclick = () => rollLook(L); $("looks").appendChild(b); });
 
 let tt;
-function toast(msg) { $("toast").textContent = msg; clearTimeout(tt); tt = setTimeout(() => $("toast").textContent = "", 1800); }
+// Shows msg over the preview, holds it, then fades it out (the class swap starts the CSS fade).
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(tt); tt = setTimeout(() => t.classList.remove("show"), 1800); }
 $("copy").addEventListener("click", () => {
   const t = promptText();
   const fallback = () => { const r = document.createRange(); r.selectNodeContents($("out")); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); toast("Selected, press Cmd+C"); };
