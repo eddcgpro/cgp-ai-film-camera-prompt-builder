@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Camera Sheet Prompt Builder</title>
+<title>CG Pro Shot Designer</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@300;400;500;600;700&display=swap">
@@ -212,8 +212,8 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
         <a class="site" href="https://www.becomecgpro.com/" target="_blank" rel="noopener">becomecgpro.com</a>
       </div>
       <div>
-        <p class="eyebrow">CG Pro · AI for Filmmakers</p>
-        <h1>Camera Viz</h1>
+        <p class="eyebrow">CG Pro</p>
+        <h1>Shot Designer</h1>
       </div>
     </div>
     <p class="sub">Set each slot, lock what you like, roll the rest. Copy the prompt into your image or video model.</p>
@@ -235,8 +235,7 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
     <p id="warn" role="status" hidden></p>
     <div class="actions">
       <button class="btn primary" id="copy" type="button">Copy prompt</button>
-      <button class="btn" id="roll" type="button">Roll unlocked</button>
-      <button class="btn quiet" id="clear" type="button">Clear unlocked</button>
+      <button class="btn" id="roll" type="button" title="A new look for every slot you haven't locked">Roll a look</button>
       <div class="seg small" role="group" aria-label="Prompt format">
         <button type="button" id="fmt-compact">Compact</button>
         <button type="button" id="fmt-structured">Structured</button>
@@ -275,7 +274,7 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
   </div>
 
   <div class="field">
-    <span class="lbl">Roll a look (unlocked slots)</span>
+    <span class="lbl">Roll a specific look (unlocked slots)</span>
     <div class="presets" id="looks"></div>
   </div>
 
@@ -1761,7 +1760,6 @@ function rollLook(L) {
   render(); toast("Rolled: " + L.name);
 }
 $("roll").onclick = () => rollLook();
-$("clear").onclick = () => { SLOTS.forEach(s => { if (!locked[s.id]) vals[keyOf(s)] = null; }); render(); };
 ["subject", "avoid"].forEach(id => $(id).addEventListener("input", () => { const t = promptText(); $("out").textContent = t; $("m-chars").textContent = t.length; }));
 $("fmt-compact").onclick = () => { format = "compact"; store.set("format", format); render(); };
 $("fmt-structured").onclick = () => { format = "structured"; store.set("format", format); render(); };
