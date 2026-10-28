@@ -31,11 +31,13 @@ header.top img { width: 52px; height: auto; flex: none; display: block }
 h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .01em; color: var(--grey-10); margin: 0; text-transform: uppercase }
 .sub { margin: 0; max-width: 54ch; font-size: 14px }
 
-/* One card per tool; the whole card is the link */
+/* One card per tool; the whole card is the link. A .thumb image (shared/thumbs/<tool>.webp) bleeds to the card's top edge, cropped to a banner shape */
 .tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px; padding: 0; margin: 0; list-style: none }
 .tool { display: grid; gap: 10px; align-content: start; height: 100%; padding: 22px 24px; border-radius: 18px; border: 1px solid var(--line);
   background: rgba(0,0,0,.45); color: inherit; text-decoration: none; transition: border-color 200ms, box-shadow 200ms }
 .tool:hover { border-color: var(--orange-40); box-shadow: 0 12px 32px rgba(0,0,0,.5) }
+.tool .thumb { display: block; width: calc(100% + 48px); max-width: none; height: auto; margin: -22px -24px 4px; aspect-ratio: 1.91 / 1;
+  object-fit: cover; border-radius: 17px 17px 0 0; border-bottom: 1px solid var(--line) }
 .tool h2 { font: 400 32px/1 var(--font-display); text-transform: uppercase; letter-spacing: .01em; color: var(--grey-10); margin: 0 }
 .tool p { margin: 0; font-size: 14px }
 .tool .go { font: 600 12px/1 var(--font-core); letter-spacing: .1em; text-transform: uppercase; color: var(--orange); margin-top: 6px }
@@ -61,6 +63,7 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
   <!-- One <li> per published tool. A tool also has to be listed in publish.json to go live. -->
   <ul class="tools">
     <li><a class="tool" href="shot-designer/">
+      <img class="thumb" src="shared/thumbs/shot-designer.webp" width="1731" height="909" alt="Shot Designer: a live prompt for a lone astronaut on a salt flat at dawn, beside the framed preview in a 2.76:1 Ultra Panavision 70 sensor">
       <h2>Shot Designer</h2>
       <p>Pick a camera, lens, light and framing, see the shot in a live preview, and copy the prompt into your image or video model.</p>
       <span class="go">Open →</span>
@@ -68,7 +71,10 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
   </ul>
 
   <section class="signup" aria-labelledby="signup-h">
-    <h2 id="signup-h">Sign up for the CG Pro newsletter</h2>
+    <div>
+      <p class="eyebrow">If you haven't already…</p>
+      <h2 id="signup-h">Sign up for the CG Pro newsletter</h2>
+    </div>
     <div class="signup-card"><div id="hs-form"></div></div>
   </section>
 </div>
