@@ -1,0 +1,2320 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CG Pro Color Pipeline</title>
+<!-- three.js's EXR reader imports "three"; both load from the CDN only when someone opens an EXR -->
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" },
+  "integrity": {
+    "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js": "sha384-61S/Nu32S3E5+n+KpCOTb2eRYps6fVKm+9Gz1QBvSePFthb46f063Aa/qe/lykFZ",
+    "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/EXRLoader.js": "sha384-HGPsGf52dXwP5SYqVvxCFZYpBljRxN9dQwNUv4nn983ZPEoVzpd7ZdFfJk3qI1UQ",
+    "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/fflate.module.js": "sha384-snNAi9XXYJRekU4SDTRWA1r1x/wKnErG2M27uvwQB1fd75zxIe1wC2PeBTl1+/Yy" } }</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@300;400;500;600;700&display=swap">
+<style>
+/* Layout: CG Pro dark field, same tokens as the Shot Designer. A short course in tabs: Start here (the idea, hands-on), Gamut,
+   Curves, Pipeline (variants: camera, virtual production, VFX; a diagram and the picture at each stage) and Mistakes (a draggable
+   correct/broken split on the same image). Single dark theme by design. */
+:root {
+  color-scheme: dark;
+  --orange: #FF9900;
+  --orange-16: rgba(255,153,0,.16);
+  --orange-40: rgba(255,153,0,.40);
+  --green: #8ED47F;
+  --grey-10: #E5E5E5;
+  --grey-20: #CCCCCC;
+  --grey-40: #999999;
+  --grey-70: #404040;
+  --ink: #212121;
+  --black: #000000;
+  --panel: rgba(0,0,0,.766);
+  --line: rgba(229,229,229,.14);
+  --chip-bg: rgba(0,0,0,.35);
+  --font-display: "Bebas Neue", "Haettenschweiler", "Arial Narrow", sans-serif;
+  --font-core: "Montserrat", "Helvetica Neue", Arial, sans-serif;
+  --ease: cubic-bezier(.4,0,.2,1);
+  /* Pipeline roles: one colour each, used on the stages and the map */
+  --role-camera: var(--orange);
+  --role-working: var(--green);
+  --role-display: var(--grey-10);
+}
+* { box-sizing: border-box }
+body { background: var(--ink); color: var(--grey-40); font: 300 15px/1.6 var(--font-core); margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 64px; }
+.wrap { max-width: 1160px; margin: 0 auto; display: grid; gap: 24px; }
+button, select, input { font: inherit }
+button { cursor: pointer }
+:focus-visible { outline: 1px solid var(--orange); outline-offset: 2px; box-shadow: 0 0 12px rgba(255,153,0,.35) }
+b, strong { font-weight: 600; color: var(--grey-10) }
+
+/* Header */
+header.top { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; justify-content: space-between; }
+.brand { display: flex; align-items: center; gap: 16px; min-width: 0 }
+.brand img { width: 52px; height: auto; flex: none; display: block }
+.eyebrow { font: 600 12px/1.3 var(--font-core); letter-spacing: .14em; text-transform: uppercase; color: var(--orange); margin: 0 0 4px }
+.eyebrow a { color: inherit; text-decoration: none }  /* back to the tools menu */
+.eyebrow a:hover { text-decoration: underline }
+h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .01em; color: var(--grey-10); margin: 0; text-transform: uppercase; }
+h2 { font: 400 28px/1 var(--font-display); letter-spacing: .02em; color: var(--grey-10); margin: 0; text-transform: uppercase }
+h3 { margin: 0; font: 600 12px/1.3 var(--font-core); letter-spacing: .14em; text-transform: uppercase; color: var(--orange) }
+.sub { margin: 0; max-width: 54ch; font-size: 14px }
+
+/* Tabs: one per lesson, in reading order */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px; border-radius: 22px; border: 1px solid var(--line); background: var(--chip-bg); justify-self: start; max-width: 100% }
+.tabs button { border: 0; background: transparent; color: var(--grey-20); font: 600 12px/1 var(--font-core); letter-spacing: .08em; text-transform: uppercase; padding: 10px 16px; border-radius: 999px; transition: all 200ms var(--ease) }
+.tabs button:hover { color: var(--grey-10); background: var(--orange-16) }
+.tabs button[aria-selected="true"] { background: var(--orange); color: var(--black) }
+.tabs .n { opacity: .6; margin-right: 6px }
+[role="tabpanel"][hidden] { display: none }
+[role="tabpanel"] { display: grid; gap: 24px }
+
+/* Segmented switch: pipeline variants */
+.seg { display: inline-flex; flex-wrap: wrap; padding: 3px; border-radius: 22px; border: 1px solid var(--line); background: var(--chip-bg); justify-self: start; max-width: 100% }
+.seg button { border: 0; background: transparent; color: var(--grey-20); font: 600 11px/1 var(--font-core); letter-spacing: .08em; text-transform: uppercase; padding: 9px 14px; border-radius: 999px; transition: all 200ms var(--ease) }
+.seg button[aria-pressed="true"] { background: var(--orange); color: var(--black) }
+
+/* Panels and lesson text */
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 24px; align-items: start }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 28px; padding: 20px 24px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0 }
+.label { font: 600 11px/1.3 var(--font-core); letter-spacing: .14em; text-transform: uppercase; color: var(--grey-40) }
+.lesson { color: var(--grey-20); font-size: 15px; max-width: 72ch }
+.lesson p { margin: 0 0 12px }
+.lesson p:last-child { margin-bottom: 0 }
+.lead { font-size: 18px; line-height: 1.55; color: var(--grey-10); font-weight: 400; margin: 0 }
+.lesson ul { margin: 0 0 12px; padding-left: 20px }
+.lesson li { margin-bottom: 6px }
+.go { border: 0; background: none; padding: 0; color: var(--orange); font-weight: 600; text-decoration: underline; text-underline-offset: 3px }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px }
+.card { border: 1px solid var(--line); border-radius: 20px; padding: 18px 20px; background: var(--chip-bg); display: grid; gap: 10px; align-content: start; color: var(--grey-20); font-size: 14px; min-width: 0 }
+.card .big { font: 400 26px/1 var(--font-display); color: var(--grey-10); letter-spacing: .02em; text-transform: uppercase }
+.card p { margin: 0 }
+.callout { border-left: 3px solid var(--orange); padding: 4px 0 4px 14px; color: var(--grey-20); font-size: 14px }
+.duo { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px }
+.wide { overflow-x: auto; margin: 0 }  /* wide diagrams scroll inside themselves on phones, never the page */
+.wide svg { display: block; width: 100%; min-width: 620px; height: auto }
+details { color: var(--grey-20); font-size: 14px }
+details summary { cursor: pointer; font: 600 11px/1.3 var(--font-core); letter-spacing: .12em; text-transform: uppercase; color: var(--orange) }
+details[open] summary { margin-bottom: 10px }
+.note { font-size: 12px; color: var(--grey-40); margin: 0 }
+
+/* Start here: the "same three numbers" toy */
+.toy { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 20px; align-items: center }
+.sliders { display: grid; gap: 8px }
+.sliders label { display: grid; grid-template-columns: 1.4em minmax(0, 1fr) 3em; gap: 10px; align-items: center; font-weight: 600; color: var(--grey-10) }
+.sliders input { width: 100%; min-width: 0 }
+.sliders label:nth-child(1) input { accent-color: #ff5a4f } .sliders label:nth-child(2) input { accent-color: #5fd36a } .sliders label:nth-child(3) input { accent-color: #5a8cff }
+.swatches { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px }
+.swatch { display: grid; gap: 6px; font-size: 12px; color: var(--grey-20) }
+.swatch i { display: block; aspect-ratio: 1.3; border-radius: 14px; border: 1px solid var(--line) }
+.swatch b { font-size: 12px }
+.mix svg { display: block; width: 100%; max-width: 220px; height: auto; margin: 0 auto }
+.mix circle { mix-blend-mode: screen }
+.mini canvas, .mini svg { display: block; width: 100%; height: auto; border-radius: 12px }
+.row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 12px }
+.row label { display: flex; gap: 8px; align-items: center; flex: 1 1 200px; min-width: 0 }
+.row input[type="range"] { flex: 1; min-width: 0; accent-color: var(--orange) }
+.row output { min-width: 4.5em; color: var(--grey-10); font-weight: 600 }
+.journey { cursor: pointer }
+.journey g:hover .node { stroke: var(--orange) }
+
+/* Pipeline choices */
+.choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px }
+.choices label { display: grid; gap: 6px; min-width: 0 }
+.choices select { width: 100%; min-width: 0; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--chip-bg); color: var(--grey-10) }
+.choices label[data-role="camera"] .label { color: var(--role-camera) }
+.choices label[data-role="working"] .label { color: var(--role-working) }
+.choices label[data-role="display"] .label { color: var(--role-display) }
+
+/* Chips: stage strip, curve toggles, mistake picker, colour presets */
+.chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px }
+.chips li { display: flex; align-items: center }
+.chips button { border: 1px solid var(--line); background: var(--chip-bg); color: var(--grey-20); border-radius: 999px; padding: 7px 12px;
+  font: 600 11px/1 var(--font-core); letter-spacing: .08em; text-transform: uppercase; transition: all 200ms var(--ease) }
+.chips button::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; vertical-align: 0; background: var(--dot, var(--grey-70)) }
+.chips button:hover { border-color: var(--orange-40) }
+.chips button[aria-pressed="true"] { background: var(--orange); color: var(--black); border-color: var(--orange) }
+.chips.curves button[aria-pressed="true"] { background: var(--chip-bg); color: var(--grey-10); border-color: var(--dot) }
+.chips.curves button[aria-pressed="false"] { opacity: .55 }
+/* Flow arrows between stages: filled for the steps the light has passed, outlined for the ones still ahead */
+.arr { width: 26px; height: 16px; flex: none; margin: 0 2px 0 0 }
+.arr path { stroke: var(--orange); stroke-width: 1.6; stroke-linejoin: round }
+.arr.past path { fill: var(--orange) }
+.arr.ahead path { fill: none }
+
+/* Stage explainer */
+#explain { color: var(--grey-20); font-size: 14px }
+#explain h3 { margin-bottom: 6px }
+#explain p { margin: 0 0 10px }
+#explain .warn { color: var(--orange) }
+
+/* Stage diagrams */
+.art { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.02) }
+.art .ln { fill: none; stroke: var(--grey-40); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round }
+.art .acc { stroke: var(--orange) } .art .grn { stroke: var(--green) } .art .wht { stroke: var(--grey-10) } .art .dash { stroke-dasharray: 5 4 }
+.art .thin { stroke-width: 1.2 }
+.art .box { fill: rgba(255,255,255,.05); stroke: rgba(229,229,229,.3); stroke-width: 1.5 }
+.art .hi { fill: var(--orange-16); stroke: var(--orange); stroke-width: 1.5 }
+.art .head { fill: var(--grey-40) }
+.art .t { fill: var(--grey-20); font: 500 12px var(--font-core) }
+.art .t.s { font-size: 10px; fill: var(--grey-40) }
+.art .t.o { fill: var(--orange); font-weight: 600 }
+.art .t.c { text-anchor: middle }
+
+/* Image viewer: processed test chart or the viewer's own picture. In a split, the divider is dragged on the picture itself. */
+.viewer { position: relative; margin: 0; display: grid; gap: 8px }
+.viewer .frame { position: relative; touch-action: pan-y; user-select: none }
+.viewer canvas { display: block; width: 100%; height: auto; border-radius: 12px; background: #000 }
+.viewer .tag { position: absolute; top: 8px; font: 600 10px/1 var(--font-core); letter-spacing: .12em; text-transform: uppercase; color: var(--grey-10); background: rgba(0,0,0,.7); padding: 6px 9px; border-radius: 999px; pointer-events: none; transition: opacity 150ms var(--ease) }
+.viewer .tag.l { left: 8px } .viewer .tag.r { right: 8px; color: var(--orange) }
+.viewer .tag.gone { opacity: 0 }
+.viewer figcaption { font-size: 13px; color: var(--grey-20) }
+.split .frame { cursor: ew-resize }
+.handle { position: absolute; top: 0; bottom: 0; width: 44px; margin-left: -22px; display: grid; place-items: center; cursor: ew-resize; touch-action: none }
+.handle::before { content: ""; position: absolute; top: 0; bottom: 0; left: 21px; width: 2px; background: var(--orange); box-shadow: 0 0 8px rgba(0,0,0,.6) }
+.handle span { position: relative; width: 34px; height: 34px; border-radius: 50%; background: var(--orange); color: var(--black); display: grid; place-items: center; font: 700 14px/1 var(--font-core); box-shadow: 0 2px 10px rgba(0,0,0,.6) }
+.btn { display: inline-flex; align-items: center; gap: 8px; font: 600 11px/1 var(--font-core); letter-spacing: .08em; text-transform: uppercase;
+  padding: 9px 14px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--grey-20); transition: all 200ms var(--ease) }
+.btn:hover { border-color: var(--orange); background: var(--orange-16) }
+.file { position: absolute; width: 1px; height: 1px; opacity: 0 }
+.scene-ctl { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; min-width: 0; flex: 1 1 100% }
+.space-pick .label { white-space: nowrap }
+.lamp-toggle[aria-pressed="true"] { border-color: var(--orange); color: var(--orange) }
+.scene-more { flex: 1 1 100%; min-width: 0 }
+.scene-more summary { cursor: pointer; font: 600 11px/1.3 var(--font-core); letter-spacing: .12em; text-transform: uppercase; color: var(--grey-20) }
+.scene-more[open] summary { margin-bottom: 10px }
+.scene-body { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; min-width: 0 }
+.scene-body .lampb { flex: 1 1 100% !important; min-width: 0 }
+.scene-body .lampb input { min-width: 90px }
+.scene-body .lampb .label, .scene-body .lampb output { white-space: nowrap }
+.scene-ctl .btn { flex: none !important }
+.space-pick { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; flex: 0 1 auto !important; min-width: 0; max-width: 100% }
+.space-pick select { min-width: 0; width: 18em; max-width: 100%; padding: 7px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--chip-bg); color: var(--grey-10); font-size: 12px }
+.thumbs { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px }
+.thumbs figure { margin: 0; display: grid; gap: 6px; font-size: 13px; color: var(--grey-20) }
+.thumbs canvas { display: block; width: 100%; height: auto; border-radius: 12px; background: #000 }
+.thumbs b { color: var(--orange) }
+
+/* Mistake card */
+#mistake { display: grid; gap: 10px; font-size: 14px; color: var(--grey-20) }
+#mistake dl { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 12px }
+#mistake dt { font: 600 11px/1.6 var(--font-core); letter-spacing: .12em; text-transform: uppercase; color: var(--orange) }
+#mistake dd { margin: 0 }
+
+/* Gamut map: canvas (the visible colours) under an SVG (locus, gamuts, probe) */
+.map { position: relative; margin: 0 }
+.map canvas, .map svg { display: block; width: 100%; height: auto }
+.map svg { position: absolute; inset: 0; cursor: crosshair }
+.map .grid line { stroke: rgba(229,229,229,.08); stroke-width: 1 }
+.map .grid text { fill: var(--grey-40); font: 400 10px var(--font-core) }
+.map .locus { fill: none; stroke: rgba(229,229,229,.5); stroke-width: 1.2 }
+.map .nm { fill: var(--grey-40); font: 400 9px var(--font-core) }
+.map .gamut { fill: none; stroke-width: 2.5; stroke-linejoin: round }
+.map .gamut.camera { stroke: var(--role-camera) }
+.map .gamut.working { stroke: var(--role-working) }
+.map .gamut.display { stroke: var(--role-display); stroke-dasharray: 6 4 }
+.map .gamut.extra { stroke: var(--grey-40); stroke-width: 1.2; stroke-dasharray: 2 3 }
+.map .white { fill: var(--grey-10) }
+.map .probe { fill: none; stroke: var(--black); stroke-width: 2 }
+.map .probe-in { fill: none; stroke: var(--grey-10); stroke-width: 1.5 }
+#probe-out { margin: 0; font-size: 14px; color: var(--grey-20) }
+.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13px; color: var(--grey-20) }
+.checks li { display: grid; grid-template-columns: 1.6em minmax(0, 1fr); align-items: baseline }
+.checks .yes { color: var(--green); font-weight: 700 } .checks .no { color: var(--orange); font-weight: 700 }
+.presets button::before { background: var(--dot); box-shadow: 0 0 0 1px rgba(255,255,255,.25) }
+.legend { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 4px 12px; font-size: 12px }
+.legend label { display: flex; gap: 8px; align-items: baseline; color: var(--grey-20) }
+.legend input { accent-color: var(--orange) }
+.legend .role { font: 600 10px/1 var(--font-core); letter-spacing: .1em; text-transform: uppercase }
+.legend .role.camera { color: var(--role-camera) }
+.legend .role.working { color: var(--role-working) }
+.legend .role.display { color: var(--role-display) }
+.legend .off { color: var(--grey-40) }
+.sizes { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 13px; color: var(--grey-20) }
+.sizes li { display: grid; grid-template-columns: minmax(0, 11em) minmax(0, 1fr) 3.2em; gap: 10px; align-items: center }
+.sizes .bar { height: 12px; border-radius: 999px; background: rgba(255,255,255,.06); overflow: hidden }
+.sizes .bar i { display: block; height: 100%; border-radius: 999px; background: var(--grey-40) }
+.sizes .camera i { background: var(--role-camera) } .sizes .working i { background: var(--role-working) } .sizes .display i { background: var(--role-display) }
+
+/* Curves plot and the grey ramps under it */
+.plot svg { display: block; width: 100%; height: auto }
+.plot .grid line { stroke: rgba(229,229,229,.08) }
+.plot .grid text, .plot .mark text { fill: var(--grey-40); font: 400 10px var(--font-core) }
+.plot .mark line { stroke: rgba(229,229,229,.3); stroke-dasharray: 3 3 }
+.plot .curve { fill: none; stroke-width: 2.2; stroke-linejoin: round }
+.plot .scrub { stroke: var(--orange); stroke-width: 1.5 }
+.plot .ramp-label { fill: var(--grey-20); font: 600 10px var(--font-core); letter-spacing: .06em }
+.plot .emoji { font-size: 22px }
+.budget text { fill: var(--grey-40); font: 400 10px var(--font-core) }
+.budget .name { fill: var(--grey-10); font: 600 11px var(--font-core); letter-spacing: .06em }
+.budget .clip { fill: var(--orange) }
+#curve-out { width: 100%; border-collapse: collapse; font-size: 13px }
+#curve-out td, #curve-out th { padding: 5px 8px; border-bottom: 1px solid var(--line); text-align: left }
+#curve-out th { font: 600 10px/1.3 var(--font-core); letter-spacing: .12em; text-transform: uppercase; color: var(--grey-40) }
+#curve-out td:first-child { color: var(--grey-10) }
+#curve-out .clip { color: var(--orange) }
+#stop-read { margin: 0; font-size: 14px; color: var(--grey-20) }
+
+/* HDR & files: formats table and the software/hardware lists */
+.formats { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 13px; color: var(--grey-20) }
+.formats th, .formats td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top }
+.formats th { font: 600 10px/1.3 var(--font-core); letter-spacing: .12em; text-transform: uppercase; color: var(--grey-40) }
+.formats td:first-child { color: var(--grey-10); font-weight: 600; white-space: nowrap }
+.formats .yes { color: var(--green); font-weight: 700 } .formats .no { color: var(--grey-40) }
+.code { margin: 0; padding: 14px 16px; border-radius: 14px; background: #0b0b0b; border: 1px solid var(--line); color: var(--green); font: 500 12.5px/1.6 ui-monospace, "Cascadia Mono", Consolas, monospace; white-space: pre-wrap; word-break: break-all }
+.kit { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; font-size: 14px; color: var(--grey-20) }
+.kit b { display: block }
+
+@media (max-width: 860px) { .cols, .toy { grid-template-columns: minmax(0, 1fr) } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <img src="../shared/cgpro-logo.png" alt="CG Pro">
+      <div>
+        <p class="eyebrow"><a href="../" title="All CG Pro film tools">CG Pro</a></p>
+        <h1>Color Pipeline</h1>
+      </div>
+    </div>
+    <p class="sub">A short, hands-on course in colour spaces: what they are, why log footage looks grey, why renders look dark, and how a picture gets from the scene to the screen.</p>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Lessons" id="tabs">
+    <button role="tab" id="t-start" aria-controls="p-start" data-tab="start"><span class="n">1</span>Start here</button>
+    <button role="tab" id="t-gamut" aria-controls="p-gamut" data-tab="gamut"><span class="n">2</span>Gamut</button>
+    <button role="tab" id="t-curves" aria-controls="p-curves" data-tab="curves"><span class="n">3</span>Curves</button>
+    <button role="tab" id="t-hdr" aria-controls="p-hdr" data-tab="hdr"><span class="n">4</span>HDR &amp; files</button>
+    <button role="tab" id="t-aces" aria-controls="p-aces" data-tab="aces"><span class="n">5</span>ACES</button>
+    <button role="tab" id="t-pipeline" aria-controls="p-pipeline" data-tab="pipeline"><span class="n">6</span>Pipeline</button>
+    <button role="tab" id="t-signals" aria-controls="p-signals" data-tab="signals"><span class="n">7</span>Signals</button>
+    <button role="tab" id="t-mistakes" aria-controls="p-mistakes" data-tab="mistakes"><span class="n">8</span>Mistakes</button>
+  </nav>
+
+  <!-- 1. Start here: the idea, hands-on, before any charts -->
+  <section role="tabpanel" id="p-start" aria-labelledby="t-start">
+    <div class="panel">
+      <h2>What is a colour space?</h2>
+      <div class="toy">
+        <div class="lesson">
+          <p class="lead">Every pixel is just three numbers. On their own they don't mean a colour. A <b>colour space</b> is the agreement that says what colour those numbers stand for.</p>
+          <p>Move the sliders. The <b>same three numbers</b> turn into three different colours depending on which space you say they're in. Nearly every "why does this look wrong?" problem in post is two pieces of software disagreeing about that.</p>
+          <div class="sliders" id="rgb">
+            <label>R<input type="range" min="0" max="1" step="0.01" data-i="0"><output></output></label>
+            <label>G<input type="range" min="0" max="1" step="0.01" data-i="1"><output></output></label>
+            <label>B<input type="range" min="0" max="1" step="0.01" data-i="2"><output></output></label>
+          </div>
+        </div>
+        <div style="display:grid; gap:14px">
+          <div class="mix"><svg viewBox="0 0 220 190" aria-label="Red, green and blue light mixing" role="img" id="mix"></svg></div>
+          <div class="swatches" id="swatches"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>A colour space is three decisions</h3>
+      <div class="cards">
+        <div class="card"><span class="label">1 · Primaries</span><span class="big">Which red, green and blue</span>
+          <div class="mini"><svg class="art" viewBox="0 0 300 170" id="prim-art" role="img" aria-label="A small gamut inside a bigger one, with a laser green only the bigger one can show"></svg></div>
+          <p>The exact colours "full red", "full green" and "full blue" mean. Everything a space can show is a mix of those three: its <b>gamut</b>. A laser green sits outside a small gamut and inside a big one.</p>
+          <p><button class="go" data-go="gamut">Explore gamuts →</button></p></div>
+        <div class="card"><span class="label">2 · White point</span><span class="big">What counts as white</span>
+          <div class="mini"><canvas id="white-canvas"></canvas></div>
+          <div class="row"><label><span class="label">White</span><input type="range" id="kelvin" min="2800" max="10000" step="100"><output id="kelvin-val"></output></label></div>
+          <p>The colour you get when all three numbers are equal. Most video uses <b>D65</b>, about 6500K daylight. Drag the slider: if the space (or the screen) assumes a different white, every colour in the shot shifts with it.</p></div>
+        <div class="card"><span class="label">3 · Transfer curve</span><span class="big">How numbers become brightness</span>
+          <div class="mini"><canvas id="bits-canvas" width="300" height="114"></canvas></div>
+          <div class="row"><label><span class="label">Bits</span><input type="range" id="bits" min="3" max="10" step="1"><output id="bits-val"></output></label></div>
+          <p>A file only has so many steps. Spread them evenly over light (<b>linear</b>) and the shadows band into a few big steps. A <b>log</b> curve spreads them by stops, so shadows stay smooth. Drop the bits and compare.</p>
+          <p><button class="go" data-go="curves">See the curves →</button></p></div>
+      </div>
+      <div class="callout">So "Rec.709" names all three: Rec.709 primaries, a D65 white and a display gamma. "ARRI LogC4 / AWG4" is another: ARRI's own wide primaries, D65 and a log curve.</div>
+    </div>
+
+    <div class="panel">
+      <h3>Two kinds of colour space</h3>
+      <div class="duo">
+        <div class="card"><span class="label">Scene-referred</span><span class="big">The light in front of the lens</span>
+          <p>Numbers proportional to real light, with no top limit: a bare bulb can be hundreds of times brighter than a face. Camera log files, EXR renders and ACES work this way. You grade and composite here.</p></div>
+        <div class="card"><span class="label">Display-referred</span><span class="big">What a screen should emit</span>
+          <p>0 is the screen's black and 1 is the brightest it can show. Anything brighter is gone. Rec.709, sRGB and P3 deliver this way. It's where a picture ends up, not where you want to work on it.</p></div>
+      </div>
+      <figure class="wide"><svg id="ladder" viewBox="0 0 900 210" role="img" aria-label="Brightness of everyday things in stops, against what a camera and screens can hold"></svg></figure>
+      <p class="note">Each step on this scale is one stop: twice the light. A screen covers a slice of the real world; the camera holds more; the scene goes further still. Squeezing scene into screen is the pipeline's hardest job.</p>
+    </div>
+
+    <div class="panel">
+      <h3>The journey</h3>
+      <p class="lesson" style="margin:0">A <b>colour pipeline</b> is the route from scene to screen. Click a step to see it in the Pipeline tab.</p>
+      <figure class="wide"><svg id="journey" class="journey" viewBox="0 0 900 170" role="img" aria-label="Scene, camera, working space, display"></svg></figure>
+      <div class="lesson">
+        <ul>
+          <li><button class="go" data-go="gamut">Gamut</button>: the "which colours" half. Which spaces can show a laser, a neon sign, a sunset?</li>
+          <li><button class="go" data-go="curves">Curves</button>: the "how bright" half. Why log looks flat and linear looks dark.</li>
+          <li><button class="go" data-go="hdr">HDR &amp; files</button>: what HDR really changes, which file formats carry what, and the software and screens involved.</li>
+          <li><button class="go" data-go="aces">ACES</button>: what the Academy's colour system actually is, piece by piece, without the jargon.</li>
+          <li><button class="go" data-go="pipeline">Pipeline</button>: camera to screen, virtual production and VFX, with the picture at every stage.</li>
+          <li><button class="go" data-go="signals">Signals</button>: how live pictures travel over SDI and SMPTE ST 2110 networks, and how their colour space travels with them.</li>
+          <li><button class="go" data-go="mistakes">Mistakes</button>: the most common colour errors, side by side with the fix. Load your own picture too.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. Gamut -->
+  <section role="tabpanel" id="p-gamut" aria-labelledby="t-gamut" hidden>
+    <div class="cols">
+      <div class="panel">
+        <h2>Gamut: which colours</h2>
+        <p class="lead">A gamut is a paint box with three paints. Mix them and you get every colour inside the triangle between them, but nothing outside it.</p>
+        <div class="mini"><svg class="art" viewBox="0 0 420 170" id="paint-art" role="img" aria-label="Three primaries, the colours they can mix, and one they can't"></svg></div>
+        <h3>Can this space show it?</h3>
+        <ul class="chips presets" id="presets" aria-label="Real-world colours"></ul>
+        <p id="probe-out" aria-live="polite"></p>
+        <ul class="checks" id="checks"></ul>
+        <p class="note">Or tap anywhere on the chart.</p>
+      </div>
+      <div class="panel">
+        <figure class="map" id="map">
+          <canvas id="map-fill" width="900" height="1150" aria-hidden="true"></canvas>
+          <svg id="map-svg" viewBox="0 0 450 575" role="img" aria-label="CIE 1931 xy chromaticity diagram with the pipeline's gamuts"></svg>
+        </figure>
+        <p class="note">The horseshoe is every colour a person can see (brightness taken out). Pure rainbow colours run round the curved edge; white is in the middle. Your screen can only show colours near sRGB, so the fill flattens towards the edges.</p>
+        <ul class="legend" id="legend" aria-label="Gamuts"></ul>
+      </div>
+    </div>
+    <div class="cols">
+      <div class="panel">
+        <h3>How big is each gamut?</h3>
+        <p class="note">Share of the horseshoe each triangle covers. Rough: equal areas on this chart aren't equal to the eye.</p>
+        <ul class="sizes" id="sizes"></ul>
+      </div>
+      <div class="panel">
+        <h3>When a colour won't fit</h3>
+        <div class="thumbs">
+          <figure><canvas id="fit-clip"></canvas><figcaption><b>Clipped.</b> Ramps towards saturated colours hit the edge and go flat, and hues shift.</figcaption></figure>
+          <figure><canvas id="fit-map"></canvas><figcaption><b>Mapped.</b> Colours past the edge are eased inside, so the ramps keep their shape.</figcaption></figure>
+        </div>
+        <p class="note">Ramps from grey to Rec.2020's primaries, shown on an sRGB screen.</p>
+      </div>
+    </div>
+    <div class="panel">
+      <details>
+        <summary>Reading the chart in detail</summary>
+        <div class="lesson">
+          <p><b>The horseshoe.</b> The curved edge is pure single-wavelength light, like a laser or a prism's rainbow: violet bottom left, green at the top, red on the right (numbers in nanometres). The straight bottom edge is the purples, which no single wavelength makes. The closer to the middle, the less saturated, until you reach white.</p>
+          <p><b>The triangles.</b> A colour space's three primaries are three points on this map. Join them up and the triangle is its gamut. Your pipeline's are drawn: <span style="color:var(--role-camera)">camera</span>, <span style="color:var(--role-working)">working space</span> and display (dashed). Change them on the <button class="go" data-go="pipeline">Pipeline</button> tab.</p>
+          <p><b>Outside a triangle</b> the colour needs a negative amount of a primary, which a screen can't emit. Something has to give: clipped (a hard edge and a hue shift) or mapped (gently pulled inside).</p>
+          <p><b>Corners outside the horseshoe</b> are "imaginary" primaries. No real light looks like that. Camera and working spaces use them on purpose so the triangle can hold every real colour a sensor sees.</p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <!-- 3. Curves -->
+  <section role="tabpanel" id="p-curves" aria-labelledby="t-curves" hidden>
+    <div class="panel">
+      <h2>Curves: how bright</h2>
+      <p class="lead">The same picture, stored three ways. Same light, different numbers: only one of them is meant to be looked at.</p>
+      <div class="thumbs" id="curve-thumbs">
+        <figure><canvas></canvas><figcaption></figcaption></figure>
+        <figure><canvas></canvas><figcaption></figcaption></figure>
+        <figure><canvas></canvas><figcaption></figcaption></figure>
+      </div>
+      <div class="row"><label><span class="label">Exposure</span><input type="range" class="exp" min="-4" max="4" step="0.1" value="0"><output class="exp-val">0 stops</output></label><span class="scene-ctl"></span></div>
+    </div>
+    <div class="panel">
+      <h3>Where do the numbers go?</h3>
+      <p class="lesson" style="margin:0">A 10-bit file has 1,024 values to spend. Each bar is one stop of light (one doubling) and how many values it gets. <b>Linear</b> blows half its budget on the brightest stop and gives the shadows almost nothing. <b>sRGB</b> is fairer, but stops at the screen's white. <b>Log</b> gives every stop a fair share, and keeps going above white.</p>
+      <figure class="wide plot budget"><svg id="budget" viewBox="0 0 900 300" role="img" aria-label="Code values per stop for linear, sRGB and the camera's log curve"></svg></figure>
+    </div>
+    <div class="cols">
+      <div class="panel">
+        <h3>The curves themselves</h3>
+        <p class="lesson" style="margin:0">Left to right is light, in stops; up is the number stored. Drag the exposure and watch the display curves (sRGB, linear) hit the top at display white while the log curves keep climbing.</p>
+        <div class="row"><label><span class="label">Scene exposure</span><input type="range" id="stop" min="-8" max="8" step="0.1" value="0"><output id="stop-val">0 stops</output></label></div>
+        <p id="stop-read" aria-live="polite"></p>
+        <ul class="chips curves" id="curve-chips" aria-label="Curves to show"></ul>
+      </div>
+      <div class="panel">
+        <div class="plot"><svg id="curve-svg" viewBox="0 0 600 370" role="img" aria-label="Transfer curves: scene exposure in stops against code value"></svg></div>
+        <details>
+          <summary>The numbers</summary>
+          <table id="curve-out"></table>
+          <div class="plot"><svg id="ramp-svg" viewBox="0 0 600 100" role="img" aria-label="Grey ramps: each curve's code values shown directly on screen"></svg></div>
+          <p class="note">Ramps: −8 to +8 stops left to right, each curve's numbers shown straight on screen with no conversion.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. HDR & files -->
+  <section role="tabpanel" id="p-hdr" aria-labelledby="t-hdr" hidden>
+    <div class="panel">
+      <h2>HDR: beyond 0 to 1</h2>
+      <p class="lead">In SDR, 1.0 means "as bright as this screen goes", whatever that is. In HDR, the numbers mean real brightness, measured in <b>nits</b>, up to 10,000.</p>
+      <div class="duo">
+        <div class="card"><span class="label">SDR · relative</span><span class="big">0 to 1, scaled to the screen</span>
+          <p>Rec.709 is mastered for a white of <b>100 nits</b> (sRGB's standard says 80). A brighter TV just makes everything brighter, including the white shirt. Nothing in the signal can be brighter than white, so sun glints and lamps sit at the same level as paper.</p></div>
+        <div class="card"><span class="label">HDR · absolute</span><span class="big">Code value = nits</span>
+          <p><b>PQ</b> (SMPTE ST 2084) gives every code value a fixed brightness. Paper-white sits around <b>200 nits</b>, and everything above is headroom for highlights: sun, lamps, neon, reflections. <b>HLG</b>, used in broadcast, is relative like SDR but with headroom built in.</p></div>
+      </div>
+      <div class="row"><label><span class="label">Signal</span><input type="range" id="signal" min="0" max="1" step="0.01"><output id="signal-val"></output></label></div>
+      <p id="signal-read" aria-live="polite" class="lesson" style="margin:0"></p>
+      <figure class="wide"><svg id="nits" viewBox="0 0 900 290" role="img" aria-label="Peak brightness of screens in nits, on a log scale, with the signal's brightness marked"></svg></figure>
+      <p class="note">Log scale: each gridline is 10× brighter. Typical figures; real screens vary.</p>
+    </div>
+
+    <div class="panel">
+      <h3>Same scene, SDR vs HDR</h3>
+      <div class="thumbs" id="hdr-thumbs">
+        <figure><canvas></canvas><figcaption><b>SDR</b> (ACES 1.3, sRGB). Everything above white rolls off into the top of the 0–1 range. The lamp flattens into near-white.</figcaption></figure>
+        <figure><canvas></canvas><figcaption><b>HDR, simulated</b> (ACES 1.3, 1,000 nits). The lamp keeps its colour and shape. To fit 1,000 nits on your screen everything is dimmed; on a real HDR screen mid-tones sit near SDR (mid grey at 15 nits) and only the highlights go brighter.</figcaption></figure>
+      </div>
+      <div class="row"><label><span class="label">Exposure</span><input type="range" class="exp" min="-4" max="4" step="0.1" value="0"><output class="exp-val">0 stops</output></label><span class="scene-ctl"></span></div>
+      <div class="cards">
+        <div class="card"><span class="label">HDR10</span><p>PQ, Rec.2020 container, one set of <b>static</b> metadata for the whole programme. The baseline for streaming and UHD Blu-ray.</p></div>
+        <div class="card"><span class="label">HDR10+ · Dolby Vision</span><p>PQ with <b>dynamic</b> metadata, shot by shot, telling each TV how to tone-map to its own peak brightness.</p></div>
+        <div class="card"><span class="label">HLG</span><p>Hybrid Log-Gamma: relative, no metadata, and watchable on SDR sets that accept Rec.2020 colour. Built for live broadcast.</p></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>File formats: what's inside</h3>
+      <p class="lesson" style="margin:0">A file format is a container. What matters is what it holds: how many bits, which curve, and whether values above 1.0 survive.</p>
+      <div class="wide"><table class="formats" id="formats"></table></div>
+    </div>
+
+    <div class="cols">
+      <div class="panel"><h3>Software</h3><ul class="kit" id="software"></ul></div>
+      <div class="panel"><h3>Hardware</h3><ul class="kit" id="hardware"></ul></div>
+    </div>
+  </section>
+
+  <!-- 5. ACES -->
+  <section role="tabpanel" id="p-aces" aria-labelledby="t-aces" hidden>
+    <div class="panel">
+      <h2>ACES, demystified</h2>
+      <p class="lead"><b>ACES</b> (the Academy Color Encoding System) is a free, open standard for colour management: an agreed set of colour spaces and conversions, so cameras, CG, VFX and grading can hand pictures to each other without guessing.</p>
+      <div class="duo">
+        <div class="card"><span class="label">It is</span><p>A shared language: one big scene-referred space everything converts into, standard conversions in from every camera and out to every screen, and a record of which ones were used. Created by the Academy of Motion Picture Arts and Sciences; since 2025 an open-source project of the Academy Software Foundation.</p></div>
+        <div class="card"><span class="label">It isn't</span><p>A look, a LUT, a camera setting or a grading style. ACES has a default way of turning scene light into a picture (the output transform), but your look comes from your grade, just as in any other pipeline.</p></div>
+      </div>
+    </div>
+    <div class="cols">
+      <div class="panel">
+        <h3>The ACES pipeline, one piece at a time</h3>
+        <ol class="chips" id="aces-steps" aria-label="ACES pieces"></ol>
+        <div id="aces-explain" aria-live="polite"></div>
+      </div>
+      <div class="panel">
+        <svg class="art" id="aces-art" viewBox="0 0 400 170" role="img" aria-label="Diagram of the selected ACES piece"></svg>
+        <figure class="viewer">
+          <div class="frame"><canvas id="aces-canvas"></canvas><span class="tag l" id="aces-tag"></span></div>
+          <figcaption id="aces-cap"></figcaption>
+        </figure>
+        <div class="row">
+          <label><span class="label">Exposure</span><input type="range" class="exp" min="-4" max="4" step="0.1" value="0"><output class="exp-val">0 stops</output></label>
+          <span class="scene-ctl"></span>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>The ACES colour spaces</h3>
+      <p class="lesson" style="margin:0">Five encodings, two sets of primaries. They all describe the same scene light; they differ in what they're for.</p>
+      <div class="wide"><table class="formats" id="aces-table"></table></div>
+    </div>
+    <div class="cols">
+      <div class="panel">
+        <h3>Which one do I use?</h3>
+        <ul class="chips" id="aces-roles" aria-label="Your job"></ul>
+        <div id="aces-role" class="lesson" aria-live="polite"></div>
+      </div>
+      <div class="panel">
+        <h3>ACES 1.x vs 2.0</h3>
+        <div class="lesson">
+          <p><b>ACES 1.x</b> turns scene light into a picture in two steps: the <b>RRT</b> (Reference Rendering Transform, a film-like tone curve and colour tweaks, the same for everyone) and an <b>ODT</b> (Output Device Transform, one per kind of screen). Very saturated light, such as LEDs and neon, could clip and skew, so 1.3 added a <b>Reference Gamut Compression</b> step to use first.</p>
+          <p><b>ACES 2.0</b> replaces RRT + ODT with one <b>Output Transform</b> built on a model of how we see colour. It maps out-of-gamut colours itself, holds hue better in bright, saturated light, and matches SDR and HDR versions more closely.</p>
+          <p class="note">The pictures on this page use ACES 1.3 (with gamut compression), ported from the Academy's reference code.</p>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Myths</h3>
+      <div class="cards" id="aces-myths"></div>
+    </div>
+  </section>
+
+  <!-- 6. Pipeline -->
+  <section role="tabpanel" id="p-pipeline" aria-labelledby="t-pipeline" hidden>
+    <div class="cols">
+      <div class="panel">
+        <h2>Pipelines</h2>
+        <div class="seg" id="pipe-kinds" aria-label="Pipeline type"></div>
+        <p class="lesson" id="pipe-intro" style="margin:0"></p>
+        <div class="choices">
+          <label data-role="camera"><span class="label">Camera</span><select id="cam"></select></label>
+          <label data-role="working"><span class="label">Working space</span><select id="work"></select></label>
+          <label data-role="display"><span class="label">Display</span><select id="disp"></select></label>
+        </div>
+        <ol class="chips" id="stages" aria-label="Pipeline stages"></ol>
+        <div id="explain" aria-live="polite"></div>
+      </div>
+      <div class="panel">
+        <svg class="art" id="stage-art" viewBox="0 0 400 170" role="img" aria-label="Diagram of the selected stage"></svg>
+        <figure class="viewer">
+          <div class="frame"><canvas id="pipe-canvas"></canvas><span class="tag l" id="pipe-tag"></span></div>
+          <figcaption id="pipe-cap"></figcaption>
+        </figure>
+        <div class="row">
+          <label><span class="label">Exposure</span><input type="range" class="exp" min="-4" max="4" step="0.1" value="0"><output class="exp-val">0 stops</output></label>
+          <span class="scene-ctl"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. Signals -->
+  <section role="tabpanel" id="p-signals" aria-labelledby="t-signals" hidden>
+    <div class="panel">
+      <h2>Signals: SDI and ST 2110</h2>
+      <p class="lead">Files carry a colour tag. Live pictures need one too. On set, in broadcast and in virtual production, video travels as a signal: down an SDI cable, or more and more, across an ordinary computer network using <b>SMPTE ST 2110</b>.</p>
+      <figure class="wide"><svg id="sig-art" viewBox="0 0 900 250" role="img" aria-label="SDI carries everything down one cable; ST 2110 sends video, audio and data as separate streams over a network, kept in sync by a shared clock"></svg></figure>
+      <div class="duo">
+        <div class="card"><span class="label">SDI</span><span class="big">One cable, everything inside</span>
+          <p>Picture, audio and data travel together down one coax cable at fixed speeds (1.5G for HD up to 30p, 3G for 1080p50/60, 12G for UHD at 50/60p). The signal's colour space rides along as a few flags in its <b>payload ID</b> (SMPTE ST 352), which can say Rec.709 or Rec.2020, and SDR, HLG or PQ.</p></div>
+        <div class="card"><span class="label">SMPTE ST 2110</span><span class="big">Separate streams on a network</span>
+          <p>Video, audio and data each become their own stream of network packets over standard Ethernet, synced by a shared network clock (<b>PTP</b>). Each stream is described by a short text file, an <b>SDP</b>, and that's where its colour space is written down.</p></div>
+      </div>
+    </div>
+    <div class="cols">
+      <div class="panel">
+        <h3>Colour in the stream: build an SDP line</h3>
+        <p class="lesson" style="margin:0">A 2110 video stream's SDP has a line of format parameters. These choices are the ones that decide how the receiver turns numbers back into colour.</p>
+        <div class="choices" id="sdp-choices"></div>
+      </div>
+      <div class="panel">
+        <pre id="sdp-out" class="code"></pre>
+        <div id="sdp-read" class="lesson" aria-live="polite"></div>
+        <div id="sdp-rate" class="lesson"></div>
+      </div>
+    </div>
+    <div class="cols">
+      <div class="panel">
+        <h3>The ST 2110 family</h3>
+        <ul class="kit" id="sig-parts"></ul>
+      </div>
+      <div class="panel">
+        <h3>Why it matters for colour</h3>
+        <div class="lesson">
+          <p>A receiver only knows what the numbers mean if the description is right. A stream flagged <b>BT709 / SDR</b> that actually carries PQ in Rec.2020 is the live version of the <button class="go" data-go="mistakes">wrong gamut tag</button> and wrong-curve mistakes: dull, flat or garish pictures on every screen downstream.</p>
+          <p>The same goes for <b>range</b>: narrow (legal) range keeps 10-bit video between 64 and 940; full range uses 0 to 1023. Read one as the other and blacks lift or crush.</p>
+          <p>In <b>virtual production</b>, render nodes, LED processors and cameras increasingly sit on 2110 networks (some LED processors, such as Megapixel's HELIOS, take 2110 as well as SDI), so getting these flags right is part of colour management on the stage.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. Mistakes -->
+  <section role="tabpanel" id="p-mistakes" aria-labelledby="t-mistakes" hidden>
+    <div class="cols">
+      <div class="panel">
+        <h2>Common mistakes</h2>
+        <div class="lesson"><p>Most colour problems are one space being read as another. Pick a mistake: the left of the picture is the correct pipeline, the right is the mistake. Drag across the picture to move the divider; grab the lamp itself to move the lamp.</p></div>
+        <ul class="chips" id="mistake-chips" aria-label="Mistakes"></ul>
+        <div id="mistake" aria-live="polite"></div>
+      </div>
+      <div class="panel">
+        <figure class="viewer split">
+          <div class="frame" id="mis-frame">
+            <canvas id="mis-canvas"></canvas>
+            <span class="tag l" id="mis-tag-l">Correct</span><span class="tag r" id="mis-tag"></span>
+            <div class="handle" id="mis-handle" role="slider" tabindex="0" aria-label="Divider between correct and mistake" aria-valuemin="0" aria-valuemax="100"><span aria-hidden="true">⇔</span></div>
+          </div>
+        </figure>
+        <div class="row">
+          <label><span class="label">Exposure</span><input type="range" class="exp" min="-4" max="4" step="0.1" value="0"><output class="exp-val">0 stops</output></label>
+          <span class="scene-ctl"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+/* Colour science data. Primaries and white points as CIE 1931 xy, from each spec or vendor white paper. */
+const WHITE = { D65: [0.3127, 0.3290], ACES: [0.32168, 0.33767] };
+const GAMUTS = {
+  rec709:   { name: "Rec.709 / sRGB",        w: "D65",  p: [[0.640, 0.330], [0.300, 0.600], [0.150, 0.060]], about: "HD TV and the web. The smallest gamut here, and still the most common delivery." },
+  p3d65:    { name: "P3-D65 (Display P3)",   w: "D65",  p: [[0.680, 0.320], [0.265, 0.690], [0.150, 0.060]], about: "Cinema projection's primaries with a D65 white; Apple screens, most modern phones and HDR mastering." },
+  rec2020:  { name: "Rec.2020",              w: "D65",  p: [[0.708, 0.292], [0.170, 0.797], [0.131, 0.046]], about: "UHD/HDR container. Its primaries sit on the spectral locus; few displays reach it." },
+  ap1:      { name: "ACES AP1 (ACEScg)",     w: "ACES", p: [[0.713, 0.293], [0.165, 0.830], [0.128, 0.044]], about: "The ACES working gamut for grading and CG: a little bigger than Rec.2020." },
+  ap0:      { name: "ACES AP0 (2065-1)",     w: "ACES", p: [[0.7347, 0.2653], [0.0, 1.0], [0.0001, -0.0770]], about: "ACES archive and interchange. Encloses every visible colour, so two primaries are imaginary." },
+  dwg:      { name: "DaVinci Wide Gamut",    w: "D65",  p: [[0.8000, 0.3130], [0.1682, 0.9877], [0.0790, -0.1155]], about: "Resolve's working gamut, built to hold every camera gamut without clipping." },
+  awg4:     { name: "ARRI Wide Gamut 4",     w: "D65",  p: [[0.7347, 0.2653], [0.1424, 0.8576], [0.0991, -0.0308]], about: "ALEXA 35's gamut, paired with LogC4." },
+  sg3cine:  { name: "Sony S-Gamut3.Cine",    w: "D65",  p: [[0.766, 0.275], [0.225, 0.800], [0.089, -0.087]], about: "Sony's film-friendly camera gamut, paired with S-Log3." },
+  rwg:      { name: "RED Wide Gamut RGB",    w: "D65",  p: [[0.780308, 0.304253], [0.121595, 1.493994], [0.095612, -0.084589]], about: "RED's IPP2 gamut, paired with Log3G10. Its green primary is far off this chart." },
+  cinema:   { name: "Canon Cinema Gamut",    w: "D65",  p: [[0.740, 0.270], [0.170, 1.140], [0.080, -0.100]], about: "Canon's camera gamut, paired with Canon Log 2/3. Green primary is off the chart." },
+  vgamut:   { name: "Panasonic V-Gamut",     w: "D65",  p: [[0.730, 0.280], [0.165, 0.840], [0.100, -0.030]], about: "Panasonic VariCam and Lumix gamut, paired with V-Log." },
+};
+
+/* Transfer curves: encode(x) takes scene-linear light (0.18 = mid grey) and returns a code value (0..1, may overshoot).
+   display: true for curves that clip at the screen's white. Constants from each vendor's published formula. */
+const LOG10 = Math.log10, LOG2 = Math.log2;
+const LOGC4 = (() => { const a = (2 ** 18 - 16) / 117.45, b = (1023 - 95) / 1023, c = 95 / 1023, s = (7 * Math.LN2 * 2 ** (7 - 14 * c / b)) / (a * b), t = (2 ** (14 * (-c / b) + 6) - 64) / a;
+  return x => x >= t ? (LOG2(a * x + 64) - 6) / 14 * b + c : (x - t) / s; })();
+/* SMPTE ST 2084 (PQ): absolute brightness, 0..10,000 nits. Here scene-linear 1.0 (diffuse white) is placed at 203 nits,
+   BT.2408's HDR reference white: a plain scaling for teaching, without BT.2408's full system tone curve. */
+const PQ = x => { const y = Math.max(x, 0) * 203 / 10000, p = y ** 0.1593017578125; return ((0.8359375 + 18.8515625 * p) / (1 + 18.6875 * p)) ** 78.84375; };
+const CURVES = {
+  linear:  { name: "Linear",               color: "#E5E5E5", display: true,  encode: x => x },
+  srgb:    { name: "sRGB",                 color: "#5EC8E5", display: true,  encode: x => x <= 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055 },
+  g24:     { name: "Rec.709 gamma 2.4",    color: "#6F9BE5", display: true,  encode: x => Math.pow(Math.max(x, 0), 1 / 2.4) },
+  logc4:   { name: "ARRI LogC4",           color: "#FF9900", display: false, encode: LOGC4 },
+  logc3:   { name: "ARRI LogC3",           color: "#E5D35E", display: false, encode: x => x > 0.010591 ? 0.247190 * LOG10(5.555556 * x + 0.052272) + 0.385537 : 5.367655 * x + 0.092809 },
+  slog3:   { name: "Sony S-Log3",          color: "#E58FC9", display: false, encode: x => x >= 0.01125 ? (420 + LOG10((x + 0.01) / 0.19) * 261.5) / 1023 : (x * (171.2102946929 - 95) / 0.01125 + 95) / 1023 },
+  log3g10: { name: "RED Log3G10",          color: "#E5735E", display: false, encode: x => x + 0.01 < 0 ? (x + 0.01) * 15.1927 : 0.224282 * LOG10((x + 0.01) * 155.975327 + 1) },  // RED white paper v3
+  clog3:   { name: "Canon Log 3",          color: "#A98FE5", display: false, encode: x => { x /= 0.9;  // Canon's input has 90% white = 1.0 (Canon Log 3 v1.2)
+    return x > 0.014 ? 0.36726845 * LOG10(x * 14.98325 + 1) + 0.12240537 : x >= -0.014 ? 1.9754798 * x + 0.12512219 : -0.36726845 * LOG10(-x * 14.98325 + 1) + 0.12783901; } },
+  vlog:    { name: "Panasonic V-Log",      color: "#5EE5B0", display: false, encode: x => x < 0.01 ? 5.6 * x + 0.125 : 0.241514 * LOG10(x + 0.00873) + 0.598206 },
+  acescct: { name: "ACEScct",              color: "#8ED47F", display: false, encode: x => x <= 0.0078125 ? 10.5402377416545 * x + 0.0729055341958355 : (LOG2(x) + 9.72) / 17.52 },
+  davinci: { name: "DaVinci Intermediate", color: "#C9A87A", display: false, encode: x => x <= 0.00262409 ? x * 10.44426855 : (LOG2(x + 0.0075) + 7) * 0.07329248 },
+  pq:      { name: "PQ (HDR)",             color: "#F2E6A6", display: false, encode: PQ },
+};
+
+const CAMERAS = {
+  arri:  { name: "ARRI ALEXA 35",             gamut: "awg4",    curve: "logc4" },
+  sony:  { name: "Sony VENICE / FX",          gamut: "sg3cine", curve: "slog3" },
+  red:   { name: "RED V-RAPTOR (IPP2)",       gamut: "rwg",     curve: "log3g10" },
+  canon: { name: "Canon Cinema EOS",          gamut: "cinema",  curve: "clog3" },
+  pana:  { name: "Panasonic VariCam / Lumix", gamut: "vgamut",  curve: "vlog" },
+};
+const WORKING = {
+  aces:   { name: "ACES (ACEScct)",                    gamut: "ap1",    curve: "acescct", how: "ACES",    linear: "ACEScg" },
+  dwg:    { name: "DaVinci Wide Gamut / Intermediate", gamut: "dwg",    curve: "davinci", how: "Resolve", linear: "DaVinci Wide Gamut linear" },
+  rec709: { name: "Rec.709 (display-referred)",        gamut: "rec709", curve: "g24",     how: "display", linear: "linear Rec.709" },
+};
+const DISPLAYS = {
+  rec709: { name: "Rec.709 · gamma 2.4",  gamut: "rec709",  curve: "BT.1886 (gamma 2.4)", use: "HD TV, broadcast and a grading monitor in a dim room" },
+  srgb:   { name: "sRGB",                 gamut: "rec709",  curve: "the sRGB curve (about gamma 2.2)", use: "computer screens and the web, viewed in a brighter room" },
+  p3:     { name: "Display P3",           gamut: "p3d65",   curve: "the sRGB curve", use: "Apple devices and most modern phones" },
+  pq:     { name: "Rec.2100 PQ (HDR)",    gamut: "rec2020", curve: "PQ (SMPTE ST 2084), absolute brightness up to 10,000 nits", use: "HDR streaming and TVs; mastered inside P3-D65 in practice" },
+};
+/* CIE 1931 2° spectral locus, 380–700 nm in 5 nm steps */
+const LOCUS = [[0.1741,0.0050],[0.1740,0.0050],[0.1738,0.0049],[0.1736,0.0049],[0.1733,0.0048],[0.1730,0.0048],[0.1726,0.0048],[0.1721,0.0048],[0.1714,0.0051],[0.1703,0.0058],[0.1689,0.0069],[0.1669,0.0086],[0.1644,0.0109],[0.1611,0.0138],[0.1566,0.0177],[0.1510,0.0227],[0.1440,0.0297],[0.1355,0.0399],[0.1241,0.0578],[0.1096,0.0868],[0.0913,0.1327],[0.0687,0.2007],[0.0454,0.2950],[0.0235,0.4127],[0.0082,0.5384],[0.0039,0.6548],[0.0139,0.7502],[0.0389,0.8120],[0.0743,0.8338],[0.1142,0.8262],[0.1547,0.8059],[0.1929,0.7816],[0.2296,0.7543],[0.2658,0.7243],[0.3016,0.6923],[0.3373,0.6589],[0.3731,0.6245],[0.4087,0.5896],[0.4441,0.5547],[0.4788,0.5202],[0.5125,0.4866],[0.5448,0.4544],[0.5752,0.4242],[0.6029,0.3965],[0.6270,0.3725],[0.6482,0.3514],[0.6658,0.3340],[0.6801,0.3197],[0.6915,0.3083],[0.7006,0.2993],[0.7079,0.2920],[0.7140,0.2859],[0.7190,0.2809],[0.7230,0.2770],[0.7260,0.2740],[0.7283,0.2717],[0.7300,0.2700],[0.7311,0.2689],[0.7320,0.2680],[0.7327,0.2673],[0.7334,0.2666],[0.7340,0.2660],[0.7344,0.2656],[0.7346,0.2654],[0.7347,0.2653]];
+
+/* Real-world colours for the Gamut tab, as CIE xy (approximate). */
+const PRESETS = [
+  { name: "Skin tone",            xy: [0.40, 0.37] },
+  { name: "Clear sky",            xy: [0.25, 0.28] },
+  { name: "Tropical sea",         xy: [0.17, 0.34] },
+  { name: "Sodium streetlight",   xy: [0.5752, 0.4242] },
+  { name: "Neon sign red",        xy: [0.70, 0.295] },
+  { name: "Laser pointer green",  xy: [0.172, 0.79] },
+  { name: "Blue LED",             xy: [0.1355, 0.0399] },
+];
+
+/* The mistakes: mode is the broken render, shown on the right of the split against "display" on the left. */
+const MISTAKES = [
+  { id: "log",   mode: "log",        name: "Log with no transform", see: "Flat, grey, washed-out colour. The classic \"why does my footage look like this?\"",
+    why: "Camera log values are shown as if they were display values. Log is a storage format, not a look.", fix: "Apply the camera's input transform (IDT, Color Space Transform or the camera's LUT) before viewing." },
+  { id: "lin",   mode: "linraw",     name: "Linear shown raw", see: "Dark and contrasty, with crushed shadows. Typical of an EXR render opened without a view transform.",
+    why: "Scene-linear numbers go straight to the screen with no display curve, so mid grey (0.18) shows as a near-black 18%.", fix: "View linear images through a view/output transform (ACES, AgX, OCIO): the viewer LUT in your renderer or comp." },
+  { id: "twice", mode: "double",     name: "Display curve twice", see: "Milky, lifted shadows and pale colour across the whole image.",
+    why: "An image already encoded for the screen gets encoded again, e.g. an sRGB texture or plate tagged as linear (or Raw) and then converted for display.", fix: "Tag colour images by what they really are: sRGB textures as sRGB, data maps (normals, roughness) as Raw/Non-Color." },
+  { id: "clip",  mode: "clip",       name: "No tone mapping", see: "Highlights cut to flat white with hard edges; bright colours skew to yellow, cyan and magenta. Push the exposure up.",
+    why: "Scene light above display white (1.0) is simply cut off, one channel at a time, so colours lose their hue as they clip.", fix: "Use an output transform with a highlight roll-off (ACES Output Transform, Resolve tone mapping, a film-style curve)." },
+  { id: "gclip", mode: "gamutclip",  name: "Gamut clipped", see: "The neon patches lose shape and shift hue. Saturated lights turn into flat blobs.",
+    why: "Colours outside the display's gamut come out with negative values, which are just cut to zero. ACES 1.3's output transform does exactly this on its own; the right side here skips the gamut compression step.", fix: "Compress the gamut before the output transform: the ACES Reference Gamut Compression (part of ACES 1.3), or Resolve's gamut mapping. ACES 2.0's output transform has gamut mapping built in." },
+  { id: "wrong", mode: "wronggamut", name: "Wrong gamut tag", see: "Dull, desaturated colour, as if the saturation was turned down (the reverse mistake oversaturates).",
+    why: "Wide-gamut numbers (Rec.2020 here) are read as Rec.709. The same numbers mean less saturated colours in a smaller space.", fix: "Check the clip's input colour space, or the file's colour tag, matches what it really is." },
+  { id: "tone2", mode: "doubletone", name: "Tone-mapped twice", see: "Murky contrast and grey highlights: whites never reach white.",
+    why: "A view transform was baked into the image (often LED wall content in virtual production, or a viewing LUT rendered into plates), then the output transform runs again on top.", fix: "Bake nothing: keep pictures scene-referred through the chain and apply one view/output transform at the very end." },
+];
+
+const state = { cam: "arri", work: "aces", disp: "rec709", tab: "start", extras: new Set(["rec2020"]), probe: null, preset: null,
+  pipe: "camera", stageBy: { camera: "camera", vp: "content", vfx: "plate" },
+  curves: new Set(["linear", "srgb", "logc4", "slog3", "acescct"]), stop: 0, exposure: 0, mistake: "log", split: 50,
+  rgb: [0.8, 0.35, 0.1], kelvin: 6500, bits: 5, signal: 0.5, lamp: { x: 850, y: 150, z: 220, on: true, stops: 10 }, sceneOpen: false,
+  acesStep: "idt", acesRole: "colourist", sdp: { res: "1920x1080", fps: "60000/1001", sampling: "YCbCr-4:2:2", depth: "10", colorimetry: "BT709", tcs: "SDR", range: "NARROW" } };
+
+/* ---------- Matrices: RGB ↔ XYZ from primaries, Bradford white adaptation ---------- */
+
+/**
+ * Multiplies two 3×3 matrices.
+ * @param {number[][]} a
+ * @param {number[][]} b
+ * @returns {number[][]} a·b
+ */
+const mul = (a, b) => a.map(r => [0, 1, 2].map(j => r[0] * b[0][j] + r[1] * b[1][j] + r[2] * b[2][j]));
+/**
+ * Inverts a 3×3 matrix.
+ * @param {number[][]} m
+ * @returns {number[][]}
+ */
+function inv(m) {
+  const [[a, b, c], [d, e, f], [g, h, i]] = m, A = e * i - f * h, B = f * g - d * i, C = d * h - e * g, det = a * A + b * B + c * C;
+  return [[A, c * h - b * i, b * f - c * e], [B, a * i - c * g, c * d - a * f], [C, b * g - a * h, a * e - b * d]].map(r => r.map(v => v / det));
+}
+const xyzOf = ([x, y]) => [x / y, 1, (1 - x - y) / y];
+const apply = (m, v) => m.map(r => r[0] * v[0] + r[1] * v[1] + r[2] * v[2]);
+/**
+ * The matrix that turns linear RGB in a gamut into CIE XYZ.
+ * @param {string} id gamut id from GAMUTS
+ * @returns {number[][]}
+ */
+function toXYZ(id) {
+  const g = GAMUTS[id], P = [0, 1, 2].map(i => [0, 1, 2].map(j => xyzOf(g.p[j])[i])), S = apply(inv(P), xyzOf(WHITE[g.w]));
+  return P.map(r => r.map((v, j) => v * S[j]));
+}
+const BRAD = [[0.8951, 0.2664, -0.1614], [-0.7502, 1.7135, 0.0367], [0.0389, -0.0685, 1.0296]];
+/**
+ * Bradford chromatic adaptation between two white points, in XYZ.
+ * @param {number[]} ws source white, xy
+ * @param {number[]} wd destination white, xy
+ * @returns {number[][]}
+ */
+function bradford(ws, wd) {
+  const s = apply(BRAD, xyzOf(ws)), d = apply(BRAD, xyzOf(wd));
+  return mul(inv(BRAD), mul([[d[0] / s[0], 0, 0], [0, d[1] / s[1], 0], [0, 0, d[2] / s[2]]], BRAD));
+}
+/**
+ * The matrix that converts linear RGB from one gamut to another, adapting white with Bradford.
+ * @param {string} from gamut id
+ * @param {string} to gamut id
+ * @returns {number[][]}
+ */
+function convert(from, to) {
+  let m = toXYZ(from);
+  const ws = GAMUTS[from].w, wd = GAMUTS[to].w;
+  if (ws !== wd) m = mul(bradford(WHITE[ws], WHITE[wd]), m);
+  return mul(inv(toXYZ(to)), m);
+}
+
+/**
+ * Inverts a transfer curve numerically: the scene-linear value that encodes to v.
+ * @param {string} id curve id from CURVES
+ * @param {number} v code value
+ * @returns {number} scene-linear light
+ */
+function decode(id, v) {
+  const f = CURVES[id].encode;
+  let lo = -0.05, hi = 1e4;
+  for (let i = 0; i < 60; i++) { const m = (lo + hi) / 2; f(m) < v ? lo = m : hi = m; }
+  return (lo + hi) / 2;
+}
+
+/**
+ * The ACES 1.3 Reference Gamut Compression (LMT.Academy.ReferenceGamutCompress): each channel's distance from the
+ * achromatic axis is eased past a threshold, so colours just outside the gamut are pulled in smoothly.
+ * Meant for ACEScg (AP1); the swatches and ramps also use it on Rec.709 values as a simple gamut map.
+ * @param {number[]} o linear RGB, changed in place
+ */
+const RGC = [[0.815, 1.147], [0.803, 1.264], [0.880, 1.312]];
+function rgc(o) {
+  const ach = Math.max(o[0], o[1], o[2]);
+  if (ach <= 0) return;
+  for (let c = 0; c < 3; c++) {
+    const d = (ach - o[c]) / ach, [thr, lim] = RGC[c];
+    if (d <= thr) continue;
+    const s = (lim - thr) / Math.pow(Math.pow((1 - thr) / (lim - thr), -1.2) - 1, 1 / 1.2), n = (d - thr) / s;
+    o[c] = ach - (thr + s * n / Math.pow(1 + Math.pow(n, 1.2), 1 / 1.2)) * ach;
+  }
+}
+
+/* ---------- ACES 1.3 output transforms, ported from the Academy's reference CTL (github.com/ampas/aces-dev, v1.3.1) ----------
+   SDR: RRT + ODT.Academy.sRGB_100nits_dim. HDR: RRTODT.Academy.Rec2020_1000nits_15nits_ST2084 (RRT sweeteners + SSTS).
+   Inputs are scene-linear ACEScg (AP1); the RRT's own AP0 round trip is folded into the matrices below. */
+const HALF_MIN = 5.96046448e-8, HALF_MAX = 65504;
+const M_AP1_AP0 = convert("ap1", "ap0"), M_AP0_AP1 = convert("ap0", "ap1"), AP1_XYZ = toXYZ("ap1"), XYZ_AP1 = inv(AP1_XYZ), AP1_Y = AP1_XYZ[1];
+const ODT_709 = mul(inv(toXYZ("rec709")), mul(bradford(WHITE.ACES, WHITE.D65), AP1_XYZ));      // AP1 → XYZ → D60-to-D65 → Rec.709
+const ODT_2020_XYZ = mul(bradford(WHITE.ACES, WHITE.D65), AP1_XYZ), XYZ_2020 = inv(toXYZ("rec2020")), R2020_XYZ = toXYZ("rec2020");
+const sat3 = (v, s) => { const y = AP1_Y[0] * v[0] + AP1_Y[1] * v[1] + AP1_Y[2] * v[2]; return v.map(c => s * c + (1 - s) * y); };
+/** One quadratic B-spline segment of the ACES tone scales: [t², t, 1] · (cf · M). */
+const splineSeg = (c0, c1, c2, t) => (0.5 * c0 - c1 + 0.5 * c2) * t * t + (c1 - c0) * t + 0.5 * (c0 + c1);
+/**
+ * The ACES segmented-spline tone scales (segmented_spline_c5_fwd, _c9_fwd and ssts share this shape).
+ * @param {number} x linear input
+ * @param {{min: number[], mid: number[], max: number[], low: number[], high: number[], slopeLow: number, slopeHigh: number, knots: number}} C
+ * @returns {number} output luminance
+ */
+function acesSpline(x, C) {
+  const lx = LOG10(Math.max(x, HALF_MIN)), l0 = LOG10(C.min[0]), l1 = LOG10(C.mid[0]), l2 = LOG10(C.max[0]);
+  let ly;
+  if (lx <= l0) ly = lx * C.slopeLow + (LOG10(C.min[1]) - C.slopeLow * l0);
+  else if (lx < l1) { const k = (C.knots - 1) * (lx - l0) / (l1 - l0), j = Math.floor(k); ly = splineSeg(C.low[j], C.low[j + 1], C.low[j + 2], k - j); }
+  else if (lx < l2) { const k = (C.knots - 1) * (lx - l1) / (l2 - l1), j = Math.floor(k); ly = splineSeg(C.high[j], C.high[j + 1], C.high[j + 2], k - j); }
+  else ly = lx * C.slopeHigh + (LOG10(C.max[1]) - C.slopeHigh * l2);
+  return 10 ** ly;
+}
+const RRT_C5 = { knots: 4, slopeLow: 0, slopeHigh: 0, min: [0.18 * 2 ** -15, 0.0001], mid: [0.18, 4.8], max: [0.18 * 2 ** 18, 10000],
+  low: [-4.0000000000, -4.0000000000, -3.1573765773, -0.4852499958, 1.8477324706, 1.8477324706], high: [-0.7185482425, 2.0810307172, 3.6681241237, 4.0000000000, 4.0000000000, 4.0000000000] };
+const c5 = x => acesSpline(x, RRT_C5);
+const ODT_C9 = { knots: 8, slopeLow: 0, slopeHigh: 0.04, min: [c5(0.18 * 2 ** -6.5), 0.02], mid: [c5(0.18), 4.8], max: [c5(0.18 * 2 ** 6.5), 48],
+  low: [-1.6989700043, -1.6989700043, -1.4779000000, -1.2291000000, -0.8648000000, -0.4480000000, 0.0051800000, 0.4511080334, 0.9113744414, 0.9113744414],
+  high: [0.5154386965, 0.8470437783, 1.1358000000, 1.3802000000, 1.5197000000, 1.5985000000, 1.6467000000, 1.6746091357, 1.6878733390, 1.6878733390] };
+const interp1 = (tab, p) => p <= tab[0][0] ? tab[0][1] : p >= tab[1][0] ? tab[1][1] : tab[0][1] + (p - tab[0][0]) / (tab[1][0] - tab[0][0]) * (tab[1][1] - tab[0][1]);
+/**
+ * The Single Stage Tone Scale parameters (init_TsParams) for a display's black, mid-grey and peak luminance.
+ * @param {number} yMin black, nits
+ * @param {number} yMid where 18% grey lands, nits
+ * @param {number} yMax peak, nits
+ */
+function sstsParams(yMin, yMid, yMax) {
+  const make = shift => {
+    const minX = 0.18 * 2 ** interp1([[LOG10(0.0001), -15], [LOG10(0.02), -6.5]], LOG10(yMin)), maxX = 0.18 * 2 ** interp1([[LOG10(48), 6.5], [LOG10(10000), 18]], LOG10(yMax));
+    const Mn = [minX, yMin, 0], Md = [0.18, 4.8, 1.55], Mx = [maxX, yMax, 0], line = (P, at) => P[2] * at + (LOG10(P[1]) - P[2] * LOG10(P[0]));
+    const kl = (LOG10(Md[0]) - LOG10(Mn[0])) / 3, kh = (LOG10(Mx[0]) - LOG10(Md[0])) / 3;
+    const low = [line(Mn, LOG10(Mn[0]) - kl / 2), line(Mn, LOG10(Mn[0]) + kl / 2), LOG10(Mn[1]) + interp1([[-15, 0.18], [-6.5, 0.35]], LOG2(Mn[0] / 0.18)) * (LOG10(Md[1]) - LOG10(Mn[1])), line(Md, LOG10(Md[0]) - kl / 2), line(Md, LOG10(Md[0]) + kl / 2)];
+    const high = [line(Md, LOG10(Md[0]) - kh / 2), line(Md, LOG10(Md[0]) + kh / 2), LOG10(Md[1]) + interp1([[6.5, 0.89], [18, 0.90]], LOG2(Mx[0] / 0.18)) * (LOG10(Mx[1]) - LOG10(Md[1])), line(Mx, LOG10(Mx[0]) - kh / 2), line(Mx, LOG10(Mx[0]) + kh / 2)];
+    const sh = x => 2 ** (LOG2(x) - shift);
+    return { knots: 4, slopeLow: 0, slopeHigh: 0, min: [sh(minX), yMin], mid: [sh(0.18), 4.8], max: [sh(maxX), yMax], low: [...low, low[4]], high: [...high, high[4]] };
+  };
+  const base = make(0);
+  let lo = -20, hi = 20;  // inv_ssts(yMid) by bisection, in stops
+  for (let i = 0; i < 80; i++) { const m = (lo + hi) / 2; acesSpline(0.18 * 2 ** m, base) < yMid ? lo = m : hi = m; }
+  return make((lo + hi) / 2);
+}
+const SSTS_1000 = sstsParams(0.0001, 15, 1000);
+
+/**
+ * The RRT's "sweeteners" (rrt_sweeteners): glow, red modifier, clamp and global desaturation, in ACES terms.
+ * @param {number[]} ap1 scene-linear ACEScg
+ * @returns {number[]} AP1, ready for a tone scale
+ */
+function rrtSweeteners(ap1) {
+  let a = apply(M_AP1_AP0, ap1);
+  const mx = Math.max(a[0], a[1], a[2]), mn = Math.min(a[0], a[1], a[2]);
+  const sat = (Math.max(mx, 1e-10) - Math.max(mn, 1e-10)) / Math.max(mx, 1e-2);
+  const yc = (a[0] + a[1] + a[2] + 1.75 * Math.sqrt(a[2] * (a[2] - a[1]) + a[1] * (a[1] - a[0]) + a[0] * (a[0] - a[2]))) / 3;
+  const x = (sat - 0.4) / 0.2, t = Math.max(1 - Math.abs(x / 2), 0), s = (1 + Math.sign(x) * (1 - t * t)) / 2;
+  const gain = 0.05 * s, glow = 1 + (yc <= 2 / 3 * 0.08 ? gain : yc >= 2 * 0.08 ? 0 : gain * (0.08 / yc - 0.5));
+  a = a.map(v => v * glow);
+  if (!(a[0] === a[1] && a[1] === a[2])) {  // red modifier: neutral colours have no hue and are skipped
+    let hue = 180 / Math.PI * Math.atan2(Math.sqrt(3) * (a[1] - a[2]), 2 * a[0] - a[1] - a[2]);
+    if (hue < 0) hue += 360;
+    if (hue > 180) hue -= 360;
+    const w = 135, k0 = -w / 2;
+    if (hue > k0 && hue < w / 2) {
+      const kc = (hue - k0) * 4 / w, j = Math.floor(kc), u = kc - j, u2 = u * u, u3 = u2 * u;
+      const y = 1.5 * (j === 3 ? -u3 / 6 + u2 / 2 - u / 2 + 1 / 6 : j === 2 ? u3 / 2 - u2 + 2 / 3 : j === 1 ? -u3 / 2 + u2 / 2 + u / 2 + 1 / 6 : j === 0 ? u3 / 6 : 0);
+      a[0] += y * sat * (0.03 - a[0]) * (1 - 0.82);
+    }
+  }
+  a = a.map(v => Math.max(v, 0));
+  return sat3(apply(M_AP0_AP1, a).map(v => Math.min(Math.max(v, 0), HALF_MAX)), 0.96);
+}
+
+/**
+ * ACES 1.3 SDR output for an sRGB screen (RRT + ODT.Academy.sRGB_100nits_dim), before the sRGB curve.
+ * @param {number[]} ap1 scene-linear ACEScg
+ * @param {boolean} [clip=true] apply the ODT's final clamp to 0..1 (the lookup table stores values before it)
+ * @returns {number[]} display-linear Rec.709, 0..1
+ */
+function acesSDR(ap1, clip = true) {
+  const pre = rrtSweeteners(ap1).map(c5);
+  let lin = pre.map(v => (acesSpline(v, ODT_C9) - 0.02) / (48 - 0.02));
+  const X = apply(AP1_XYZ, lin), sum = X[0] + X[1] + X[2] || 1e-10, cx = X[0] / sum, cy = X[1] / sum, Y = Math.max(X[1], 0) ** 0.9811;  // dark to dim surround
+  lin = apply(XYZ_AP1, [cx * Y / Math.max(cy, 1e-10), Y, (1 - cx - cy) * Y / Math.max(cy, 1e-10)]);
+  const out = apply(ODT_709, sat3(lin, 0.93));
+  return clip ? out.map(clamp01) : out;
+}
+
+/**
+ * ACES 1.3 HDR output (RRTODT.Academy.Rec2020_1000nits_15nits_ST2084), as absolute light before the PQ curve.
+ * @param {number[]} ap1 scene-linear ACEScg
+ * @returns {number[]} Rec.2020 linear, in nits (0..1000)
+ */
+function acesHDR(ap1) {
+  const lin = rrtSweeteners(ap1).map(v => (acesSpline(v, SSTS_1000) - 0.0001) / (1000 - 0.0001));
+  const lim = apply(XYZ_2020, apply(AP1_XYZ, lin)).map(clamp01);  // limit to Rec.2020 primaries
+  return apply(XYZ_2020, apply(bradford(WHITE.ACES, WHITE.D65), apply(R2020_XYZ, lim))).map(v => Math.max(v, 0) * 1000);
+}
+
+/**
+ * Bakes an ACES output into a 3D lookup table over a log2 shaper (AP1 in, display-linear out), the way OCIO does,
+ * so whole images render quickly. Built on first use; 48³ points from 2^-12 to 2^10 × mid grey. Store values before
+ * any final clamp and clamp after the lookup, or the clamp's sharp corner gets smeared between grid points.
+ * @param {(ap1: number[]) => number[]} fn the exact transform
+ * @returns {(ap1: number[]) => number[]} a trilinear lookup
+ */
+function bakeLUT(fn, N = 48) {
+  const LO = -12, SPAN = 22, at = k => 0.18 * 2 ** (LO + SPAN * k / (N - 1));
+  let t = null;
+  const pos = x => Math.min(N - 1.000001, Math.max(0, (LOG2(Math.max(x, 1e-12) / 0.18) - LO) / SPAN * (N - 1)));
+  return a => {
+    if (!t) { t = new Float32Array(N * N * N * 3); for (let b = 0; b < N; b++) for (let g = 0; g < N; g++) for (let r = 0; r < N; r++) t.set(fn([at(r), at(g), at(b)]), ((b * N + g) * N + r) * 3); }
+    const x = pos(a[0]), y = pos(a[1]), z = pos(a[2]), i = x | 0, j = y | 0, k = z | 0, fx = x - i, fy = y - j, fz = z - k, o = [0, 0, 0];
+    for (let c = 0; c < 3; c++) {
+      const v = (di, dj, dk) => t[(((k + dk) * N + j + dj) * N + i + di) * 3 + c];
+      const c00 = v(0, 0, 0) * (1 - fx) + v(1, 0, 0) * fx, c10 = v(0, 1, 0) * (1 - fx) + v(1, 1, 0) * fx, c01 = v(0, 0, 1) * (1 - fx) + v(1, 0, 1) * fx, c11 = v(0, 1, 1) * (1 - fx) + v(1, 1, 1) * fx;
+      o[c] = (c00 * (1 - fy) + c10 * fy) * (1 - fz) + (c01 * (1 - fy) + c11 * fy) * fz;
+    }
+    return o;
+  };
+}
+const SDR_LUT = bakeLUT(a => acesSDR(a, false));
+const HDR_LUT = bakeLUT(a => apply(convert("rec2020", "rec709"), acesHDR(a)).map(v => v / 1000));  // dimmed: 1,000 nits = screen white
+
+/* ---------- Tabs ---------- */
+
+/**
+ * Shows one lesson tab, remembers it in the URL hash and draws what it needs.
+ * @param {string} id tab id: start, gamut, curves, hdr, aces, pipeline, signals or mistakes
+ */
+function showTab(id) {
+  if (!document.getElementById("p-" + id)) id = "start";
+  state.tab = id;
+  for (const b of document.querySelectorAll("[role=tab]")) {
+    const on = b.dataset.tab === id;
+    b.setAttribute("aria-selected", on); b.tabIndex = on ? 0 : -1;
+    document.getElementById(b.getAttribute("aria-controls")).hidden = !on;
+  }
+  history.replaceState(null, "", "#" + id);
+  drawTab();
+}
+/** Draws the visible tab (the others redraw when they're shown). */
+function drawTab() {
+  ({ start: drawStart, gamut: drawGamut, curves: drawCurves, hdr: drawHdr, aces: drawAces, pipeline: drawPipeline, signals: drawSignals, mistakes: drawMistakes })[state.tab]?.();
+}
+
+/* ---------- Start here ---------- */
+
+const srgbEnc = CURVES.srgb.encode;
+const srgbDec = v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+const clamp01 = v => Math.min(1, Math.max(0, v));
+/**
+ * A CSS colour for display-linear Rec.709 light, gamut-compressed and clipped to what an sRGB screen can show.
+ * @param {number[]} o linear Rec.709 RGB
+ * @returns {string}
+ */
+function css(o) {
+  o = o.slice(); rgc(o);
+  return `rgb(${o.map(v => Math.round(srgbEnc(clamp01(v)) * 255)).join(",")})`;
+}
+
+/**
+ * Colour temperature to linear RGB in a gamut, via the Planckian locus (Kim et al. approximation), relative to D65.
+ * @param {number} T kelvin, 1667–25000
+ * @param {string} gamut gamut id
+ * @returns {number[]} multipliers with luminance 1 (6504K ≈ [1, 1, 1])
+ */
+function kelvinTint(T, gamut) {
+  const at = T => {
+    const x = T <= 4000 ? -0.2661239e9 / T ** 3 - 0.2343589e6 / T ** 2 + 0.8776956e3 / T + 0.179910 : -3.0258469e9 / T ** 3 + 2.1070379e6 / T ** 2 + 0.2226347e3 / T + 0.240390;
+    const y = T <= 2222 ? -1.1063814 * x ** 3 - 1.34811020 * x ** 2 + 2.18555832 * x - 0.20219683
+      : T <= 4000 ? -0.9549476 * x ** 3 - 1.37418593 * x ** 2 + 2.09137015 * x - 0.16748867 : 3.0817580 * x ** 3 - 5.87338670 * x ** 2 + 3.75112997 * x - 0.37001483;
+    return apply(inv(toXYZ(gamut)), xyzOf([x, y]));
+  };
+  const a = at(T), n = at(6504), t = a.map((v, i) => v / n[i]), Y = 0.2627 * t[0] + 0.6780 * t[1] + 0.0593 * t[2];
+  return t.map(v => v / Y);
+}
+
+/** Redraws the Start tab: the three-numbers toy, the white point picture, the bit-depth ramps, the ladder and the journey. */
+function drawStart() {
+  // The same three numbers, read three ways
+  const [r, g, b] = state.rgb;
+  document.querySelectorAll("#rgb input").forEach((el, i) => { el.value = state.rgb[i]; el.nextElementSibling.textContent = state.rgb[i].toFixed(2); });
+  document.getElementById("mix").innerHTML = `<rect width="220" height="190" rx="14" fill="#000"/>
+    <circle cx="80" cy="75" r="52" fill="rgb(${Math.round(255 * r)},0,0)"/><circle cx="140" cy="75" r="52" fill="rgb(0,${Math.round(255 * g)},0)"/><circle cx="110" cy="125" r="52" fill="rgb(0,0,${Math.round(255 * b)})"/>
+    <circle cx="80" cy="75" r="52" fill="none" stroke="#333"/><circle cx="140" cy="75" r="52" fill="none" stroke="#333"/><circle cx="110" cy="125" r="52" fill="none" stroke="#333"/>
+    <text x="110" y="184" text-anchor="middle" fill="#999" font-size="10" font-family="Montserrat, Arial">Three lights, mixed</text>`;
+  const as709 = [r, g, b].map(srgbDec);
+  const as2020 = apply(convert("rec2020", "rec709"), [r, g, b].map(srgbDec));
+  const asLog = acesView(apply(convert("awg4", "ap1"), [r, g, b].map(v => decode("logc4", v))));
+  document.getElementById("swatches").innerHTML = [
+    ["As sRGB", "The web and most screens", as709], ["As Rec.2020", "Wider primaries: more vivid", as2020], ["As LogC4 footage", "Decoded and viewed properly", asLog],
+  ].map(([n, s, c]) => `<div class="swatch"><i style="background:${css(c)}"></i><b>${n}</b><span>${s}</span></div>`).join("");
+
+  // White point: the test chart seen with a different white
+  document.getElementById("kelvin").value = state.kelvin;
+  document.getElementById("kelvin-val").textContent = `${state.kelvin}K`;
+  paint(document.getElementById("white-canvas"), renderMode("display", CHART, { tint: kelvinTint(state.kelvin, "rec2020"), exposure: 0 }), null, CHART);
+
+  // Bit depth: the same shadows-to-highlights ramp quantised linearly and in log
+  const cv = document.getElementById("bits-canvas"), ctx = cv.getContext("2d"), W = cv.width, L = 2 ** state.bits - 1;
+  document.getElementById("bits").value = state.bits;
+  document.getElementById("bits-val").textContent = `${state.bits}-bit · ${L + 1} steps`;
+  ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, cv.height);
+  const show = v => v <= 0 ? 0 : Math.round(clamp01((LOG2(v / 0.18) + 9) / 11.5) * 255), white = 0.18 * 2 ** 2.47;  // shaded by stops, the way the eye sees it
+  const logLevels = Array.from({ length: L + 1 }, (_, i) => decode("logc4", i / L));
+  for (let px = 0; px < W; px++) {
+    const x = 0.18 * 2 ** (-9 + 11.5 * px / W);
+    const lin = Math.round(Math.min(x / white, 1) * L) / L * white;
+    const q = Math.round(clamp01(LOGC4(x)) * L), lg = logLevels[q];
+    const a = show(lin), c = show(lg);
+    ctx.fillStyle = `rgb(${a},${a},${a})`; ctx.fillRect(px, 20, 1, 34);
+    ctx.fillStyle = `rgb(${c},${c},${c})`; ctx.fillRect(px, 76, 1, 34);
+  }
+  ctx.fillStyle = "#ccc"; ctx.font = "600 12px Montserrat, Arial";
+  ctx.fillText("Linear", 2, 14); ctx.fillText("Log", 2, 70);
+  ctx.fillStyle = "#999"; ctx.font = "500 11px Montserrat, Arial"; ctx.textAlign = "right";
+  ctx.fillText("shadows → highlights", W - 2, 14); ctx.textAlign = "left";
+
+  // Primaries: a small gamut inside a big one, and a laser green only the big one holds
+  const lx = 10 + (0.172 + 0.03) / 0.86 * 170, ly = 6 + (1.03 - 0.79) / 1.15 * 158;  // laser green, in MINI's viewBox
+  document.getElementById("prim-art").innerHTML = MINI(10, 6, 170, 158, [["rec709", "wht"], ["rec2020", "acc"]]) +
+    `<circle cx="${lx}" cy="${ly}" r="6" fill="#39ff6a" stroke="#000"/>` +
+    `<line class="ln wht" x1="196" y1="40" x2="214" y2="40"/>${T(220, 44, "Rec.709")}${T(220, 58, "small", "s")}` +
+    `<line class="ln acc" x1="196" y1="84" x2="214" y2="84"/>${T(220, 88, "Rec.2020")}${T(220, 102, "big", "s")}` +
+    `<circle cx="205" cy="128" r="6" fill="#39ff6a" stroke="#000"/>${T(220, 132, "Laser green")}${T(220, 146, "only fits the big one", "s")}`;
+
+  drawLadder();
+  drawJourney();
+}
+
+/** Draws the brightness ladder: everyday things in stops, against what a camera and screens can hold. */
+function drawLadder() {
+  const px = s => 40 + (s + 8) / 24 * 830;
+  // Rough figures for a face in daylight (an indoor bulb is measured against an indoor face); BT.2408 puts HDR mid grey at 26 nits
+  const things = [[-6, "🚗", "Shadow under a car"], [-2.5, "🧥", "Black coat"], [0, "🙂", "Face"], [2.75, "📄", "Paper, white cloud"], [12, "💡", "Bare bulb (indoors)"], [15, "☀️", "The sun (+18) →"]];
+  const bars = [[-8, 8, "Cinema camera (log): about 16 stops", "#FF9900", 104], [-6, 5.3, "HDR screen (1,000 nits)", "#CCCCCC", 128], [-6, 2.5, "SDR screen", "#E5E5E5", 152]];
+  let h = `<line x1="40" y1="182" x2="870" y2="182" stroke="#555"/>`;
+  for (let s = -8; s <= 16; s += 2) h += `<line x1="${px(s)}" y1="178" x2="${px(s)}" y2="186" stroke="#555"/><text x="${px(s)}" y="200" fill="#999" font-size="11" text-anchor="middle" font-family="Montserrat, Arial">${s > 0 ? "+" : ""}${s}</text>`;
+  h += `<text x="870" y="174" fill="#999" font-size="10" text-anchor="end" font-family="Montserrat, Arial">stops from a face (mid grey) →</text>`;
+  for (const [s, e, n] of things) h += `<text x="${px(s)}" y="34" font-size="24" text-anchor="middle">${e}</text><text x="${px(s)}" y="56" fill="#ccc" font-size="11" text-anchor="middle" font-family="Montserrat, Arial">${n}</text><line x1="${px(s)}" y1="64" x2="${px(s)}" y2="92" stroke="#444" stroke-dasharray="2 3"/>`;
+  for (const [a, b, n, c, y] of bars) h += `<rect x="${px(a)}" y="${y - 14}" width="${px(b) - px(a)}" height="18" rx="9" fill="${c}" opacity=".22" stroke="${c}"/><text x="${px(a) + 10}" y="${y - 1}" fill="${c}" font-size="11" font-weight="600" font-family="Montserrat, Arial">${n}</text>`;
+  document.getElementById("ladder").innerHTML = h;
+}
+
+/** Draws the clickable scene → camera → working space → display journey. */
+function drawJourney() {
+  const nodes = [["scene", "Scene", "Real light, no limits"], ["camera", "Camera", "Records it as log"], ["working", "Working space", "Where you grade"], ["display", "Display", "What the screen shows"]];
+  const icons = {
+    scene: `<circle r="13" fill="#FF9900"/>${[0, 45, 90, 135, 180, 225, 270, 315].map(a => `<line x1="${18 * Math.cos(a * Math.PI / 180)}" y1="${18 * Math.sin(a * Math.PI / 180)}" x2="${25 * Math.cos(a * Math.PI / 180)}" y2="${25 * Math.sin(a * Math.PI / 180)}" stroke="#FF9900" stroke-width="3" stroke-linecap="round"/>`).join("")}`,
+    camera: `<rect x="-22" y="-14" width="34" height="28" rx="4" fill="none" stroke="#E5E5E5" stroke-width="2.5"/><circle cx="20" cy="0" r="9" fill="none" stroke="#E5E5E5" stroke-width="2.5"/><rect x="-16" y="-22" width="14" height="8" rx="2" fill="#E5E5E5"/>`,
+    working: `<path d="M0 -24 L24 18 L-24 18 Z" fill="rgba(142,212,127,.2)" stroke="#8ED47F" stroke-width="2.5"/><path d="M0 -10 L12 12 L-12 12 Z" fill="none" stroke="#FF9900" stroke-width="2"/>`,
+    display: `<rect x="-26" y="-18" width="52" height="32" rx="4" fill="none" stroke="#E5E5E5" stroke-width="2.5"/><rect x="-21" y="-13" width="42" height="22" fill="url(#jsky)"/><path d="M0 14v8M-12 22h24" stroke="#E5E5E5" stroke-width="2.5" stroke-linecap="round"/>`,
+  };
+  let h = `<defs><linearGradient id="jsky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5b8fd6"/><stop offset="1" stop-color="#f3a35c"/></linearGradient></defs>`;
+  nodes.forEach(([id, n, s], i) => {
+    const x = 110 + i * 226;
+    if (i) h += `<path d="M${x - 170} 62 H${x - 62}" stroke="#FF9900" stroke-width="3"/><path d="M${x - 66} 54 L${x - 52} 62 L${x - 66} 70 Z" fill="#FF9900"/>`;
+    h += `<g data-journey="${id}" tabindex="0" role="button" aria-label="${n}: open in the Pipeline tab"><circle class="node" cx="${x}" cy="62" r="46" fill="rgba(255,255,255,.04)" stroke="rgba(229,229,229,.3)" stroke-width="2"/>
+      <g transform="translate(${x} 62)">${icons[id]}</g>
+      <text x="${x}" y="134" fill="#E5E5E5" font-size="14" font-weight="600" text-anchor="middle" font-family="Montserrat, Arial">${n}</text>
+      <text x="${x}" y="154" fill="#999" font-size="12" text-anchor="middle" font-family="Montserrat, Arial">${s}</text></g>`;
+  });
+  document.getElementById("journey").innerHTML = h;
+}
+
+/* ---------- Pipelines ---------- */
+
+/**
+ * The gamuts the current pipeline uses, by role.
+ * @returns {{camera: string, working: string, display: string}} gamut ids from GAMUTS
+ */
+function pipeline() {
+  return { camera: CAMERAS[state.cam].gamut, working: WORKING[state.work].gamut, display: DISPLAYS[state.disp].gamut };
+}
+
+/**
+ * The explainer for one camera-to-screen stage, written for the current camera, working space and display.
+ * @param {string} id stage id
+ * @returns {string} HTML paragraphs
+ */
+function explain(id) {
+  const c = CAMERAS[state.cam], w = WORKING[state.work], d = DISPLAYS[state.disp];
+  const cc = CURVES[c.curve].name, cg = GAMUTS[c.gamut].name, wg = GAMUTS[w.gamut].name, dg = GAMUTS[d.gamut].name;
+  const display709 = w.how === "display";
+  switch (id) {
+    case "scene": return `<p>Light in the real world has no colour space. It's a spectrum: some energy at every wavelength. Brightness has no ceiling either: the bare bulb in the test chart is about 10 stops (over 1,000×) brighter than mid grey.</p><p>The set is lit for real: a soft light behind the camera, plus the bulb, whose light falls off with distance and casts soft shadows. The <b>18% grey ball</b> shows where the light comes from and what colour it is; the <b>chrome ball</b> reflects everything around it, including the bulb, the brightest thing in frame. Drag the lamp on the picture to move it, or switch it off for a plain chart lit only by the soft light.</p><p>Everything after this is a choice about how to describe that light with three numbers. The picture shows the scene as well as your screen can, through the full pipeline.</p>`;
+    case "camera": return `<p>The ${c.name} sees the scene through its own red, green and blue filters and records it as <b>${cc}</b> in <b>${cg}</b>.</p><p>The gamut (orange on the <button class="go" data-go="gamut">Gamut</button> tab) sets which colours the numbers can describe. The log curve squeezes a huge range of brightness into the file. Shown directly, as here, it looks flat and grey. That's correct: it's a storage format, not a look.</p>`;
+    case "input": return `<p>The input transform converts ${cc} / ${cg} into the working space. First it undoes the log curve to get <b>scene-linear</b> values, numbers proportional to the light that hit the sensor. Then a 3×3 matrix moves those numbers from the camera's primaries to the ${wg} primaries.</p>` +
+      (w.how === "ACES" ? `<p>In ACES this is the IDT (Input Transform), picked per camera. The picture shows the linear values sent straight to the screen: dark, because linear isn't meant to be looked at.</p>` : w.how === "Resolve" ? `<p>In Resolve this is the input side of colour management, or a Color Space Transform node. The picture shows the linear values sent straight to the screen: dark, because linear isn't meant to be looked at.</p>` :
+      `<p class="warn">Going straight to Rec.709 here means colours outside Rec.709 are clipped now, and everything brighter than display white is gone before you've graded a frame. Push the exposure up and look at the lamp.</p>`);
+    case "working": return display709
+      ? `<p>The working space is ${w.name}: the same space as the screen. It's simple and fine for footage that's already Rec.709, but the camera's extra colour and highlight range were thrown away in the input transform.</p>`
+      : `<p>The working space is <b>${w.name}</b>: a gamut (green) big enough to hold the camera's colours, with a log-style curve (${CURVES[w.curve].name}) so grading controls feel even from shadows to highlights. That's why it looks flat again in the picture.</p><p>Every shot, whatever camera it came from, lands in this one space, so grades, VFX and plates all mix on the same terms.</p>`;
+    case "grade": return display709
+      ? `<p>You grade on display values. Pushing saturation or exposure hits the edges of Rec.709 fast and clips, because there's no headroom left to pull back from.</p>`
+      : `<p>The grade happens here, on numbers that still describe the scene. The picture has a warm sample grade, viewed through the output transform the way a colourist sees it.</p><p>Pushing a colour outside the display's gamut is fine at this stage: it isn't clipped, just held until the output transform maps it in. Decisions stay reversible until the very end.</p>`;
+    case "output": return display709
+      ? (state.disp === "rec709" ? `<p>With a display-referred working space there's nothing left to do: the values are already for this screen.</p>`
+        : `<p>The values are already Rec.709, so they're only re-encoded for ${d.name}. They can't gain back the colour or highlight range thrown away in the input transform${d.gamut === "rec709" ? "" : ", so the bigger display goes unused"}.</p>`)
+      : `<p>The output transform turns scene light into something ${d.name} can show. It <b>tone-maps</b>: brightness that can run far past any screen is rolled off smoothly, not clipped (look at the lamp). It also <b>gamut-maps</b>: colours outside ${dg} are pulled inside instead of clipping harshly.</p><p>${w.how === "ACES" ? "In ACES this is the Output Transform for the display." : "In Resolve this is colour management's output side, with its tone and gamut mapping."} Change the display and only this stage changes: the grade stays the same.</p><p class="note">The pictures on this page use the real ACES 1.3 output transform (ported from the Academy's reference code), with ACES 1.3's gamut compression in front. ACES 2.0's newer output transform looks a little different, mostly in bright, saturated colours.</p>`;
+    case "display": return `<p><b>${d.name}</b>: ${d.use}. The screen decodes the signal with ${d.curve}, and can only show colours inside the ${dg} gamut.</p>` +
+      (state.disp === "rec709" || state.disp === "srgb" ? "" : `<p class="note">This page can only show you an sRGB version, so the picture here is the same as for an sRGB screen.</p>`);
+  }
+}
+
+/**
+ * What the picture looks like at a camera-to-screen stage.
+ * @param {string} id stage id
+ * @returns {[string, string]} render mode and caption
+ */
+function cameraView(id) {
+  const w = WORKING[state.work], c = CAMERAS[state.cam], d709 = w.how === "display";
+  return ({
+    scene:   ["display", "The scene, shown as well as your screen can (through the full pipeline)."],
+    camera:  ["log", `What's in the file: ${CURVES[c.curve].name} in ${GAMUTS[c.gamut].name}, shown without any conversion.`],
+    input:   d709 ? ["clip", "Converted straight to Rec.709: highlights and wide colours already clipped."] : ["linraw", "Scene-linear values sent straight to the screen. Dark, because linear isn't for viewing."],
+    working: d709 ? ["clip", "Working in Rec.709: what you grade is already clipped."] : ["worklog", `The working space: ${CURVES[w.curve].name} in ${GAMUTS[w.gamut].name}, shown without conversion.`],
+    grade:   d709 ? ["clip", "A grade on display values: nowhere to recover the clipped highlights from."] : ["graded", "A warm sample grade, viewed through the output transform."],
+    output:  d709 ? ["clip", "Already for the screen: nothing to tone-map."] : ["display", "After the output transform: tone-mapped and gamut-mapped for the display."],
+    display: d709 ? ["clip", "On screen."] : ["display", "On screen."],
+  })[id];
+}
+
+/* Stage diagram helpers: small SVG pieces drawn in a 400×170 box */
+const T = (x, y, s, c = "") => `<text class="t ${c}" x="${x}" y="${y}">${s}</text>`;
+const AR = (x1, y1, x2, y2 = y1) => {
+  const a = Math.atan2(y2 - y1, x2 - x1), hx = x2 - 9 * Math.cos(a), hy = y2 - 9 * Math.sin(a), px = 5 * Math.sin(a), py = 5 * Math.cos(a);
+  return `<line class="ln" x1="${x1}" y1="${y1}" x2="${hx}" y2="${hy}"/><path class="head" d="M${hx + px} ${hy - py}L${x2} ${y2}L${hx - px} ${hy + py}z"/>`;
+};
+const BOX = (x, y, w, h, c = "box") => `<rect class="${c}" x="${x}" y="${y}" width="${w}" height="${h}" rx="10"/>`;
+const CURVE = (x, y, w, h, f, c = "acc") => `<polyline class="ln ${c}" points="${Array.from({ length: 41 }, (_, i) => { const t = i / 40; return `${(x + t * w).toFixed(1)},${(y + h - clamp01(f(t)) * h).toFixed(1)}`; }).join(" ")}"/>`;
+const FILE = (x, y, inner, l1 = "", l2 = "") => `<path class="box" d="M${x} ${y}h40l16 16v54h-56z"/><path class="ln thin" d="M${x + 40} ${y}v16h16"/>${T(x + 28, y + 45, inner, "c")}${l1 ? T(x + 28, y + 88, l1, "s c") : ""}${l2 ? T(x + 28, y + 101, l2, "s c") : ""}`;
+const CAM = (x, y, face = "left") => face === "left"
+  ? `<rect class="box" x="${x + 26}" y="${y}" width="64" height="42" rx="6"/><circle class="box" cx="${x + 14}" cy="${y + 21}" r="14"/><rect class="box" x="${x + 52}" y="${y - 10}" width="24" height="10" rx="2"/>`
+  : `<rect class="box" x="${x}" y="${y}" width="64" height="42" rx="6"/><circle class="box" cx="${x + 76}" cy="${y + 21}" r="14"/><rect class="box" x="${x + 14}" y="${y - 10}" width="24" height="10" rx="2"/>`;
+const MON = (x, y, w, h, grad = "g-sky") => `<rect class="box" x="${x}" y="${y}" width="${w}" height="${h}" rx="6"/><rect x="${x + 6}" y="${y + 6}" width="${w - 12}" height="${h - 12}" rx="3" fill="url(#${grad})"/><path class="ln" d="M${x + w / 2} ${y + h}v10M${x + w / 2 - 22} ${y + h + 10}h44"/>`;
+/** A small chromaticity chart with the listed gamuts as triangles. */
+const MINI = (x, y, w, h, list) => `<svg x="${x}" y="${y}" width="${w}" height="${h}" viewBox="-0.03 -1.03 0.86 1.15" preserveAspectRatio="none">
+  <polygon points="${LOCUS.map(([a, b]) => `${a},${-b}`).join(" ")}" fill="rgba(255,255,255,.06)" stroke="rgba(229,229,229,.45)" stroke-width="1" vector-effect="non-scaling-stroke"/>
+  ${list.map(([id, c]) => `<polygon class="ln ${c}" points="${GAMUTS[id].p.map(([a, b]) => `${a},${-b}`).join(" ")}" vector-effect="non-scaling-stroke"/>`).join("")}</svg>`;
+const WHEEL = (cx, cy, r, label) => {
+  const cols = ["#e5584f", "#e5c84f", "#6fd35a", "#4fd3d3", "#4f6fe5", "#c94fe5"];
+  const arc = i => { const a0 = (i * 60 - 90) * Math.PI / 180, a1 = ((i + 1) * 60 - 90) * Math.PI / 180;
+    return `<path d="M${cx + r * Math.cos(a0)} ${cy + r * Math.sin(a0)}A${r} ${r} 0 0 1 ${cx + r * Math.cos(a1)} ${cy + r * Math.sin(a1)}" stroke="${cols[i]}" stroke-width="7" fill="none"/>`; };
+  return cols.map((_, i) => arc(i)).join("") + `<circle cx="${cx}" cy="${cy}" r="${r - 8}" fill="rgba(255,255,255,.05)"/><circle cx="${cx + 7}" cy="${cy - 5}" r="4" fill="#E5E5E5"/>${T(cx, cy + r + 20, label, "c")}`;
+};
+const DEFS = `<defs><linearGradient id="g-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5b8fd6"/><stop offset=".7" stop-color="#f3a35c"/><stop offset="1" stop-color="#3a2a1a"/></linearGradient>
+  <linearGradient id="g-flat" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a96a3"/><stop offset=".7" stop-color="#a39484"/><stop offset="1" stop-color="#6e6862"/></linearGradient>
+  <linearGradient id="g-range" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#000"/><stop offset=".55" stop-color="#bbb"/><stop offset="1" stop-color="#fff"/></linearGradient>
+  <linearGradient id="g-dark" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2433"/><stop offset="1" stop-color="#0b0d10"/></linearGradient>
+  <radialGradient id="g-sphere" cx=".38" cy=".35" r=".7"><stop offset="0" stop-color="#d9e6ff"/><stop offset=".35" stop-color="#4d7fe0"/><stop offset="1" stop-color="#0a1430"/></radialGradient>
+  <clipPath id="zoom"><circle cx="320" cy="76" r="52"/></clipPath></defs>`;
+const BAYER = (x, y) => { let s = ""; for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) s += `<rect x="${x + c * 11}" y="${y + r * 11}" width="10" height="10" fill="${r % 2 ? (c % 2 ? "#4f6fe5" : "#6fd35a") : (c % 2 ? "#6fd35a" : "#e5584f")}"/>`; return s; };
+const SUN = (x, y) => `<circle cx="${x}" cy="${y}" r="18" fill="#FF9900"/>${[0, 45, 90, 135, 180, 225, 270, 315].map(a => `<line class="ln acc" x1="${x + 24 * Math.cos(a * Math.PI / 180)}" y1="${y + 24 * Math.sin(a * Math.PI / 180)}" x2="${x + 32 * Math.cos(a * Math.PI / 180)}" y2="${y + 32 * Math.sin(a * Math.PI / 180)}"/>`).join("")}`;
+const PERSON = (x, y) => `<circle class="box" cx="${x}" cy="${y}" r="11"/><rect class="box" x="${x - 15}" y="${y + 14}" width="30" height="50" rx="12"/>`;
+
+/** Stage diagrams for the camera-to-screen pipeline (also reused by the others). */
+const ART = {
+  scene: () => SUN(60, 58) + `<line class="ln" x1="150" y1="18" x2="150" y2="48"/><circle cx="150" cy="58" r="11" fill="#ffd27a"/>` + PERSON(225, 62) +
+    `<rect x="318" y="18" width="18" height="120" rx="4" fill="url(#g-range)"/>${AR(327, 30, 327, 6)}` + T(342, 26, "no ceiling", "s o") + T(342, 136, "darkness", "s") + T(20, 158, "Light: a spectrum at every wavelength, at any brightness", "s"),
+  camera: () => `<line class="ln acc thin" x1="8" y1="40" x2="66" y2="82"/><line class="ln acc thin" x1="8" y1="82" x2="66" y2="82"/><line class="ln acc thin" x1="8" y1="124" x2="66" y2="82"/>` + CAM(64, 61) +
+    AR(160, 82, 190) + BAYER(196, 60) + T(218, 122, "sensor filters", "s c") + AR(246, 82, 276) +
+    FILE(284, 47, "log", CURVES[CAMERAS[state.cam].curve].name, GAMUTS[CAMERAS[state.cam].gamut].name),
+  input: () => FILE(10, 47, "log") + AR(70, 82, 92) + BOX(96, 48, 76, 68) + CURVE(104, 56, 60, 52, t => (2 ** (t * 7) - 1) / 127) + T(134, 134, "undo the log", "s c") +
+    AR(176, 82, 198) + BOX(202, 48, 70, 68) + Array.from({ length: 9 }, (_, i) => `<rect class="box" x="${213 + (i % 3) * 17}" y="${58 + Math.floor(i / 3) * 17}" width="13" height="13" rx="2"/>`).join("") + T(237, 134, "3×3 matrix", "s c") +
+    AR(276, 82, 296) + MINI(300, 28, 92, 100, [[CAMERAS[state.cam].gamut, "acc"], [WORKING[state.work].gamut, "grn"]]) + T(346, 146, "camera → working", "s c"),
+  working: () => MINI(14, 8, 170, 152, [[CAMERAS[state.cam].gamut, "acc"], [WORKING[state.work].gamut, "grn"], [DISPLAYS[state.disp].gamut, "wht dash"]]) +
+    `<line class="ln acc" x1="210" y1="44" x2="232" y2="44"/>${T(240, 48, "camera")}<line class="ln grn" x1="210" y1="68" x2="232" y2="68"/>${T(240, 72, "working space")}<line class="ln wht dash" x1="210" y1="92" x2="232" y2="92"/>${T(240, 96, "display")}` +
+    T(210, 130, "Every shot lands in one space", "s") + T(210, 144, "big enough to hold the camera", "s"),
+  grade: () => WHEEL(80, 72, 38, "Lift") + WHEEL(200, 72, 38, "Gamma") + WHEEL(320, 72, 38, "Gain") + T(200, 160, `grading in ${CURVES[WORKING[state.work].curve].name}`, "s c"),
+  output: () => `<rect x="24" y="12" width="22" height="140" rx="4" fill="url(#g-range)"/><line class="ln wht dash thin" x1="18" y1="72" x2="56" y2="72"/>` + T(56, 22, "scene", "s") + T(56, 68, "display white", "s") +
+    AR(100, 82, 130) + BOX(134, 36, 80, 80) + CURVE(142, 44, 64, 64, t => srgbEnc(acesGrey(0.18 * 2 ** (t * 14 - 7)))) + T(174, 134, "tone map", "s c") + AR(218, 82, 240) +
+    `<rect x="246" y="56" width="22" height="80" rx="4" fill="url(#g-range)"/>` + T(274, 62, "1.0", "s") + T(274, 136, "0", "s") +
+    MINI(296, 30, 94, 100, [[WORKING[state.work].gamut, "grn"], [DISPLAYS[state.disp].gamut, "wht"]]) + T(343, 150, "gamut map", "s c"),
+  display: () => MON(110, 18, 180, 106) + T(200, 158, DISPLAYS[state.disp].name, "c"),
+};
+
+/** The pipeline variants. Each stage has a diagram (art), an explainer (text) and the picture there (view: mode, caption, scene). */
+const PIPELINES = {
+  camera: { name: "Camera to screen",
+    intro: "The classic journey: <b>camera</b> (scene light, recorded in the camera's space) → <b>working space</b> (where every shot meets to be graded) → <b>display</b> (what the screen can show).",
+    stages: ["scene", "camera", "input", "working", "grade", "output", "display"].map((id, i) => ({ id,
+      name: ["Scene", "Camera encoding", "Input transform", "Working space", "Grade", "Output transform", "Display"][i],
+      roles: [[], ["camera"], ["camera", "working"], ["working"], ["working"], ["working", "display"], ["display"]][i],
+      art: ART[id], text: () => explain(id), view: () => cameraView(id) })) },
+
+  vp: { name: "Virtual production",
+    intro: "In-camera VFX: a game engine renders the background in real time, an LED wall shows it behind the actors, and the camera films both together. The wall is part of the scene, so its pixels have to be <b>light</b>, not a finished picture.",
+    stages: [
+      { id: "content", name: "Content", roles: ["working"],
+        art: () => MON(14, 18, 176, 104, "g-dark") + `<path class="ln thin" d="M102 70 L40 116 M102 70 L72 116 M102 70 L102 116 M102 70 L132 116 M102 70 L164 116 M30 96 H174 M24 108 H180"/>
+          <path class="ln acc" d="M88 46h26v22h-26zM96 38h26v22M88 46l8-8M114 46l8-8M114 68l8-8"/>` + T(102, 148, "3D scene (game engine)", "s c") +
+          T(208, 76, "or", "s c") + `<rect class="box" x="226" y="34" width="156" height="88" rx="6"/><rect x="232" y="40" width="144" height="76" rx="3" fill="url(#g-sky)"/>` + T(304, 148, "2D plates (filmed or rendered)", "s c"),
+        text: () => `<p>Virtual production puts the background on an LED wall and films it for real. The content is a <b>3D scene</b> in a game engine (Unreal Engine, for example) or <b>2D plates</b>: filmed or pre-rendered footage.</p><p>It's authored like any CG: scene-referred, in a wide working space, with light at real-world brightness.</p>`,
+        view: () => ["display", "The content as the artist sees it: through a view transform on their monitor."] },
+      { id: "engine", name: "Render engine", roles: ["working"],
+        art: () => BOX(14, 44, 130, 80, "hi") + T(79, 80, "Render engine", "c") + T(79, 98, "every frame, live", "s c") + AR(148, 84, 180) +
+          BOX(184, 48, 116, 72) + T(242, 80, "scene-linear", "c") + T(242, 98, WORKING[state.work].linear, "s c") + AR(304, 84, 326) + BOX(330, 62, 56, 44) + T(358, 89, "OCIO", "c"),
+        text: () => `<p>The engine draws every frame in real time, in <b>scene-linear</b> light, ${WORKING[state.work].linear} here, with colour managed through OCIO. Linear is right for rendering because light adds up correctly.</p><p>Shown directly it looks dark: linear isn't meant to be looked at.</p>`,
+        view: () => ["linraw", "The engine's linear frame, sent straight to a screen: dark, as linear always looks."] },
+      { id: "signal", name: "Signal to wall", roles: ["display"],
+        art: () => BOX(10, 58, 70, 52) + T(45, 88, "engine", "c") + `<line class="ln acc" x1="80" y1="84" x2="310" y2="84" style="stroke-width:4"/>` + BOX(130, 8, 130, 62) + CURVE(140, 14, 110, 50, t => PQ(0.18 * 2 ** (t * 16 - 8))) + T(195, 66, "PQ curve", "s c") +
+          T(195, 106, "DisplayPort, HDMI or SDI", "s c") + T(195, 120, "PQ in a Rec.2020 container", "s c") + T(195, 140, "no view transform baked in", "s c o") + BOX(312, 58, 80, 52) + T(352, 88, "processor", "c"),
+        text: () => `<p>The engine sends the picture to the wall encoded for a <b>display</b>, not for a viewer: often <b>PQ</b> (SMPTE ST 2084) in a Rec.2020 container, where every code value means an absolute brightness in nits.</p><p class="warn">The key rule: no view transform or tone map baked in. The wall should emit the scene's light. The camera, and later the grade, are the viewers. Bake a look here and the shot gets tone-mapped twice (see <button class="go" data-go="mistakes">Mistakes</button>).</p>`,
+        view: () => ["pq", "The PQ signal shown as plain numbers: flat, because it's an encoding, not a picture."] },
+      { id: "processor", name: "LED processor", roles: ["display"],
+        art: () => BOX(110, 40, 180, 66, "hi") + Array.from({ length: 6 }, (_, i) => `<circle cx="${130 + i * 14}" cy="${90}" r="3.5" fill="${i < 4 ? "#8ED47F" : "#FF9900"}"/>`).join("") + `<rect class="box" x="220" y="54" width="56" height="10" rx="3"/><rect class="box" x="220" y="72" width="56" height="10" rx="3"/>` +
+          T(150, 66, "LED processor", "c") + AR(20, 72, 104) + T(20, 62, "PQ in", "s") + AR(296, 72, 384) + T(304, 62, "to panels", "s") +
+          T(200, 132, "decodes PQ · calibrated to the panels'", "s c") + T(200, 146, "own primaries and peak brightness", "s c"),
+        text: () => `<p>The LED processor (Brompton or Megapixel, for example) decodes the PQ signal and converts it to what the panels actually are: their own primaries and their peak brightness, using a calibration measured on that wall.</p><p>Anything brighter than the wall's peak (often 1,500 nits or so) clips here, so very bright sources in the content need care.</p>`,
+        view: () => ["display", "After calibration: the wall reproduces the content's light, within its own limits."] },
+      { id: "wall", name: "LED wall", roles: ["display"],
+        art: () => `<rect x="14" y="20" width="220" height="110" rx="4" fill="url(#g-sky)"/>` + Array.from({ length: 5 }, (_, i) => `<line class="ln thin" x1="${14 + (i + 1) * 36.6}" y1="20" x2="${14 + (i + 1) * 36.6}" y2="130" style="stroke:#000"/>`).join("") +
+          `<line class="ln thin" x1="14" y1="57" x2="234" y2="57" style="stroke:#000"/><line class="ln thin" x1="14" y1="93" x2="234" y2="93" style="stroke:#000"/><line class="ln thin" x1="200" y1="60" x2="270" y2="76"/>
+          <circle cx="320" cy="76" r="52" fill="#050505" stroke="rgba(229,229,229,.3)"/><g clip-path="url(#zoom)">` +
+          Array.from({ length: 30 }, (_, i) => { const x = 270 + (i % 6) * 18, y = 30 + Math.floor(i / 6) * 18; return `<rect x="${x}" y="${y}" width="4" height="12" fill="#ff3b30"/><rect x="${x + 5}" y="${y}" width="4" height="12" fill="#34d058"/><rect x="${x + 10}" y="${y}" width="4" height="12" fill="#3a6cff"/>`; }).join("") +
+          `</g>` + T(124, 152, "LED wall: tiles of panels", "s c") + T(320, 152, "narrow-band RGB LEDs", "s c"),
+        text: () => `<p>The wall turns numbers back into light. Each pixel is a tiny red, green and blue LED with a very <b>narrow spectrum</b>, so the wall can show strongly saturated colours.</p><p>That narrow light is also its catch: skin and costumes lit only by the wall can look a little off, because some wavelengths are missing. Productions add conventional fill lights to fix it.</p>`,
+        view: () => ["wall", "Up close, the wall is a grid of LEDs with dark gaps between them."] },
+      { id: "filmed", name: "Camera", roles: ["camera"],
+        art: () => `<rect x="300" y="12" width="88" height="140" rx="4" fill="url(#g-sky)"/>` + PERSON(222, 66) + CAM(36, 62, "right") +
+          `<line class="ln acc thin dash" x1="300" y1="40" x2="126" y2="83"/><line class="ln acc thin dash" x1="300" y1="130" x2="126" y2="83"/>` + T(200, 160, `wall + actors = one scene, recorded as ${CURVES[CAMERAS[state.cam].curve].name}`, "s c"),
+        text: () => `<p>The ${CAMERAS[state.cam].name} films the wall and the actors together, recording ${CURVES[CAMERAS[state.cam].curve].name} in ${GAMUTS[CAMERAS[state.cam].gamut].name}. The wall is now just part of the scene: light in front of the lens, exactly like a real background.</p>`,
+        view: () => ["log", "What the camera records: log footage of the wall and the set, flat as all log is."] },
+      { id: "post", name: "Grade & output", roles: ["working", "display"],
+        art: () => BOX(10, 56, 90, 50) + T(55, 86, "input", "c") + AR(102, 81, 122) + BOX(126, 56, 90, 50) + T(171, 86, "grade", "c") + AR(218, 81, 238) + BOX(242, 56, 90, 50) + T(287, 86, "output", "c") + AR(334, 81, 350) + MON(352, 66, 40, 30) + T(200, 140, "from here it's the normal camera pipeline", "s c"),
+        text: () => `<p>From here it's the normal camera-to-screen pipeline: input transform, grade in ${WORKING[state.work].name}, output transform for ${DISPLAYS[state.disp].name}. One view transform, applied once, at the end.</p>`,
+        view: () => ["display", "The final picture: the wall content and the real set, graded and output together."] },
+    ] },
+
+  vfx: { name: "VFX",
+    intro: "A classic VFX shot: the camera plate goes to VFX, CG is rendered and composited in one shared linear space, and the finished shot goes back to the grade with nothing baked in.",
+    stages: [
+      { id: "plate", name: "Plate", roles: ["camera"],
+        art: () => `<rect x="14" y="30" width="372" height="100" rx="6" fill="#0c0c0c" stroke="rgba(229,229,229,.3)"/>` + Array.from({ length: 18 }, (_, i) => `<rect x="${24 + i * 20.5}" y="36" width="9" height="7" rx="1.5" fill="#333"/><rect x="${24 + i * 20.5}" y="117" width="9" height="7" rx="1.5" fill="#333"/>`).join("") +
+          [0, 1, 2].map(i => `<rect x="${28 + i * 120}" y="50" width="108" height="60" rx="2" fill="url(#g-flat)"/>`).join("") + T(200, 152, `the camera plate: ${CURVES[CAMERAS[state.cam].curve].name}, ${GAMUTS[CAMERAS[state.cam].gamut].name}`, "s c"),
+        text: () => `<p>A VFX shot starts with the camera's footage: the <b>plate</b>, recorded as ${CURVES[CAMERAS[state.cam].curve].name} in ${GAMUTS[CAMERAS[state.cam].gamut].name} and usually handed to VFX as EXR or DPX files.</p><p>On set, VFX also shoot an <b>18% grey ball</b> and a <b>chrome ball</b> in the same light, like the ones in the test chart. The grey ball tells the CG artist the light's direction, softness and colour; the chrome ball (or a full 360° HDR photo of the set) records everything around, and becomes the light for the CG.</p>`,
+        view: () => ["log", "The plate as delivered: camera log, flat until it's transformed.", "plate"] },
+      { id: "linearise", name: "Linearise", roles: ["camera", "working"],
+        art: () => FILE(20, 40, "plate", "camera log") + AR(84, 75, 112) + BOX(116, 40, 80, 70) + CURVE(124, 48, 64, 54, t => (2 ** (t * 7) - 1) / 127) + T(156, 128, "to linear", "s c") + AR(200, 75, 228) + FILE(234, 40, "EXR", WORKING[state.work].linear) + T(330, 76, "light adds", "s o") + T(330, 90, "up properly", "s o"),
+        text: () => `<p>Before any VFX work, the plate is converted to <b>scene-linear ${WORKING[state.work].linear}</b>: undo the log curve, convert the primaries. ${state.work === "aces" ? "In ACES pipelines that's ACEScg: AP1 primaries, linear." : ""}</p><p>Linear matters because light adds up correctly. A CG lamp plus a real lamp is just a + b, and blurs, glows and motion blur behave like real light.</p>`,
+        view: () => ["linraw", "The linear plate shown directly: dark, but every value is proportional to real light.", "plate"] },
+      { id: "cg", name: "CG render", roles: ["working"],
+        art: () => `<circle cx="120" cy="84" r="58" fill="url(#g-sphere)"/><circle cx="100" cy="60" r="7" fill="#fff"/>` + T(214, 60, "rendered in", "s") + T(214, 78, WORKING[state.work].linear, "o") + T(214, 104, "highlights above 1.0", "s") + T(214, 118, "are kept, not clipped", "s"),
+        text: () => `<p>CG is rendered in the <b>same linear space</b>, with lights at real-world brightness, so it already matches the plate. This sphere is lit by the same lamp and soft light as the set${scene.chart ? " (compare it with the grey ball, and move the lamp)" : ""}, and its glossy coat reflects the plate. Its highlight goes far past 1.0: that's correct, and it's kept.</p><p>Shown directly, a render is as dark as the linear plate.</p>`,
+        view: () => ["linraw", "The CG element on its own, linear, shown directly.", "cg"] },
+      { id: "comp", name: "Comp", roles: ["working"],
+        art: () => ["matte", "CG", "plate"].map((n, i) => `<path class="${i === 1 ? "hi" : "box"}" d="M30 ${60 + i * 26}h96l26-22h-96z"/>${T(160, 52 + i * 26, n, "s")}`).join("") + AR(196, 84, 230) + BOX(234, 44, 150, 80, "hi") + T(309, 78, "CG over plate", "c") + T(309, 96, "in linear", "s c") + T(200, 156, "viewed through the view transform, never baked in", "s c"),
+        text: () => `<p>The compositor merges the CG over the plate <b>in linear</b>, and judges it through the same view transform the grade will use.</p><p>That view transform is for looking only. It's never baked into the pixels, so the comp stays scene-referred.</p>`,
+        view: () => ["display", "The comp through the view transform: CG and plate together, as the compositor sees it.", "comp"] },
+      { id: "deliver", name: "Delivery", roles: ["working"],
+        art: () => FILE(40, 36, "EXR", state.work === "aces" ? "ACES2065-1" : WORKING[state.work].linear, state.work === "aces" ? "AP0, linear" : "") + AR(110, 72, 170) + BOX(176, 46, 90, 56) + T(221, 80, "DI", "c") + T(290, 70, "nothing baked in", "s o") + T(290, 86, "drops into the grade", "s") + T(290, 100, "like the plate did", "s"),
+        text: () => `<p>The finished comp goes back to the DI as linear EXR${state.work === "aces" ? ", in ACES2065-1 (AP0) for interchange" : ""}, with nothing baked in, so it drops into the grade just like the original plate.</p>`,
+        view: () => ["linraw", "The delivered comp shown directly: linear and dark, ready for the grade.", "comp"] },
+      { id: "di", name: "DI grade", roles: ["working"],
+        art: () => ART.grade(),
+        text: () => `<p>The colourist grades the VFX shot alongside the rest of the film, in ${WORKING[state.work].name}. Because nothing was baked, the CG takes the grade exactly like the real parts of the frame.</p>`,
+        view: () => ["graded", "Graded with the rest of the film.", "comp"] },
+      { id: "display", name: "Display", roles: ["display"],
+        art: ART.display, text: () => explain("display"),
+        view: () => ["display", "On screen.", "comp"] },
+    ] },
+};
+
+/* ---------- Gamut map ---------- */
+
+/* Map geometry: xy -> SVG units (viewBox 450×575 covers x -0.05..0.85, y -0.15..1.0) */
+const X0 = -0.05, Y1 = 1.0, S = 500;
+const sx = x => (x - X0) * S, sy = y => (Y1 - y) * S;
+const pts = list => list.map(([x, y]) => `${sx(x).toFixed(1)},${sy(y).toFixed(1)}`).join(" ");
+
+/**
+ * Whether point p is inside polygon poly (ray casting).
+ * @param {number[]} p [x, y]
+ * @param {number[][]} poly list of [x, y]
+ * @returns {boolean}
+ */
+function inside([x, y], poly) {
+  let hit = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) hit = !hit;
+  }
+  return hit;
+}
+/**
+ * An approximate CSS colour for a chromaticity: full brightness, gamut-compressed to sRGB.
+ * @param {number[]} xy
+ * @returns {string}
+ */
+function xyCss(xy) {
+  const o = apply(inv(toXYZ("rec709")), xyzOf(xy)), m = Math.max(...o);
+  return css(o.map(v => v / m * 0.8));
+}
+
+let filled = false;
+/**
+ * Paints the horseshoe once with approximate colours: each xy at full brightness, converted to sRGB and clipped,
+ * so anything past sRGB shows as the nearest colour this screen can make.
+ */
+function paintFill() {
+  if (filled) return;
+  filled = true;
+  const cv = document.getElementById("map-fill"), ctx = cv.getContext("2d"), W = cv.width, H = cv.height, k = W / 450;
+  const off = document.createElement("canvas"); off.width = W; off.height = H;
+  const octx = off.getContext("2d"), img = octx.createImageData(W, H);
+  for (let py = 0; py < H; py++) for (let px = 0; px < W; px++) {
+    const x = px / k / S + X0, y = Y1 - py / k / S;
+    if (y <= 0.001) continue;
+    const X = x / y, Z = (1 - x - y) / y;
+    const r = Math.max(3.2406 * X - 1.5372 - 0.4986 * Z, 0), g = Math.max(-0.9689 * X + 1.8758 + 0.0415 * Z, 0), b = Math.max(0.0557 * X - 0.2040 + 1.0570 * Z, 0);
+    const m = Math.max(r, g, b) || 1, i = (py * W + px) * 4;
+    img.data[i] = 255 * srgbEnc(r / m) * .8; img.data[i + 1] = 255 * srgbEnc(g / m) * .8; img.data[i + 2] = 255 * srgbEnc(b / m) * .8; img.data[i + 3] = 255;
+  }
+  octx.putImageData(img, 0, 0);
+  ctx.save();
+  ctx.beginPath();
+  LOCUS.forEach(([x, y], i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, sx(x) * k, sy(y) * k));
+  ctx.closePath();
+  ctx.clip();
+  ctx.drawImage(off, 0, 0);
+  ctx.restore();
+}
+
+/** Redraws the SVG layer: grid, locus, the pipeline's gamuts, toggled extras and the probe. */
+function drawMap() {
+  const svg = document.getElementById("map-svg"), pipe = pipeline();
+  let h = `<defs><clipPath id="chart"><rect x="0" y="0" width="450" height="575"/></clipPath></defs><g class="grid">`;
+  for (let v = 0; v <= 0.8001; v += 0.1) h += `<line x1="${sx(v)}" y1="0" x2="${sx(v)}" y2="575"/><text x="${sx(v) + 2}" y="570">${v.toFixed(1)}</text>`;
+  for (let v = 0; v <= 0.9001; v += 0.1) h += `<line x1="0" y1="${sy(v)}" x2="450" y2="${sy(v)}"/><text x="447" y="${sy(v) - 3}" text-anchor="end">${v.toFixed(1)}</text>`;
+  h += `</g><polygon class="locus" points="${pts(LOCUS)}"/>`;
+  for (const nm of [460, 480, 500, 520, 540, 560, 580, 600, 620]) {
+    const [x, y] = LOCUS[(nm - 380) / 5];
+    h += `<text class="nm" x="${sx(x) + (x < 0.2 ? -26 : 6)}" y="${sy(y) + (y < 0.1 ? 12 : 0)}">${nm}</text>`;
+  }
+  h += `<g clip-path="url(#chart)">`;
+  for (const id of state.extras) if (!Object.values(pipe).includes(id)) h += `<polygon class="gamut extra" points="${pts(GAMUTS[id].p)}"><title>${GAMUTS[id].name}</title></polygon>`;
+  for (const role of ["camera", "working", "display"]) {
+    const g = GAMUTS[pipe[role]];
+    h += `<polygon class="gamut ${role}" points="${pts(g.p)}"><title>${role}: ${g.name}</title></polygon>`;
+  }
+  h += `</g>`;
+  for (const w of new Set(Object.values(pipe).map(id => GAMUTS[id].w))) h += `<circle class="white" cx="${sx(WHITE[w][0])}" cy="${sy(WHITE[w][1])}" r="2.5"><title>White point ${w}</title></circle>`;
+  if (state.probe) h += `<circle class="probe" cx="${sx(state.probe[0])}" cy="${sy(state.probe[1])}" r="7"/><circle class="probe-in" cx="${sx(state.probe[0])}" cy="${sy(state.probe[1])}" r="7"/>`;
+  svg.innerHTML = h;
+}
+
+/** Writes what the probed colour means: real or imaginary, where your pipeline loses it, and a ✓/✗ per gamut. */
+function drawProbe() {
+  const out = document.getElementById("probe-out"), list = document.getElementById("checks"), p = state.probe;
+  document.getElementById("presets").innerHTML = PRESETS.map((c, i) =>
+    `<li><button type="button" data-preset="${i}" aria-pressed="${state.preset === i}" style="--dot:${xyCss(c.xy)}">${c.name}</button></li>`).join("");
+  if (!p) { out.innerHTML = "Pick a colour above to see which spaces can hold it."; list.innerHTML = ""; return; }
+  const pipe = pipeline(), name = state.preset !== null ? `<b>${PRESETS[state.preset].name}</b>` : `<b>x ${p[0].toFixed(3)}, y ${p[1].toFixed(3)}</b>`;
+  if (!inside(p, LOCUS)) { out.innerHTML = `${name} is outside the horseshoe: not a colour anyone can see. Only imaginary primaries live out here.`; list.innerHTML = ""; return; }
+  const holds = role => inside(p, GAMUTS[pipe[role]].p);
+  const msg = !holds("camera") ? `It's outside ${GAMUTS[pipe.camera].name}, so the ${CAMERAS[state.cam].name}'s encoding can't describe it.`
+    : !holds("working") ? `The camera records it, but ${GAMUTS[pipe.working].name} can't hold it: it's clipped in the input transform.`
+    : !holds("display") ? `Your camera and grade keep it, but ${DISPLAYS[state.disp].name} can't show it: the output transform has to ease it inside.`
+    : `Every stage of your pipeline can hold it, all the way to the screen.`;
+  out.innerHTML = `${name}. ${msg}`;
+  const ids = [...new Set([pipe.camera, pipe.working, pipe.display, "rec709", "p3d65", "rec2020", "ap1"])];
+  list.innerHTML = ids.map(id => { const ok = inside(p, GAMUTS[id].p); return `<li><span class="${ok ? "yes" : "no"}">${ok ? "✓" : "✗"}</span><span>${GAMUTS[id].name}</span></li>`; }).join("");
+}
+
+/** Rebuilds the gamut legend: pipeline gamuts tagged with their role and always on, the rest as toggles. */
+function drawLegend() {
+  const pipe = pipeline();
+  document.getElementById("legend").innerHTML = Object.entries(GAMUTS).map(([id, g]) => {
+    const roles = Object.keys(pipe).filter(r => pipe[r] === id);
+    return `<li title="${g.about}"><label><input type="checkbox" data-g="${id}" ${roles.length || state.extras.has(id) ? "checked" : ""} ${roles.length ? "disabled" : ""}>
+      <span class="${roles.length || state.extras.has(id) ? "" : "off"}">${g.name} ${roles.map(r => `<span class="role ${r}">${r}</span>`).join(" ")}</span></label></li>`;
+  }).join("");
+}
+
+let shares = null;
+/** Draws the "how big is each gamut" bars: the share of the horseshoe each triangle covers (sampled once). */
+function drawSizes() {
+  if (!shares) {
+    const ids = Object.keys(GAMUTS), n = Object.fromEntries(ids.map(id => [id, 0]));
+    let all = 0;
+    for (let x = 0; x < 0.75; x += 0.004) for (let y = 0; y < 0.85; y += 0.004) {
+      if (!inside([x, y], LOCUS)) continue;
+      all++;
+      for (const id of ids) if (inside([x, y], GAMUTS[id].p)) n[id]++;
+    }
+    shares = Object.fromEntries(ids.map(id => [id, n[id] / all]));
+  }
+  const pipe = pipeline();
+  document.getElementById("sizes").innerHTML = Object.keys(GAMUTS).sort((a, b) => shares[a] - shares[b]).map(id => {
+    const role = Object.keys(pipe).find(r => pipe[r] === id) || "";
+    return `<li class="${role}"><span>${GAMUTS[id].name}</span><span class="bar"><i style="width:${(shares[id] * 100).toFixed(1)}%"></i></span><span>${Math.round(shares[id] * 100)}%</span></li>`;
+  }).join("");
+}
+
+let fitDrawn = false;
+/** Draws the clipped vs mapped ramps once: grey to each Rec.2020 primary, shown on an sRGB screen. */
+function drawFit() {
+  if (fitDrawn) return;
+  fitDrawn = true;
+  const m = convert("rec2020", "rec709"), targets = [[1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 1, 1], [1, 0, 1]], W = 400, H = 250, rh = H / targets.length;
+  for (const [id, mapped] of [["fit-clip", false], ["fit-map", true]]) {
+    const cv = document.getElementById(id), ctx = cv.getContext("2d");
+    cv.width = W; cv.height = H;
+    targets.forEach((t, k) => {
+      for (let px = 0; px < W; px++) {
+        const a = px / (W - 1), c = t.map(v => 0.35 * (1 - a) + v * 0.8 * a), o = apply(m, c);
+        if (mapped) rgc(o);
+        ctx.fillStyle = `rgb(${o.map(v => Math.round(srgbEnc(clamp01(v)) * 255)).join(",")})`;
+        ctx.fillRect(px, k * rh, 1, rh - 4);
+      }
+    });
+  }
+}
+
+/** Draws the paint-box diagram: three primaries, the mixes inside their triangle, and a colour outside it. */
+function drawPaintArt() {
+  const R = [232, 140], G = [140, 24], B = [48, 140], dot = ([x, y], c, r = 9) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${c}" stroke="#000" stroke-width="1.5"/>`;
+  document.getElementById("paint-art").innerHTML = `<polygon points="${[R, G, B].join(" ")}" fill="rgba(255,255,255,.04)" stroke="rgba(229,229,229,.5)" stroke-width="1.5"/>` +
+    dot(R, "#ff3b30", 14) + dot(G, "#34d058", 14) + dot(B, "#3a6cff", 14) +
+    dot([186, 82], "#f5a623") + dot([140, 140], "#c04ad0") + dot([94, 82], "#2bc6b8") + dot([140, 104], "#e8e8e8") +
+    dot([40, 44], "#00ffb4") + `<path d="M34 38l12 12M46 38l-12 12" stroke="#000" stroke-width="2.5"/>` + T(18, 22, "can't mix", "s o") +
+    T(268, 60, "Inside: any mix") + T(268, 76, "of the three paints", "s") + T(268, 112, "Outside: would need", "o") + T(268, 128, "negative paint", "s") + T(268, 142, "(impossible)", "s");
+}
+
+/** Redraws the Gamut tab. */
+function drawGamut() { paintFill(); drawMap(); drawProbe(); drawLegend(); drawSizes(); drawFit(); drawPaintArt(); }
+
+/* ---------- Curves ---------- */
+
+/* Plot geometry: x is stops from mid grey (−8..+8), y is code value (0..1); a row of everyday things above */
+const CL = 34, CR = 10, CT = 44, CB = 26, CWID = 600, CHGT = 370;
+const cx = s => CL + (s + 8) / 16 * (CWID - CL - CR), cy = v => CT + (1 - v) * (CHGT - CT - CB);
+
+let curveCache = null;  // { key, frames }: the three example renders
+/** Redraws the Curves tab: the three example pictures, the code-value budget, the curve plot, readout and ramps. */
+function drawCurves() {
+  // The same picture stored three ways
+  const c = CAMERAS[state.cam], key = [state.exposure, state.cam, scene.name, scene.w].join("|");
+  const shots = [["log", `<b>Log</b> (${CURVES[c.curve].name}): flat and grey, but nothing's lost. Made to store and grade.`],
+    ["linraw", "<b>Linear</b>: numbers proportional to light. Dark and harsh on screen. Made for maths: rendering and comp."],
+    ["display", "<b>Display</b>: the curve a screen expects. Looks right, but the lamp has nowhere to go above white."]];
+  if (!curveCache || curveCache.key !== key) curveCache = { key, frames: shots.map(([m]) => renderMode(m)) };
+  document.querySelectorAll("#curve-thumbs figure").forEach((f, i) => { paint(f.querySelector("canvas"), curveCache.frames[i]); f.querySelector("figcaption").innerHTML = shots[i][1]; });
+  drawImageControls();
+
+  // Where the code values go: per stop, for linear, sRGB and the camera's log
+  const rows = ["linear", "srgb", c.curve], bw = 54, stops = Array.from({ length: 15 }, (_, i) => i - 8);
+  let b = "";
+  rows.forEach((id, r) => {
+    const y0 = r * 98 + 82, cu = CURVES[id];
+    b += `<text class="name" x="0" y="${y0 - 64}" fill="${cu.color}">${cu.name}</text>`;
+    stops.forEach((s, i) => {
+      const n = Math.round(1023 * (clamp01(cu.encode(0.18 * 2 ** (s + 1))) - clamp01(cu.encode(0.18 * 2 ** s)))), h = Math.sqrt(n / 520) * 54, x = 70 + i * bw;
+      b += `<rect x="${x}" y="${y0 - h}" width="${bw - 6}" height="${Math.max(h, n ? 1.5 : 0)}" rx="2" fill="${cu.color}" opacity=".85"/>`;
+      b += n ? `<text x="${x + (bw - 6) / 2}" y="${y0 - h - 4}" text-anchor="middle">${n}</text>` : `<text class="clip" x="${x + (bw - 6) / 2}" y="${y0 - 4}" text-anchor="middle">${s >= 2 ? "clip" : "0"}</text>`;
+      if (r === rows.length - 1) b += `<text x="${x + (bw - 6) / 2}" y="${y0 + 14}" text-anchor="middle">${s > 0 ? "+" : ""}${s}</text>`;
+    });
+    b += `<line x1="70" y1="${y0}" x2="${70 + stops.length * bw}" y2="${y0}" stroke="#444"/>`;
+  });
+  b += `<text x="0" y="${2 * 98 + 96}">stops from mid grey →</text>`;
+  document.getElementById("budget").innerHTML = b;
+
+  // The curve plot, with everyday things along the top
+  document.getElementById("curve-chips").innerHTML = Object.entries(CURVES).map(([id, cu]) =>
+    `<li><button type="button" data-c="${id}" aria-pressed="${state.curves.has(id)}" style="--dot:${cu.color}">${cu.name}</button></li>`).join("");
+  const on = Object.keys(CURVES).filter(id => state.curves.has(id));
+  let h = `<g class="grid">`;
+  for (let s = -8; s <= 8; s += 2) h += `<line x1="${cx(s)}" y1="${CT}" x2="${cx(s)}" y2="${CHGT - CB}"/><text x="${cx(s)}" y="${CHGT - 8}" text-anchor="middle">${s > 0 ? "+" : ""}${s}</text>`;
+  for (const v of [0, .25, .5, .75, 1]) h += `<line x1="${CL}" y1="${cy(v)}" x2="${CWID - CR}" y2="${cy(v)}"/><text x="${CL - 4}" y="${cy(v) + 3}" text-anchor="end">${v}</text>`;
+  const white = LOG2(1 / 0.18);
+  for (const [s, e] of [[-6, "🚗"], [-2.5, "🧥"], [0, "🙂"], [2.75, "📄"]]) h += `<text class="emoji" x="${cx(s)}" y="26" text-anchor="middle">${e}</text>`;
+  h += `</g><g class="mark"><line x1="${cx(0)}" y1="${CT}" x2="${cx(0)}" y2="${CHGT - CB}"/><text x="${cx(0) + 4}" y="${CT + 10}">face / 18% grey</text>
+    <line x1="${cx(white)}" y1="${CT}" x2="${cx(white)}" y2="${CHGT - CB}"/><text x="${cx(white) + 4}" y="${CT + 22}">display white</text></g>`;
+  for (const id of on) {
+    const cu = CURVES[id], p = [];
+    for (let s = -8; s <= 8.001; s += 0.05) p.push(`${cx(s).toFixed(1)},${cy(clamp01(cu.encode(0.18 * 2 ** s))).toFixed(1)}`);
+    h += `<polyline class="curve" stroke="${cu.color}" points="${p.join(" ")}"><title>${cu.name}</title></polyline>`;
+  }
+  h += `<line class="scrub" x1="${cx(state.stop)}" y1="${CT}" x2="${cx(state.stop)}" y2="${CHGT - CB}"/>`;
+  document.getElementById("curve-svg").innerHTML = h;
+
+  const x = 0.18 * 2 ** state.stop, s = state.stop;
+  document.getElementById("stop").value = s;
+  document.getElementById("stop-val").textContent = `${s > 0 ? "+" : ""}${s.toFixed(1)} stops`;
+  document.getElementById("stop-read").innerHTML = `<b>${s > 0 ? "+" : ""}${s.toFixed(1)} stops</b> = ${(2 ** s).toFixed(s < -3 ? 3 : 2)}× as bright as a face. ` +
+    (x > 1 ? "Brighter than display white: display curves have already hit the top, log curves keep climbing." : x < 0.18 ? "A shadow tone." : "Between a face and display white.");
+  document.getElementById("curve-out").innerHTML = `<tr><th>Curve</th><th>Code value</th><th>10-bit</th></tr>` + on.map(id => {
+    const cu = CURVES[id], v = cu.encode(x), clip = v >= 1;
+    return `<tr><td><span style="color:${cu.color}">●</span> ${cu.name}</td><td class="${clip ? "clip" : ""}">${clamp01(v).toFixed(3)}${clip ? " clipped" : ""}</td><td>${Math.round(clamp01(v) * 1023)}</td></tr>`;
+  }).join("");
+
+  const rh = 20, rs = 64, rw = (CWID - 130) / rs, svg = document.getElementById("ramp-svg");
+  svg.setAttribute("viewBox", `0 0 600 ${Math.max(on.length * (rh + 6), 10)}`);
+  svg.innerHTML = on.map((id, i) => {
+    const cu = CURVES[id], y = i * (rh + 6);
+    let r = `<text class="ramp-label" x="0" y="${y + 14}">${cu.name}</text>`;
+    for (let k = 0; k < rs; k++) { const g = Math.round(clamp01(cu.encode(0.18 * 2 ** (-8 + 16 * (k + .5) / rs))) * 255); r += `<rect x="${130 + k * rw}" y="${y}" width="${rw + .5}" height="${rh}" fill="rgb(${g},${g},${g})"/>`; }
+    return r;
+  }).join("");
+}
+
+/* ---------- HDR & files ---------- */
+
+/* Screens and their typical peak brightness in nits: [name, low, high] */
+const SCREENS = [["Cinema projector (SDR)", 48, 48], ["SDR reference, Rec.709", 100, 100], ["Office monitor", 250, 400], ["HDR TV", 600, 2500],
+  ["Phone, HDR peak", 1000, 2000], ["LED volume (VP)", 1000, 2000], ["HDR grading monitor", 1000, 4000], ["PQ ceiling", 10000, 10000]];
+/* File formats: [name, bits, what's inside, above 1.0 (true, false or a qualifier), used for] */
+const FORMATS = [
+  ["OpenEXR", "16-bit half, 32-bit float", "Scene-linear: ACEScg, ACES2065-1 or linear Rec.709", true, "VFX, CG renders, comp, VFX deliveries"],
+  ["Camera raw", "12–16-bit", "Sensor data before debayering (ARRIRAW, R3D, BRAW, X-OCN, ProRes RAW); becomes log or linear in post", true, "Acquisition"],
+  ["DPX", "10-bit (also 12, 16)", "Log: camera log or Cineon film scans", "In log", "Film scans, DI, older VFX pipelines"],
+  ["ProRes 422 HQ / 4444", "10–12-bit", "Camera log or Rec.709; 4444 adds alpha", "If log", "Camera recording, dailies, editorial, masters"],
+  ["DNxHR", "8–12-bit", "Rec.709 or log", "If log", "Avid editorial and masters"],
+  ["TIFF", "8, 16 or 32-bit float", "Usually sRGB or Rec.709; float can be linear", "If float", "Stills, print, textures"],
+  ["PNG", "8 or 16-bit", "sRGB, display-referred", false, "Graphics, UI, textures with alpha"],
+  ["JPEG", "8-bit", "sRGB, display-referred (newer gain-map JPEGs add HDR)", false, "Web and photos"],
+  ["H.264 / AVC", "8-bit", "Rec.709 SDR", false, "Web, social, review links"],
+  ["HEVC / AV1", "10-bit", "Rec.709 SDR, or HDR: PQ or HLG in Rec.2020", "As nits (HDR)", "Streaming and HDR delivery"],
+  ["IMF (JPEG 2000)", "10–16-bit (HDR masters usually 12+)", "The master: often P3-D65 PQ for HDR, plus Rec.709", "As nits (HDR)", "Studio and streamer deliverables"],
+  ["DCP (JPEG 2000)", "12-bit", "XYZ with gamma 2.6, graded within DCI-P3", false, "Cinema projection"],
+];
+const SOFTWARE = [
+  ["DaVinci Resolve", "Grading and finishing. DaVinci Wide Gamut / Intermediate or ACES colour management, HDR grading tools."],
+  ["Nuke", "Compositing. OCIO colour management, usually ACEScg linear; reads and writes EXR."],
+  ["Blender", "3D. OCIO colour management. AgX has been the default view since 4.0; 5.0 adds ACES views, an ACEScg working space and HDR output. Renders linear EXR."],
+  ["Unreal Engine", "Real-time 3D. OCIO support and a filmic tonemapper; nDisplay drives LED walls in virtual production."],
+  ["Houdini · Maya", "3D. OCIO with ACES configs; render in ACEScg linear."],
+  ["After Effects · Premiere Pro", "Motion graphics and editing. Built-in colour management for log and HDR; After Effects can also use OCIO."],
+  ["Baselight", "High-end grading with its own colour management and ACES support."],
+];
+const HARDWARE = [
+  ["Grading reference monitor", "Calibrated, fed over SDI, SDR and HDR (1,000 nits and up). The screen decisions are made on."],
+  ["Video output card or box", "Blackmagic DeckLink or AJA, for example: sends the picture to the reference monitor without the computer's own colour management in the way."],
+  ["Calibration probe + software", "Measures what a screen really shows and builds a correction LUT, so the monitor matches the standard."],
+  ["Computer monitor", "sRGB or P3. Fine for the interface and rough work; trust it for final colour only if it's calibrated."],
+  ["HDR TVs and phones", "Tone-map the signal to their own peak brightness; dynamic metadata (Dolby Vision, HDR10+) guides how."],
+  ["Cinema projector", "DCI-P3, 48 nits for SDR. HDR cinema runs brighter: 108 nits in Dolby Cinema, 300 nits on HDR LED cinema screens."],
+  ["LED wall + processor", "Virtual production: panels at 1,000 nits and up, driven by a processor calibrated to the wall."],
+];
+
+/* PQ code value (0..1) to nits: the inverse of SMPTE ST 2084 */
+const PQ_NITS = v => { const p = Math.pow(v, 1 / 78.84375); return 10000 * Math.pow(Math.max(p - 0.8359375, 0) / (18.8515625 - 18.6875 * p), 1 / 0.1593017578125); };
+
+let hdrCache = null, kitDrawn = false;
+/** Redraws the HDR & files tab: the signal readout, the nits chart, the SDR/HDR pictures, the formats table and the kit lists. */
+function drawHdr() {
+  const v = state.signal, sdr = 100 * v ** 2.4, pq = PQ_NITS(v), fmt = n => n < 10 ? n.toFixed(1) : Math.round(n).toLocaleString();
+  document.getElementById("signal").value = v;
+  document.getElementById("signal-val").textContent = v.toFixed(2);
+  document.getElementById("signal-read").innerHTML = `Signal <b>${v.toFixed(2)}</b> means <b style="color:var(--grey-10)">${fmt(sdr)} nits</b> in SDR on a 100-nit screen, and twice that on a 200-nit one: it's relative. ` +
+    `In PQ it means <b style="color:var(--orange)">${fmt(pq)} nits</b> on any HDR screen${pq > 1500 ? ", brighter than most can go, so the screen tone-maps it down" : ""}.`;
+
+  const x = n => 150 + Math.log10(Math.max(n, 1)) / 4 * 720;
+  let h = "";
+  for (const n of [1, 10, 100, 1000, 10000]) h += `<line x1="${x(n)}" y1="30" x2="${x(n)}" y2="250" stroke="#333"/><text x="${x(n)}" y="270" fill="#999" font-size="11" text-anchor="middle" font-family="Montserrat, Arial">${n.toLocaleString()} nits</text>`;
+  SCREENS.forEach(([n, lo, hi], i) => {
+    const y = 40 + i * 26;
+    h += `<text x="140" y="${y + 12}" fill="#ccc" font-size="12" text-anchor="end" font-family="Montserrat, Arial">${n}</text>
+      <rect x="${x(1)}" y="${y + 2}" width="${x(hi) - x(1)}" height="14" rx="7" fill="rgba(229,229,229,.10)"/><rect x="${x(lo) - 4}" y="${y + 2}" width="${x(hi) - x(lo) + 8}" height="14" rx="7" fill="${i === SCREENS.length - 1 ? "#FF9900" : "#CCCCCC"}" opacity=".8"/>`;
+  });
+  h += `<line x1="${x(203)}" y1="30" x2="${x(203)}" y2="250" stroke="#8ED47F" stroke-dasharray="4 4"/><text x="${x(203) + 4}" y="24" fill="#8ED47F" font-size="11" font-family="Montserrat, Arial">HDR paper-white, 203</text>`;
+  h += `<line x1="${x(sdr)}" y1="30" x2="${x(sdr)}" y2="250" stroke="#E5E5E5" stroke-width="2.5"/><line x1="${x(pq)}" y1="30" x2="${x(pq)}" y2="250" stroke="#FF9900" stroke-width="2.5"/>
+    <text x="${x(sdr) - 4}" y="${pq > sdr * 3 ? 24 : 12}" fill="#E5E5E5" font-size="11" font-weight="600" text-anchor="end" font-family="Montserrat, Arial">SDR</text><text x="${x(pq) + 4}" y="12" fill="#FF9900" font-size="11" font-weight="600" font-family="Montserrat, Arial">PQ</text>`;
+  document.getElementById("nits").innerHTML = h;
+
+  const key = [state.exposure, scene.name, scene.w].join("|");
+  if (!hdrCache || hdrCache.key !== key) hdrCache = { key, frames: [renderMode("sdrsim"), renderMode("hdrsim")] };
+  document.querySelectorAll("#hdr-thumbs canvas").forEach((cv, i) => paint(cv, hdrCache.frames[i]));
+  drawImageControls();
+
+  if (kitDrawn) return;
+  kitDrawn = true;
+  const above = a => a === true ? `<span class="yes">✓</span>` : a === false ? `<span class="no">✗</span>` : a;
+  document.getElementById("formats").innerHTML = `<tr><th>Format</th><th>Bits</th><th>What's inside</th><th>Above 1.0?</th><th>Used for</th></tr>` +
+    FORMATS.map(([n, b, i, a, u]) => `<tr><td>${n}</td><td>${b}</td><td>${i}</td><td>${above(a)}</td><td>${u}</td></tr>`).join("");
+  document.getElementById("software").innerHTML = SOFTWARE.map(([n, t]) => `<li><b>${n}</b>${t}</li>`).join("");
+  document.getElementById("hardware").innerHTML = HARDWARE.map(([n, t]) => `<li><b>${n}</b>${t}</li>`).join("");
+}
+
+/* ---------- ACES ---------- */
+
+/** The ACES pieces in order. view: the picture there (render mode, caption); art: a diagram. */
+const ACES_STEPS = [
+  { id: "idt", name: "Input Transform",
+    text: () => `<p>Every camera has its own log curve and gamut. Its <b>Input Transform</b> (called the IDT in older versions, and published by the camera maker) converts that footage into ACES. The ${CAMERAS[state.cam].name} records ${CURVES[CAMERAS[state.cam].curve].name} in ${GAMUTS[CAMERAS[state.cam].gamut].name}; the picture is the file as recorded.</p><p>CG gets the same treatment: sRGB colour textures are converted in, while data such as normals and roughness are left alone.</p>`,
+    view: ["log", "The camera file as recorded: log, flat."],
+    art: () => FILE(14, 40, "log", CURVES[CAMERAS[state.cam].curve].name, GAMUTS[CAMERAS[state.cam].gamut].name) + AR(76, 75, 104) + BOX(108, 46, 96, 62, "hi") + T(156, 74, "Input", "c") + T(156, 92, "Transform", "c") + AR(208, 75, 236) + FILE(242, 40, "EXR", "ACES2065-1") + T(318, 66, "one per camera,", "s") + T(318, 80, "from its maker", "s") },
+  { id: "ap0", name: "ACES2065-1",
+    text: () => `<p><b>ACES2065-1</b> is ACES's home: linear light in <b>AP0</b>, a gamut so big it encloses every colour a person can see (two of its corners are imaginary).</p><p>It's the format for handing pictures between companies and for archiving, usually as OpenEXR files. It isn't meant for working in: AP0's imaginary corners make grading and compositing maths behave oddly.</p>`,
+    view: ["ap0raw", "ACES2065-1 numbers shown directly: linear, so dark. That's fine: it's for storing, not looking."],
+    art: () => MINI(14, 8, 170, 152, [["ap0", "acc"], ["rec709", "wht dash"]]) + `<line class="ln acc" x1="204" y1="40" x2="224" y2="40"/>` + T(232, 44, "AP0: every visible colour") + `<line class="ln wht dash" x1="204" y1="64" x2="224" y2="64"/>` + T(232, 68, "Rec.709, for scale") + T(204, 110, "linear light", "s") + T(204, 124, "archive and hand-over", "s") + T(204, 138, "OpenEXR files", "s") },
+  { id: "ap1", name: "ACEScg",
+    text: () => `<p><b>ACEScg</b> uses <b>AP1</b>: a smaller gamut, just bigger than Rec.2020, whose corners sit close to real colours. Still linear.</p><p>This is where compositors and 3D artists work: lights add up correctly and RGB maths (blurs, merges, lighting) behaves. Renders go out as ACEScg EXRs.</p>`,
+    view: ["ap1raw", "ACEScg numbers shown directly: linear, so dark."],
+    art: () => MINI(14, 8, 170, 152, [["ap0", "wht thin"], ["ap1", "grn"], ["rec2020", "acc dash"]]) + `<line class="ln grn" x1="204" y1="40" x2="224" y2="40"/>` + T(232, 44, "AP1 (ACEScg, ACEScct)") + `<line class="ln acc dash" x1="204" y1="64" x2="224" y2="64"/>` + T(232, 68, "Rec.2020") + `<line class="ln wht thin" x1="204" y1="88" x2="224" y2="88"/>` + T(232, 92, "AP0") + T(204, 130, "linear: for CG and compositing", "s") },
+  { id: "cct", name: "ACEScct",
+    text: () => `<p><b>ACEScct</b> is the same AP1 primaries with a <b>log curve</b>, so grading controls (lift, gamma, gain, printer lights) feel the way colourists expect, much like grading camera log.</p><p><b>ACEScc</b> is an older version without the "toe" at the bottom of the curve; ACEScct is the usual choice today.</p>`,
+    view: ["acescct", "ACEScct numbers shown directly: flat, like camera log, which is what grading tools expect."],
+    art: () => BOX(14, 14, 180, 142) + CURVE(24, 22, 160, 124, t => CURVES.acescct.encode(0.18 * 2 ** (t * 18 - 9)), "grn") + T(104, 168 - 4, "light, in stops →", "s c") + T(214, 52, "ACEScct =") + T(214, 70, "AP1 + a log curve") + T(214, 104, "grading feels like", "s") + T(214, 118, "grading camera log", "s") },
+  { id: "lmt", name: "LMT",
+    text: () => `<p>A <b>Look Modification Transform</b> is a look applied in ACES, before the output transform: a show look, a film emulation, or a technical fix shared across every shot.</p><p>ACES 1.3's <b>Reference Gamut Compression</b> is one: it eases very saturated colours (LEDs, neon) back towards the gamut before they reach the output transform. The picture here has a warm sample look on top.</p>`,
+    view: ["graded", "A warm sample look, seen through the output transform."],
+    art: () => WHEEL(76, 70, 38, "Look") + T(140, 76, "+", "c") + BOX(160, 34, 226, 76, "hi") + T(273, 66, "Reference Gamut", "c") + T(273, 84, "Compression (ACES 1.3)", "c") + T(200, 152, "applied to scene light, before the output transform", "s c") },
+  { id: "ot", name: "Output Transform",
+    text: () => `<p>The <b>Output Transform</b> turns scene light into a picture for one kind of screen: it tone-maps highlights, fits colour into the screen's gamut and encodes for its curve. You pick the one for the screen you're watching on: sRGB, Rec.709, P3, or HDR at a chosen peak brightness, such as 1,000 nits.</p><p>Change it and the grade stays the same, which is how one grade makes every deliverable. In ACES 1.x it's two steps, RRT + ODT; in ACES 2.0 it's one transform.</p>`,
+    view: ["display", "Through the ACES 1.3 output transform for an sRGB screen."],
+    art: () => `<rect x="22" y="12" width="22" height="140" rx="4" fill="url(#g-range)"/>` + T(52, 22, "scene", "s") + AR(70, 82, 98) + BOX(102, 36, 80, 80) + CURVE(110, 44, 64, 64, t => srgbEnc(acesGrey(0.18 * 2 ** (t * 14 - 7)))) + T(142, 134, "tone map", "s c") + AR(186, 82, 206) +
+      MINI(210, 30, 84, 96, [["ap1", "grn"], ["rec709", "wht"]]) + T(252, 146, "gamut", "s c") + AR(298, 82, 318) + MON(322, 56, 66, 44) + T(270, 14, "1.x: RRT + ODT · 2.0: one transform", "s c") },
+  { id: "amf", name: "AMF",
+    text: () => `<p>The <b>ACES Metadata File</b> (AMF) is a small XML file that records which Input Transform, looks and Output Transform a shot used, so the next app, or the next company, can rebuild exactly the same picture.</p><p>ACES also defines <b>CLF</b>, the Common LUT Format, for passing looks around as LUTs that every app reads the same way.</p>`,
+    view: ["display", "The same picture, rebuilt anywhere from the AMF's list of transforms."],
+    art: () => `<path class="box" d="M60 10h190l24 24v126h-214z"/><path class="ln thin" d="M250 10v24h24"/>` +
+      ["&lt;aces:acesMetadataFile&gt;", "  &lt;aces:inputTransform&gt; " + CURVES[CAMERAS[state.cam].curve].name, "  &lt;aces:lookTransform&gt; show look", "  &lt;aces:outputTransform&gt; sRGB", "&lt;/aces:acesMetadataFile&gt;"]
+        .map((s, i) => `<text x="72" y="${44 + i * 20}" fill="#8ED47F" font-size="10" font-family="ui-monospace, Consolas, monospace" xml:space="preserve">${s}</text>`).join("") + T(300, 80, "travels with", "s") + T(300, 94, "the shot", "s") },
+];
+const ACES_SPACES = [
+  ["ACES2065-1", "AP0", "Linear", "Archive, and handing over between companies", "OpenEXR files"],
+  ["ACEScg", "AP1", "Linear", "CG rendering and compositing", "OpenEXR files"],
+  ["ACEScct", "AP1", "Log, with a toe", "Grading", "Inside the grading app"],
+  ["ACEScc", "AP1", "Pure log", "Grading (legacy, not recommended)", "Inside the grading app"],
+  ["ACESproxy", "AP1", "Log, whole numbers (10- or 12-bit)", "On-set monitoring over SDI (legacy)", "An SDI signal"],
+];
+const ACES_ROLES = [
+  ["colourist", "Colourist", "Grade in <b>ACEScct</b>. Your app brings each camera in with its Input Transform and shows it through the Output Transform for your monitor. Each deliverable (Rec.709, P3, HDR) is the same grade through a different Output Transform."],
+  ["comp", "Compositor", "Work in <b>ACEScg</b>. Read plates with the right Input Transform (or as ACES2065-1), view through the same Output Transform as the grade, and write ACEScg or ACES2065-1 EXRs with no view transform baked in."],
+  ["cg", "3D artist", "Render in <b>ACEScg</b>. Convert colour textures from sRGB to ACEScg (most apps do this per texture), leave data maps such as normals and roughness untouched, and look through the ACES Output Transform."],
+  ["dit", "DIT / on set", "Monitor through the Output Transform for the on-set screen while the camera records log as normal. Send the show look as a look (CDL or LMT) with an AMF, so post starts from what everyone saw on set."],
+  ["vp", "Virtual production", "Author content in <b>ACEScg</b>, then convert to what the wall needs (often PQ in Rec.2020, set per wall in the engine's colour management), with no output transform baked in: the camera is the viewer."],
+  ["archive", "Archive / delivery", "Archive the finished master as <b>ACES2065-1</b> EXRs, the ACES archive format, with its AMF, so it can be re-rendered for screens that don't exist yet."],
+];
+const ACES_MYTHS = [
+  ["\"ACES is a look.\"", "It's a colour management system. The output transform has a default rendering, with film-like contrast and a highlight roll-off, but your look comes from the grade or an LMT."],
+  ["\"ACES makes pictures more cinematic.\"", "It makes them consistent. The same numbers mean the same thing in every app and on every screen; whether it looks good is still up to you."],
+  ["\"Work in ACES2065-1.\"", "AP0 is for storing and handing over. Work in ACEScg (CG and comp) or ACEScct (grading)."],
+  ["\"ACES clips bright colours.\"", "ACES 1.x output transforms could clip and skew very saturated light, such as LEDs and neon. 1.3 added gamut compression for that, and 2.0's output transform handles it itself."],
+  ["\"You need ACES for HDR.\"", "Any scene-referred pipeline can make HDR, DaVinci Wide Gamut included. ACES gives you a standard, shared set of HDR output transforms."],
+];
+let acesDrawn = false;
+/** Redraws the ACES tab: the step strip, explainer, diagram and picture, plus the tables, chooser and myths. */
+function drawAces() {
+  const cur = Math.max(0, ACES_STEPS.findIndex(s => s.id === state.acesStep)), s = ACES_STEPS[cur];
+  document.getElementById("aces-steps").innerHTML = ACES_STEPS.map((st, i) => `<li>${i ? flowArrow(i <= cur) : ""}<button type="button" data-aces="${st.id}" aria-pressed="${i === cur}">${st.name}</button></li>`).join("");
+  document.getElementById("aces-explain").innerHTML = `<h3>${s.name}</h3>${s.text()}`;
+  document.getElementById("aces-art").innerHTML = DEFS + s.art();
+  document.getElementById("aces-tag").textContent = s.name;
+  document.getElementById("aces-cap").textContent = s.view[1];
+  paint(document.getElementById("aces-canvas"), renderMode(s.view[0]));
+  document.getElementById("aces-roles").innerHTML = ACES_ROLES.map(([id, n]) => `<li><button type="button" data-role-pick="${id}" aria-pressed="${id === state.acesRole}">${n}</button></li>`).join("");
+  document.getElementById("aces-role").innerHTML = `<p>${ACES_ROLES.find(r => r[0] === state.acesRole)[2]}</p>`;
+  drawImageControls();
+  if (acesDrawn) return;
+  acesDrawn = true;
+  document.getElementById("aces-table").innerHTML = `<tr><th>Encoding</th><th>Primaries</th><th>Curve</th><th>For</th><th>Lives in</th></tr>` + ACES_SPACES.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("");
+  document.getElementById("aces-myths").innerHTML = ACES_MYTHS.map(([m, f]) => `<div class="card"><span class="big">${m}</span><p>${f}</p></div>`).join("");
+}
+
+/* ---------- Signals: SDI and SMPTE ST 2110 ---------- */
+
+/* The SDP format parameters that matter for colour, with the values offered here (ST 2110-20 names) */
+const SDP_FIELDS = [
+  ["res", "Size", [["1920x1080", "1920 × 1080 (HD)"], ["3840x2160", "3840 × 2160 (UHD)"]]],
+  ["fps", "Frame rate", [["25", "25"], ["30000/1001", "29.97"], ["50", "50"], ["60000/1001", "59.94"]]],
+  ["sampling", "Sampling", [["YCbCr-4:2:2", "YCbCr 4:2:2"], ["YCbCr-4:4:4", "YCbCr 4:4:4"], ["RGB", "RGB"]]],
+  ["depth", "Bit depth", [["8", "8-bit"], ["10", "10-bit"], ["12", "12-bit"], ["16f", "16-bit float"]]],
+  ["colorimetry", "Colorimetry", [["BT709", "BT709"], ["BT2020", "BT2020"], ["BT2100", "BT2100"], ["ST2065-1", "ST2065-1 (ACES)"]]],
+  ["tcs", "Transfer (TCS)", [["SDR", "SDR"], ["PQ", "PQ"], ["HLG", "HLG"], ["LINEAR", "LINEAR"], ["ST2065-1", "ST2065-1 (ACES)"]]],
+  ["range", "Range", [["NARROW", "NARROW (legal)"], ["FULL", "FULL"]]],
+];
+const SIG_PARTS = [
+  ["ST 2110-10", "System and timing: video as packets over IP, synced by PTP (the SMPTE ST 2059 profile), each stream described by an SDP."],
+  ["ST 2110-20", "Uncompressed video: just the active picture, no blanking. Colorimetry, transfer (TCS) and range are declared here."],
+  ["ST 2110-21", "Traffic shaping: how evenly a sender spaces its packets, so switches and receivers keep up."],
+  ["ST 2110-22", "Compressed video at a constant bit rate, such as JPEG XS, for when bandwidth is tight."],
+  ["ST 2110-30 · -31", "Audio: uncompressed PCM (based on AES67), or AES3 carried as-is."],
+  ["ST 2110-40", "Ancillary data: captions, timecode, triggers and other metadata SDI carried alongside the picture."],
+  ["NMOS (AMWA IS-04, IS-05)", "Not part of 2110 itself: the open specs devices use to find each other and get connected on the network."],
+];
+let sigDrawn = false;
+/** Redraws the Signals tab: the SDP builder, its plain-English reading and bandwidth, plus the diagram and the 2110 parts. */
+function drawSignals() {
+  const s = state.sdp, [w, h] = s.res.split("x").map(Number), fps = s.fps.includes("/") ? s.fps.split("/").reduce((a, b) => a / b) : +s.fps;
+  document.getElementById("sdp-choices").innerHTML = SDP_FIELDS.map(([k, n, opts]) =>
+    `<label><span class="label">${n}</span><select class="sdp" data-k="${k}">${opts.map(([v, t]) => `<option value="${v}" ${v === s[k] ? "selected" : ""}>${t}</option>`).join("")}</select></label>`).join("");
+  document.getElementById("sdp-out").textContent = `m=video 50000 RTP/AVP 96\na=rtpmap:96 raw/90000\na=fmtp:96 sampling=${s.sampling}; width=${w}; height=${h}; exactframerate=${s.fps}; depth=${s.depth}; TCS=${s.tcs}; colorimetry=${s.colorimetry}; RANGE=${s.range}; PM=2110GPM; SSN=ST2110-20:2017; TP=2110TPN;\na=mediaclk:direct=0\na=ts-refclk:ptp=IEEE1588-2008:traceable`;
+  const prim = { BT709: "Rec.709 primaries", BT2020: "Rec.2020 primaries", BT2100: "Rec.2020 primaries, as used for HDR (BT.2100)", "ST2065-1": "ACES AP0 primaries" }[s.colorimetry];
+  const curve = { SDR: "an SDR gamma curve", PQ: "PQ (absolute brightness, HDR)", HLG: "HLG (relative HDR)", LINEAR: "linear light from 0 to 1", "ST2065-1": "ACES linear light" }[s.tcs];
+  const warn = [];
+  if ((s.tcs === "PQ" || s.tcs === "HLG") && s.colorimetry === "BT709") warn.push("PQ and HLG normally go with BT2100 colorimetry, not BT709.");
+  if (s.colorimetry === "BT2100" && s.tcs === "SDR") warn.push("BT2100 is the HDR flag; wide-gamut SDR is usually flagged BT2020.");
+  if (s.colorimetry === "ST2065-1" && s.tcs !== "ST2065-1") warn.push("ACES2065-1 pictures use TCS=ST2065-1, carried as 16-bit float (depth=16f).");
+  if (s.tcs === "ST2065-1" && s.colorimetry !== "ST2065-1") warn.push("TCS=ST2065-1 is ACES light: pair it with colorimetry=ST2065-1.");
+  if ((s.colorimetry === "ST2065-1" || s.tcs === "ST2065-1") && s.depth !== "16f") warn.push("ACES over 2110 is 16-bit float: use depth=16f.");
+  if ((s.colorimetry === "ST2065-1" || s.tcs === "ST2065-1") && s.sampling !== "RGB") warn.push("ACES is RGB: use sampling=RGB.");
+  if (s.tcs === "LINEAR" && s.depth !== "16f") warn.push("TCS=LINEAR is defined only for 16-bit float (depth=16f), with values from 0 to 1.");
+  document.getElementById("sdp-read").innerHTML = `<p><b>Reads as:</b> ${w} × ${h} at ${+fps.toFixed(2)} frames a second, ${s.sampling.replace("YCbCr-", "YCbCr ")} sampling, ${s.depth === "16f" ? "16-bit float" : s.depth + "-bit"}, ${prim}, ${curve}, ${s.range === "NARROW" ? "narrow (legal) range" : "full range"}.</p>` +
+    warn.map(t => `<p class="warn" style="color:var(--orange)">${t}</p>`).join("");
+  const spp = s.sampling === "YCbCr-4:2:2" ? 2 : 3, bits = s.depth === "16f" ? 16 : +s.depth, gbps = w * h * fps * spp * bits / 1e9, onWire = gbps * 1.05;
+  const link = onWire <= 9 ? "fits a 10 GbE link" : onWire <= 22 ? "needs a 25 GbE link" : onWire <= 90 ? "needs a 100 GbE link" : "needs more than 100 GbE";
+  const single = w > 1920 ? (fps > 30 ? "12G-SDI" : "6G-SDI") : (fps > 30 ? "3G-SDI" : "1.5G-SDI (HD-SDI)");
+  const sdi = s.depth === "16f" ? "SDI has no standard mapping for 16-bit float, so this one is 2110-only"
+    : spp === 2 && bits <= 10 ? `On SDI the same picture needs ${single}`
+    : `On SDI it may need dual- or quad-link, depending on the format (3G-SDI can carry 1080p up to 30 fps in 4:4:4 or 12-bit on one cable)`;
+  document.getElementById("sdp-rate").innerHTML = `<p><b>Bandwidth:</b> ${gbps.toFixed(2)} Gb/s of picture, about ${onWire.toFixed(1)} Gb/s with packet headers (5–8% more): ${link}. ${sdi}.</p>`;
+  if (sigDrawn) return;
+  sigDrawn = true;
+  document.getElementById("sig-parts").innerHTML = SIG_PARTS.map(([n, t]) => `<li><b>${n}</b>${t}</li>`).join("");
+  const box = (x, y, w, h, t) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" fill="rgba(255,255,255,.05)" stroke="rgba(229,229,229,.3)" stroke-width="1.5"/><text x="${x + w / 2}" y="${y + h / 2 + 4}" fill="#E5E5E5" font-size="12" text-anchor="middle" font-family="Montserrat, Arial">${t}</text>`;
+  const txt = (x, y, t, c = "#999", a = "start") => `<text x="${x}" y="${y}" fill="${c}" font-size="11" text-anchor="${a}" font-family="Montserrat, Arial">${t}</text>`;
+  const cols = ["#FF9900", "#5EC8E5", "#8ED47F"];
+  let a = txt(20, 24, "SDI", "#FF9900") + box(20, 80, 90, 50, "Camera") + box(300, 80, 90, 50, "Monitor");
+  a += cols.map((c, i) => `<line x1="110" y1="${100 + i * 5}" x2="300" y2="${100 + i * 5}" stroke="${c}" stroke-width="3"/>`).join("") + txt(205, 76, "one coax: picture + audio + data", "#ccc", "middle") + txt(205, 150, "fixed rate: 3G, 6G, 12G", "#999", "middle") + txt(205, 168, "colour flags in the payload ID", "#999", "middle");
+  a += txt(470, 24, "ST 2110", "#FF9900") + box(470, 50, 90, 44, "Camera") + box(470, 140, 90, 44, "Render node") + box(640, 92, 90, 50, "Switch") + box(800, 50, 90, 44, "Monitor") + box(800, 140, 90, 44, "LED processor");
+  a += ["video 2110-20", "audio 2110-30", "data 2110-40"].map((n, i) => `<line x1="560" y1="${64 + i * 8}" x2="640" y2="${104 + i * 8}" stroke="${cols[i]}" stroke-width="2"/><line x1="730" y1="${104 + i * 8}" x2="800" y2="${64 + i * 8}" stroke="${cols[i]}" stroke-width="2"/>${txt(894, 210 + i * 14, n, cols[i], "end")}`).join("");
+  a += `<line x1="560" y1="162" x2="640" y2="126" stroke="#FF9900" stroke-width="2"/><line x1="730" y1="126" x2="800" y2="162" stroke="#FF9900" stroke-width="2"/>`;
+  a += `<circle cx="685" cy="30" r="14" fill="none" stroke="#E5E5E5" stroke-width="2"/><path d="M685 30V21M685 30l6 4" stroke="#E5E5E5" stroke-width="2"/>${txt(706, 34, "PTP clock: everything in sync", "#ccc")}<line x1="685" y1="44" x2="685" y2="92" stroke="#E5E5E5" stroke-dasharray="3 3"/>`;
+  a += txt(600, 214, "each stream described by an SDP", "#999", "middle");
+  document.getElementById("sig-art").innerHTML = a;
+}
+
+/* ---------- Image lab: a scene in linear Rec.2020, rendered through different (sometimes broken) pipelines ---------- */
+
+const SW = 960, SH = 540;
+
+/* ColorChecker patches as 8-bit sRGB, row by row */
+const CHECKER = [[115,82,68],[194,150,130],[98,122,157],[87,108,67],[133,128,177],[103,189,170],[214,126,44],[80,91,166],[193,90,99],[94,60,108],[157,188,64],[224,163,46],
+  [56,61,150],[70,148,73],[175,54,60],[231,199,31],[187,86,149],[8,133,161],[243,243,242],[200,200,200],[160,160,160],[122,122,121],[85,85,85],[52,52,52]];
+/* "Neon" lights given directly in linear Rec.2020: most sit outside Rec.709 */
+const NEON = [[0, 1, 0], [1, 0, 0], [0, 0, 1], [0, 0.9, 1], [1, 0, 0.6], [1, 0.45, 0]].map(c => c.map(v => v * 1.6));
+
+/* ---------- The lit set: a small physically based renderer for the chart, the reference balls and the CG sphere ----------
+   Units: pixels, x right, y down, z towards the camera (an orthographic camera looking at the chart, which lies at z = 0).
+   Light is linear Rec.2020 radiance. Two lights:
+   - a large softbox behind the camera (radiance 10 over ±0.35 × ±0.25 in slope) that lights a surface facing the camera to
+     exactly its reflectance, so a ColorChecker patch reads its own value and an 18% grey card reads 0.18;
+   - the lamp, a bare bulb in front of the chart: inverse-square light, with soft shadows from the balls. */
+const LAMP = { r: 26, L: 200, rgb: [1, 0.72, 0.42] };  // bulb radius (px), radiance (set from state.lamp.stops by testChart) and warm colour
+const LAMP_HOME = { x: 850, y: 150, stops: 10 };
+const SOFTBOX = 10, ROOM = 0.03;
+/* Reference balls resting against the chart: matte 18% grey, and chrome (a mirror reflecting 60% straight on, more at grazing angles) */
+const REF_BALLS = [{ kind: "grey", x: 850, y: 300, r: 48, albedo: [0.18, 0.18, 0.18] }, { kind: "chrome", x: 850, y: 432, r: 48, f0: 0.6 }].map(b => ({ ...b, z: b.r + 2 }));
+const smooth = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+
+/**
+ * Where a ray first meets a sphere.
+ * @returns {number} distance along the (unit) ray, or Infinity
+ */
+function raySphere(P, d, C, R) {
+  const o = [P[0] - C[0], P[1] - C[1], P[2] - C[2]], b = dot3(o, d), c = dot3(o, o) - R * R, disc = b * b - c;
+  if (disc < 0) return Infinity;
+  const s = Math.sqrt(disc), t = -b - s;
+  return t > 1e-3 ? t : -b + s > 1e-3 ? -b + s : Infinity;
+}
+/**
+ * How much of the lamp a point sees, past the balls: a soft shadow whose edge widens with the blocker's distance.
+ * @returns {number} 0 (in shadow) to 1
+ */
+function lampVisible(st, P, dir, dist, self) {
+  let v = 1;
+  for (const b of st.balls) {
+    if (b === self) continue;
+    const c = [b.x - P[0], b.y - P[1], b.z - P[2]], t = dot3(c, dir);
+    if (t <= 0 || t >= dist) continue;
+    const miss = Math.sqrt(Math.max(dot3(c, c) - t * t, 0)), pen = LAMP.r * t / dist + 1;
+    v *= smooth(b.r - pen, b.r + pen, miss);
+  }
+  return v;
+}
+/**
+ * Light from the lamp reaching a surface, as a multiple of the softbox's light (inverse-square, cosine, shadows).
+ * @param {object} st the stage: { w, h, back, balls, lamp }
+ * @param {number[]} P point
+ * @param {number[]} n unit normal
+ * @param {object} [self] the ball the point is on (it can't shadow itself this way)
+ */
+function lampLight(st, P, n, self) {
+  const lp = st.lamp;
+  if (!lp) return 0;
+  const v = [lp.x - P[0], lp.y - P[1], lp.z - P[2]], d2 = dot3(v, v), d = Math.sqrt(d2), cos = dot3(n, v) / d;
+  return cos <= 0 ? 0 : LAMP.L * LAMP.r * LAMP.r * cos / d2 * lampVisible(st, P, v.map(c => c / d), d, self);
+}
+/** A matte (Lambertian) surface: softbox + lamp + a little room bounce. */
+function matte(st, P, n, albedo, self) {
+  const front = Math.max(n[2], 0) + ROOM, l = lampLight(st, P, n, self);
+  return [0, 1, 2].map(c => albedo[c] * (front + l * LAMP.rgb[c]));
+}
+/**
+ * What a reflected ray sees: the lamp, another ball, the chart behind, the softbox behind the camera, or the dim room.
+ * @returns {number[]} radiance
+ */
+function traceRay(st, P, r, self, depth) {
+  let best = Infinity, hit = null;
+  const lp = st.lamp;
+  if (lp) { const t = raySphere(P, r, [lp.x, lp.y, lp.z], LAMP.r); if (t < best) { best = t; hit = "lamp"; } }
+  for (const b of st.balls) if (b !== self) { const t = raySphere(P, r, [b.x, b.y, b.z], b.r); if (t < best) { best = t; hit = b; } }
+  if (r[2] < 0) { const t = -P[2] / r[2]; if (t < best) { best = t; hit = "back"; } }
+  if (hit === "lamp") return LAMP.rgb.map(c => c * LAMP.L);
+  if (hit === "back") {
+    const X = Math.round(P[0] + best * r[0]), Y = Math.round(P[1] + best * r[1]);
+    if (X < 0 || Y < 0 || X >= st.w || Y >= st.h) return [ROOM, ROOM, ROOM];
+    const i = (Y * st.w + X) * 3; return [st.back[i], st.back[i + 1], st.back[i + 2]];
+  }
+  if (hit) { const Q = [P[0] + best * r[0], P[1] + best * r[1], P[2] + best * r[2]]; return shadeBall(st, hit, Q, [(Q[0] - hit.x) / hit.r, (Q[1] - hit.y) / hit.r, (Q[2] - hit.z) / hit.r], depth + 1); }
+  const tx = r[0] / r[2], ty = r[1] / r[2];  // towards the camera
+  return Math.abs(tx) < 0.35 && Math.abs(ty) < 0.25 ? [SOFTBOX, SOFTBOX, SOFTBOX] : [ROOM, ROOM, ROOM].map(v => v + 0.03 * Math.max(-r[1], 0));
+}
+/**
+ * Shades a point on a ball: grey (matte), chrome (mirror with Fresnel) or plastic (matte plus a 4% mirror coat).
+ * Seen by an orthographic camera, so the view direction is (0, 0, 1).
+ */
+function shadeBall(st, b, P, n, depth = 0) {
+  if (b.kind === "grey" || depth > 1) return b.kind === "chrome" ? [ROOM, ROOM, ROOM] : matte(st, P, n, b.albedo, b);
+  const cos = Math.max(n[2], 0), F = b.f0 + (1 - b.f0) * (1 - cos) ** 5, r = [2 * n[2] * n[0], 2 * n[2] * n[1], 2 * n[2] * n[2] - 1];
+  const refl = traceRay(st, P, r, b, depth);
+  const base = b.kind === "plastic" ? matte(st, P, n, b.albedo, b) : [0, 0, 0];
+  return base.map((v, c) => v * (1 - F) + F * refl[c]);
+}
+/**
+ * Draws a ball into an image, 2×2 supersampled so its edge is smooth.
+ * @param {object} st the stage the ball is lit and reflected in
+ * @param {object} b the ball
+ * @param {Float32Array} out the image to draw into (its own pixels show at the ball's edge)
+ */
+function drawBall(st, b, out) {
+  const { w, h } = st;
+  for (let y = Math.max(0, Math.floor(b.y - b.r - 1)); y < Math.min(h, b.y + b.r + 1); y++) for (let x = Math.max(0, Math.floor(b.x - b.r - 1)); x < Math.min(w, b.x + b.r + 1); x++) {
+    const i = (y * w + x) * 3, acc = [0, 0, 0];
+    for (const [sx, sy] of [[0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]]) {
+      const nx = (x + sx - b.x) / b.r, ny = (y + sy - b.y) / b.r, q = nx * nx + ny * ny;
+      const c = q < 1 ? shadeBall(st, b, [x + sx, y + sy, b.z + b.r * Math.sqrt(1 - q)], [nx, ny, Math.sqrt(1 - q)]) : [out[i], out[i + 1], out[i + 2]];
+      acc[0] += c[0] / 4; acc[1] += c[1] / 4; acc[2] += c[2] / 4;
+    }
+    out[i] = acc[0]; out[i + 1] = acc[1]; out[i + 2] = acc[2];
+  }
+}
+
+/**
+ * Builds the test chart as a lit set: a ColorChecker and a dark backdrop lit by the softbox and the lamp (with the balls'
+ * shadows), a self-lit ±6-stop grey wedge and neon panels beyond Rec.709, the 18% grey and chrome reference balls, and the lamp
+ * itself, wherever state.lamp puts it and as many stops over mid grey as it says. With the lamp off, only the softbox lights
+ * the set, so every patch reads its true value.
+ * @returns {{w: number, h: number, data: Float32Array, chart: boolean, name: string, stage: object}}
+ */
+function testChart() {
+  const alb = new Float32Array(SW * SH * 3), glow = new Float32Array(SW * SH * 3), to2020 = convert("rec709", "rec2020");
+  const fill = (buf, x0, y0, w, h, rgb) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) buf.set(rgb, (y * SW + x) * 3); };
+  for (let y = 0; y < SH; y++) { const v = 0.035 - 0.02 * y / SH; for (let x = 0; x < SW; x++) alb.set([v, v, v], (y * SW + x) * 3); }
+  CHECKER.forEach((c, i) => fill(alb, 28 + (i % 6) * 76, 28 + Math.floor(i / 6) * 76, 70, 70, apply(to2020, c.map(v => srgbDec(v / 255)))));
+  NEON.forEach((c, i) => { fill(alb, 530 + (i % 3) * 76, 28 + Math.floor(i / 3) * 76, 70, 70, [0, 0, 0]); fill(glow, 530 + (i % 3) * 76, 28 + Math.floor(i / 3) * 76, 70, 70, c); });
+  for (let s = -6; s <= 6; s++) { const v = 0.18 * 2 ** s; fill(alb, 28 + (s + 6) * 36, 368, 34, 70, [0, 0, 0]); fill(glow, 28 + (s + 6) * 36, 368, 34, 70, [v, v, v]); }
+  LAMP.L = 0.18 * 2 ** state.lamp.stops;
+  const lamp = state.lamp.on ? { x: state.lamp.x, y: state.lamp.y, z: state.lamp.z } : null, st = { w: SW, h: SH, back: new Float32Array(SW * SH * 3), balls: REF_BALLS, lamp }, up = [0, 0, 1];
+  for (let y = 0; y < SH; y++) for (let x = 0; x < SW; x++) {
+    const i = (y * SW + x) * 3, l = lampLight(st, [x + 0.5, y + 0.5, 0], up);
+    for (let c = 0; c < 3; c++) st.back[i + c] = alb[i + c] * (1 + ROOM + l * LAMP.rgb[c]) + glow[i + c];
+  }
+  const d = st.back.slice();
+  for (const b of REF_BALLS) drawBall(st, b, d);
+  if (lamp) for (let y = Math.max(0, lamp.y - 120 | 0); y < Math.min(SH, lamp.y + 120); y++) for (let x = Math.max(0, lamp.x - 120 | 0); x < Math.min(SW, lamp.x + 120); x++) {
+    const r = Math.hypot(x + 0.5 - lamp.x, y + 0.5 - lamp.y), core = 1 - smooth(LAMP.r - 1, LAMP.r + 1, r), bloom = 0.004 / (1 + ((r - LAMP.r) / 20) ** 2) * (1 - smooth(70, 118, r));  // the bulb, and a little lens bloom
+    const i = (y * SW + x) * 3; for (let c = 0; c < 3; c++) d[i + c] = d[i + c] * (1 - core) + LAMP.L * LAMP.rgb[c] * (core + bloom * (1 - core));
+  }
+  return { w: SW, h: SH, data: d, chart: true, name: lamp ? `chart@${lamp.x | 0},${lamp.y | 0},${state.lamp.stops}` : "chart@off", stage: st };
+}
+let CHART = testChart();
+let scene = CHART;  // what the image lab shows: the test chart, or the viewer's own picture
+
+/** Rebuilds the chart after the lamp changes, and redraws the tab. */
+function relight() {
+  const was = scene === CHART;
+  CHART = testChart();
+  if (was) scene = CHART;
+  drawTab();
+}
+let relightTimer = 0;
+/** Relights at most every 80 ms, so dragging the lamp updates the picture as it moves without queuing a render per pixel. */
+function relightSoon() { if (!relightTimer) relightTimer = setTimeout(() => { relightTimer = 0; relight(); }, 80); }
+
+/**
+ * A curve's inverse as a fast lookup: code value (0..1) to scene-linear light, 1,024 steps, linearly interpolated.
+ * @param {string} id curve id from CURVES
+ * @returns {(v: number) => number}
+ */
+function inverseOf(id) {
+  const N = 1024, t = Float64Array.from({ length: N + 1 }, (_, i) => decode(id, i / N));
+  return v => { const x = Math.min(N, Math.max(0, v * N)), i = Math.min(N - 1, x | 0); return t[i] + (t[i + 1] - t[i]) * (x - i); };
+}
+
+/* What a loaded picture's numbers can mean: its gamut and how to turn its numbers into linear light. group: the menu heading */
+const INPUTS = {
+  srgb:    { group: "Display-referred", name: "sRGB (photos, web)", gamut: "rec709", dec: srgbDec },
+  p3:      { group: "Display-referred", name: "Display P3 (iPhone, Mac)", gamut: "p3d65", dec: srgbDec },
+  g24:     { group: "Display-referred", name: "Rec.709 video (gamma 2.4)", gamut: "rec709", dec: v => Math.max(v, 0) ** 2.4 },
+  lin709:  { group: "Scene-linear", name: "Linear Rec.709 / sRGB", gamut: "rec709", dec: v => v },
+  linp3:   { group: "Scene-linear", name: "Linear P3-D65", gamut: "p3d65", dec: v => v },
+  lin2020: { group: "Scene-linear", name: "Linear Rec.2020", gamut: "rec2020", dec: v => v },
+  acescg:  { group: "Scene-linear", name: "ACEScg (linear AP1)", gamut: "ap1", dec: v => v },
+  aces:    { group: "Scene-linear", name: "ACES2065-1 (linear AP0)", gamut: "ap0", dec: v => v },
+  acescct: { group: "Log", name: "ACEScct", gamut: "ap1", curve: "acescct" },
+  davinci: { group: "Log", name: "DaVinci Intermediate / Wide Gamut", gamut: "dwg", curve: "davinci" },
+  ...Object.fromEntries(Object.entries(CAMERAS).map(([id, c]) => [`cam-${id}`, { group: "Log", name: `${CURVES[c.curve].name} / ${GAMUTS[c.gamut].name}`, gamut: c.gamut, curve: c.curve }])),
+};
+
+/**
+ * Builds a scene (linear Rec.2020) from a loaded picture's raw numbers, read as the given colour space.
+ * @param {{w: number, h: number, data: Float32Array, name: string}} src raw RGB numbers, top row first
+ * @param {string} space input id from INPUTS
+ * @returns {object} a scene, keeping src so the colour space can be changed later
+ */
+function buildScene(src, space) {
+  const inp = INPUTS[space], dec = inp.dec || (inp.inverse ??= inverseOf(inp.curve)), m = convert(inp.gamut, "rec2020"), d = new Float32Array(src.data.length);
+  for (let j = 0; j < d.length; j += 3) {
+    const r = dec(src.data[j]), g = dec(src.data[j + 1]), b = dec(src.data[j + 2]);
+    d[j] = m[0][0] * r + m[0][1] * g + m[0][2] * b; d[j + 1] = m[1][0] * r + m[1][1] * g + m[1][2] * b; d[j + 2] = m[2][0] * r + m[2][1] * g + m[2][2] * b;
+  }
+  return { w: src.w, h: src.h, data: d, chart: false, name: `${src.name}|${space}`, src, space };
+}
+
+/**
+ * Reads a browser image (JPEG, PNG, WebP, AVIF…) as its raw numbers, with no colour conversion, so the colour-space
+ * picker decides what they mean. Shrunk to fit 960×1200.
+ * @param {File} file
+ */
+async function readImage(file) {
+  const bmp = await createImageBitmap(file, { colorSpaceConversion: "none" }), k = Math.min(1, SW / bmp.width, 1200 / bmp.height), w = Math.round(bmp.width * k), h = Math.round(bmp.height * k);
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+  const ctx = cv.getContext("2d"); ctx.drawImage(bmp, 0, 0, w, h);
+  const px = ctx.getImageData(0, 0, w, h).data, d = new Float32Array(w * h * 3);
+  for (let i = 0, j = 0; i < px.length; i += 4, j += 3) { d[j] = px[i] / 255; d[j + 1] = px[i + 1] / 255; d[j + 2] = px[i + 2] / 255; }
+  return { w, h, data: d, name: file.name + file.lastModified, kind: "image", space: "srgb", note: "A browser image doesn't say what's in it: pick what it really is." };
+}
+
+/**
+ * Reads just enough of an OpenEXR header to know whether the browser reader can open it.
+ * @param {ArrayBuffer} buf the whole file
+ * @returns {{tiled: boolean, deep: boolean, multipart: boolean, channels: string[]}}
+ */
+function exrInfo(buf) {
+  const v = new DataView(buf), b = new Uint8Array(buf);
+  if (b.length < 8 || v.getUint32(0, true) !== 20000630) throw new Error("it isn't an OpenEXR file.");
+  const flags = b[5], str = at => { let s = ""; while (b[at]) s += String.fromCharCode(b[at++]); return [s, at + 1]; };
+  const info = { tiled: !!(flags & 2), deep: !!(flags & 8), multipart: !!(flags & 16), channels: [] };
+  let p = 8;
+  while (p < b.length && b[p]) {
+    let name, type; [name, p] = str(p); [type, p] = str(p);
+    const size = v.getInt32(p, true); p += 4;
+    if (type === "chlist") for (let q = p; b[q];) { let c; [c, q] = str(q); info.channels.push(c); q += 16; }
+    p += size;
+  }
+  return info;
+}
+
+/* EXR colour tags (the chromaticities attribute) that match an input above; OpenEXR assumes Rec.709 primaries when there's none */
+const EXR_TAGS = { rec709: "lin709", p3d65: "linp3", rec2020: "lin2020", ap1: "acescg", ap0: "aces" };
+/**
+ * Reads an OpenEXR file with three.js's EXRLoader (fetched from the CDN on first use), keeping values above 1.0.
+ * Picks the colour space from the file's chromaticities tag. Shrunk to fit 960×1200 by averaging.
+ * @param {File} file
+ */
+async function readEXR(file) {
+  const buf = await file.arrayBuffer(), info = exrInfo(buf);
+  if (info.multipart || info.deep || info.tiled) throw new Error(`it's a ${info.multipart ? "multi-part" : info.deep ? "deep" : "tiled"} EXR. Save it as a single-part, scanline RGB EXR and try again.`);
+  if (!info.channels.includes("R") && !info.channels.includes("Y")) {
+    const layers = [...new Set(info.channels.filter(c => c.includes(".")).map(c => c.slice(0, c.lastIndexOf("."))))];
+    throw new Error(layers.length ? `it's a multi-layer EXR (layers: ${layers.join(", ")}). This reader needs plain R, G, B channels: export one layer as an RGB EXR.` : `it has no R, G, B channels (it has ${info.channels.join(", ")}).`);
+  }
+  const [{ EXRLoader }, THREE] = await Promise.all([import("https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/EXRLoader.js"), import("three")]);
+  const r = new EXRLoader().setDataType(THREE.FloatType).parse(buf);
+  const W = r.width, H = r.height, ch = r.data.length / (W * H), k = Math.min(1, SW / W, 1200 / H), w = Math.max(1, Math.round(W * k)), h = Math.max(1, Math.round(H * k));
+  const d = new Float32Array(w * h * 3);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {  // area average; the loader stores the bottom row first
+    const x0 = Math.floor(x * W / w), x1 = Math.max(x0 + 1, Math.floor((x + 1) * W / w)), y0 = Math.floor(y * H / h), y1 = Math.max(y0 + 1, Math.floor((y + 1) * H / h));
+    let s0 = 0, s1 = 0, s2 = 0, n = 0;
+    for (let yy = y0; yy < y1; yy++) for (let xx = x0; xx < x1; xx++) {
+      const i = ((H - 1 - yy) * W + xx) * ch, a = r.data[i], b = ch > 1 ? r.data[i + 1] : a, c = ch > 2 ? r.data[i + 2] : a;
+      if (Number.isFinite(a + b + c)) { s0 += a; s1 += b; s2 += c; n++; }
+    }
+    const o = (y * w + x) * 3; d[o] = n ? s0 / n : 0; d[o + 1] = n ? s1 / n : 0; d[o + 2] = n ? s2 / n : 0;
+  }
+  const tag = r.header.chromaticities, near = (a, b) => Math.abs(a - b) < 0.002;
+  const hit = tag && Object.keys(EXR_TAGS).find(id => { const g = GAMUTS[id], wp = WHITE[g.w];
+    return near(tag.redX, g.p[0][0]) && near(tag.redY, g.p[0][1]) && near(tag.greenX, g.p[1][0]) && near(tag.greenY, g.p[1][1]) && near(tag.blueX, g.p[2][0]) && near(tag.blueY, g.p[2][1]) && near(tag.whiteX, wp[0]) && near(tag.whiteY, wp[1]); });
+  return { w, h, data: d, name: file.name + file.lastModified, kind: "exr", space: hit ? EXR_TAGS[hit] : "lin709",
+    note: hit ? `Read from the file's colour tag: ${INPUTS[EXR_TAGS[hit]].name}.` : tag ? "The file's colour tag isn't one listed here: pick the closest." : "No colour tag in the file, so OpenEXR's default: linear Rec.709." };
+}
+
+let loadNote = "";  // plain text: it carries file names and EXR channel names, so it's escaped before it reaches the page
+/** Escapes text for use inside HTML. */
+const esc = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+/**
+ * Loads the viewer's own picture (browser image or EXR) as the scene. It never leaves the browser.
+ * @param {File} file
+ */
+async function loadImage(file) {
+  loadNote = `Opening ${file.name}…`; drawImageControls();
+  try {
+    const src = await (/\.exr$/i.test(file.name) ? readEXR(file) : readImage(file));
+    scene = buildScene(src, src.space);
+    loadNote = src.note;
+  } catch (err) {
+    loadNote = `Couldn't open ${file.name}: ${err.message || err}`;
+  }
+  drawTab();
+}
+
+const variants = new WeakMap();
+/**
+ * The scene a VFX stage shows: the plate alone, the CG element alone, or the comp of both.
+ * The CG is a blue plastic sphere rendered with the same lights as the set (the lamp and the softbox) and reflecting the plate,
+ * so it matches the reference balls; its highlight goes far above 1.0. On your own picture an unseen lamp stands in as the key.
+ * @param {"plate"|"cg"|"comp"} kind
+ * @returns {{w: number, h: number, data: Float32Array, chart: boolean, name: string}}
+ */
+function sceneFor(kind = "plate") {
+  if (kind === "plate") return scene;
+  if (!variants.has(scene)) variants.set(scene, {});
+  const cache = variants.get(scene);
+  const key = kind + (state.lamp.on ? state.lamp.stops : "off");
+  if (cache[key]) return cache[key];
+  const { w, h } = scene, d = kind === "comp" ? scene.data.slice() : new Float32Array(w * h * 3), r = Math.min(w, h) * 0.14;
+  const set = scene.stage || { w, h, back: scene.data, balls: [], lamp: state.lamp.on ? { x: w * 0.85, y: h * 0.2, z: 220 } : null };
+  const ball = { kind: "plastic", x: w * 0.64, y: h * 0.78, r, z: r + 2, albedo: [0.06, 0.16, 0.5], f0: 0.04 };
+  drawBall({ ...set, balls: [...set.balls, ball] }, ball, d);
+  return cache[key] = { w, h, data: d, chart: kind === "comp" && scene.chart, name: scene.name + key, stage: scene.stage };
+}
+
+/* Modes that go through the correct pipeline: ACES 1.3 Reference Gamut Compression, then the ACES 1.3 output transform */
+const ACES_MODES = new Set(["display", "graded", "gamutclip", "wronggamut", "double", "wall", "doubletone", "sdrsim", "hdrsim"]);
+const M2020_AP1 = convert("rec2020", "ap1"), M709_AP1 = convert("rec709", "ap1"), M2020_709 = convert("rec2020", "rec709");
+/**
+ * Scene-linear light through the correct pipeline: gamut compression, then ACES 1.3 SDR output for an sRGB screen.
+ * @param {number[]} ap1 scene-linear ACEScg
+ * @returns {number[]} display-linear Rec.709, 0..1
+ */
+const acesView = ap1 => { const a = ap1.slice(); rgc(a); return acesSDR(a); };
+/** The ACES 1.3 SDR curve for a neutral grey: scene-linear in, display-linear out. */
+const acesGrey = x => acesSDR([x, x, x])[1];
+
+/**
+ * Renders a scene through one pipeline into 8-bit RGBA.
+ * Modes: display (correct), graded, clip, gamutclip, wronggamut, linraw, double, doubletone, log (camera log),
+ * worklog (working log), pq (the PQ signal as numbers), ap0raw / ap1raw / acescct (ACES encodings as plain numbers),
+ * wall (LED wall, seen up close), and sdrsim / hdrsim
+ * (ACES 1.3 SDR against ACES 1.3's 1,000-nit HDR output, the HDR one dimmed so 1,000 nits fits an SDR screen).
+ * @param {string} mode
+ * @param {object} [sc] scene, default the current one
+ * @param {{tint?: number[], exposure?: number}} [opt] a white-point tint and an exposure override
+ * @returns {Uint8ClampedArray}
+ */
+function renderMode(mode, sc = scene, opt = {}) {
+  const { w, h, data } = sc, out = new Uint8ClampedArray(w * h * 4), e = 2 ** (opt.exposure ?? state.exposure), tint = opt.tint || [1, 1, 1];
+  const space = mode === "log" ? CAMERAS[state.cam] : mode === "worklog" ? WORKING[state.work] : { pq: { gamut: "rec2020", curve: "pq" }, ap0raw: { gamut: "ap0", curve: "linear" },
+    ap1raw: { gamut: "ap1", curve: "linear" }, acescct: { gamut: "ap1", curve: "acescct" } }[mode] || null;
+  const m = space ? convert("rec2020", space.gamut) : M2020_709, enc = space ? CURVES[space.curve].encode : null, aces = ACES_MODES.has(mode);
+  for (let i = 0, j = 0; j < w * h * 3; i += 4, j += 3) {
+    let px = [data[j] * e * tint[0], data[j + 1] * e * tint[1], data[j + 2] * e * tint[2]], o;
+    if (mode === "graded") { px[0] *= 1.1; px[2] *= 0.85; }
+    if (aces) {
+      const a = apply(mode === "wronggamut" ? M709_AP1 : M2020_AP1, px);  // wrong gamut: Rec.2020 numbers read as Rec.709
+      if (mode !== "gamutclip") rgc(a);
+      o = mode === "hdrsim" ? HDR_LUT(a) : SDR_LUT(a);
+      if (mode === "doubletone") { const b = apply(M709_AP1, o); rgc(b); o = SDR_LUT(b); }  // a finished picture fed back in as if it were scene light
+    } else o = apply(m, px);
+    const p = j / 3, gap = mode === "wall" && (p % w % 5 === 4 || Math.floor(p / w) % 5 === 4);
+    for (let c = 0; c < 3; c++) {
+      let v = enc ? enc(o[c]) : clamp01(o[c]);
+      if (!enc && mode !== "linraw") v = srgbEnc(v);
+      if (mode === "double") v = srgbEnc(v);
+      if (gap) v *= 0.15;
+      out[i + c] = clamp01(v) * 255 + 0.5;
+    }
+    out[i + 3] = 255;
+  }
+  return out;
+}
+
+/**
+ * Paints one or two renders into a canvas: left of the split is a, right is b.
+ * @param {HTMLCanvasElement} cv
+ * @param {Uint8ClampedArray} a
+ * @param {Uint8ClampedArray} [b]
+ * @param {object} [sc] the scene they were rendered from (for its size and labels)
+ */
+function paint(cv, a, b, sc = scene) {
+  const { w, h } = sc;
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  cv._sc = sc;  // remembered so a drag on the picture can find the lamp
+  const ctx = cv.getContext("2d"), img = new ImageData(new Uint8ClampedArray(a), w, h);
+  if (b) {
+    const cut = Math.round(w * state.split / 100);
+    for (let y = 0; y < h; y++) { const s = (y * w + cut) * 4, e = (y + 1) * w * 4; img.data.set(b.subarray(s, e), s); }
+  }
+  ctx.putImageData(img, 0, 0);
+  if (sc.chart) {
+    ctx.fillStyle = "rgba(229,229,229,.75)"; ctx.font = "600 13px Montserrat, Arial, sans-serif";
+    ctx.fillText("ColorChecker", 28, 350); ctx.fillText("Neon lights, beyond Rec.709", 530, 200);
+    ctx.fillText("Exposure wedge: −6 to +6 stops", 28, 462);
+    const lp = sc.stage.lamp;
+    if (lp) {  // the lamp's label, with how to move it
+      const right = lp.x > SW - 170, lx = right ? lp.x - 36 : lp.x + 36;
+      ctx.textAlign = right ? "right" : "left"; ctx.fillText("Lamp", lx, lp.y - 2);
+      ctx.fillStyle = "#FF9900"; ctx.font = "600 11px Montserrat, Arial, sans-serif"; ctx.fillText("drag to move", lx, lp.y + 13);
+      ctx.fillStyle = "rgba(229,229,229,.75)"; ctx.font = "600 13px Montserrat, Arial, sans-serif"; ctx.textAlign = "left";
+    }
+    ctx.textAlign = "right"; ctx.fillText("18% grey ball", REF_BALLS[0].x - REF_BALLS[0].r - 8, REF_BALLS[0].y + 5); ctx.fillText("Chrome ball", REF_BALLS[1].x - REF_BALLS[1].r - 8, REF_BALLS[1].y + 5); ctx.textAlign = "left";
+    ctx.font = "500 11px Montserrat, Arial, sans-serif";
+    for (const s of [-6, 0, 6]) ctx.fillText((s > 0 ? "+" : "") + s, 28 + (s + 6) * 36 + 8, 449);
+  }
+}
+
+/**
+ * The controls under each picture. Always shown: exposure, and (on the test chart) the lamp switch with a hint.
+ * Folded into "Scene": lamp brightness and reset, loading your own image, and the colour space it's read as.
+ */
+function drawImageControls() {
+  for (const el of document.querySelectorAll(".exp")) el.value = state.exposure;
+  for (const el of document.querySelectorAll(".exp-val")) el.textContent = `${state.exposure > 0 ? "+" : ""}${(+state.exposure).toFixed(1)} stops`;
+  const groups = [...new Set(Object.values(INPUTS).map(i => i.group))], on = state.lamp.on;
+  const pick = scene.chart ? "" : `<label class="space-pick"><span class="label">This image is in</span><select class="space">${groups.map(g => `<optgroup label="${g}">${
+    Object.entries(INPUTS).filter(([, i]) => i.group === g).map(([id, i]) => `<option value="${id}" ${id === scene.space ? "selected" : ""}>${i.name}</option>`).join("")}</optgroup>`).join("")}</select></label>`;
+  const lamp = scene.chart ? `<button type="button" class="btn lamp-toggle" aria-pressed="${on}">Lamp: ${on ? "on" : "off"}</button><span class="note">${on ? "Drag the lamp on the picture to move it." : "Lit by the soft front light only: every patch reads its true value."}</span>` : "";
+  const bright = scene.chart && on ? `<label class="lampb"><span class="label">Lamp brightness</span><input type="range" class="lamp-stops" min="4" max="14" step="0.5"><output></output></label><button type="button" class="btn" data-lamp-reset>Reset lamp</button>` : "";
+  const html = `${lamp}<details class="scene-more" ${state.sceneOpen ? "open" : ""}><summary>Scene</summary><div class="scene-body">${bright}` +
+    `<label class="btn">Load your own image<input type="file" accept="image/*,.exr" class="file"></label>${scene.chart ? "" : `<button type="button" class="btn" data-chart>Back to the test chart</button>`}${pick}` +
+    `<span class="note">${esc(loadNote) || "JPEG, PNG, WebP or EXR. It stays on your device."}</span></div></details>`;
+  for (const el of document.querySelectorAll(".scene-ctl")) if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; }  // rebuilt only when it changes
+  for (const s of document.querySelectorAll(".lamp-stops")) { s.value = state.lamp.stops; s.nextElementSibling.textContent = `+${state.lamp.stops} stops`; s.title = `${state.lamp.stops} stops brighter than mid grey`; }
+}
+
+/**
+ * Where the pointer is on a picture, in the picture's own pixels, and whether that's on the lamp.
+ * @param {PointerEvent} e
+ * @param {HTMLCanvasElement} cv a canvas paint() drew into
+ * @returns {{x: number, y: number, onLamp: boolean} | null} null if the picture isn't the lit test chart
+ */
+function lampPoint(e, cv) {
+  const sc = cv._sc;
+  if (!sc?.chart || !state.lamp.on) return null;
+  const r = cv.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * sc.w, y = (e.clientY - r.top) / r.height * sc.h;
+  return { x, y, onLamp: Math.hypot(x - state.lamp.x, y - state.lamp.y) < LAMP.r + 22 };
+}
+
+/**
+ * A flow arrow between stages: filled when the light has already passed it, outlined when it's still ahead.
+ * @param {boolean} past
+ * @returns {string} SVG
+ */
+const flowArrow = past => `<svg class="arr ${past ? "past" : "ahead"}" viewBox="0 0 26 16" aria-hidden="true"><path d="M1.5 5h13V1.5L24.5 8l-10 6.5V11h-13z"/></svg>`;
+
+/** Redraws the Pipeline tab: variant switch, stage chips with flow arrows, explainer, stage diagram and the picture there. */
+function drawPipeline() {
+  const P = PIPELINES[state.pipe], stages = P.stages, cur = Math.max(0, stages.findIndex(s => s.id === state.stageBy[state.pipe]));
+  const dot = { camera: "var(--role-camera)", working: "var(--role-working)", display: "var(--role-display)" };
+  document.getElementById("pipe-kinds").innerHTML = Object.entries(PIPELINES).map(([id, p]) => `<button type="button" data-pipe="${id}" aria-pressed="${id === state.pipe}">${p.name}</button>`).join("");
+  document.getElementById("pipe-intro").innerHTML = P.intro;
+  document.getElementById("stages").innerHTML = stages.map((s, i) =>
+    `<li>${i ? flowArrow(i <= cur) : ""}<button type="button" data-s="${s.id}" aria-pressed="${i === cur}" style="--dot:${s.roles.length ? dot[s.roles[s.roles.length - 1]] : "var(--grey-70)"}">${s.name}</button></li>`).join("");
+  const s = stages[cur], [mode, cap, kind] = s.view(), sc = sceneFor(kind);
+  document.getElementById("explain").innerHTML = `<h3>${s.name}</h3>${s.text()}`;
+  document.getElementById("stage-art").innerHTML = DEFS + s.art();
+  document.getElementById("pipe-tag").textContent = s.name;
+  document.getElementById("pipe-cap").textContent = cap;
+  paint(document.getElementById("pipe-canvas"), renderMode(mode, sc), null, sc);
+  drawImageControls();
+}
+
+let misCache = null;  // { key, a, b }: the two renders, so dragging the divider doesn't re-render
+/** Redraws the Mistakes tab: chips, the explanation card and the correct/broken split. */
+function drawMistakes() {
+  const mk = MISTAKES.find(m => m.id === state.mistake);
+  document.getElementById("mistake-chips").innerHTML = MISTAKES.map(m =>
+    `<li><button type="button" data-m="${m.id}" aria-pressed="${m.id === state.mistake}">${m.name}</button></li>`).join("");
+  document.getElementById("mistake").innerHTML = `<h3>${mk.name}</h3><dl><dt>You see</dt><dd>${mk.see}</dd><dt>Why</dt><dd>${mk.why}</dd><dt>Fix</dt><dd>${mk.fix}</dd></dl>`;
+  document.getElementById("mis-tag").textContent = mk.name;
+  const key = [mk.mode, state.exposure, state.cam, scene.name, scene.w].join("|");
+  if (!misCache || misCache.key !== key) misCache = { key, a: renderMode("display"), b: renderMode(mk.mode) };
+  drawSplit();
+  drawImageControls();
+}
+
+/** Repaints the split at the current divider, moves the handle and hides each label the divider covers. */
+function drawSplit() {
+  paint(document.getElementById("mis-canvas"), misCache.a, misCache.b);
+  const handle = document.getElementById("mis-handle"), frame = document.getElementById("mis-frame"), fw = frame.clientWidth, cut = fw * state.split / 100;
+  handle.style.left = state.split + "%";
+  handle.setAttribute("aria-valuenow", Math.round(state.split));
+  const l = document.getElementById("mis-tag-l"), r = document.getElementById("mis-tag");
+  l.classList.toggle("gone", cut < l.offsetLeft + l.offsetWidth + 22);
+  r.classList.toggle("gone", cut > fw - (r.offsetWidth + 8) - 22);
+}
+
+/* ---------- Wiring ---------- */
+
+for (const [id, table] of [["cam", CAMERAS], ["work", WORKING], ["disp", DISPLAYS]]) {
+  const sel = document.getElementById(id);
+  sel.innerHTML = Object.entries(table).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join("");
+  sel.value = state[id];
+  sel.addEventListener("change", () => { state[id] = sel.value; drawTab(); });
+}
+document.getElementById("tabs").addEventListener("click", e => { const b = e.target.closest("[role=tab]"); if (b) showTab(b.dataset.tab); });
+document.getElementById("tabs").addEventListener("keydown", e => {  // arrow keys move between tabs
+  const tabs = [...document.querySelectorAll("[role=tab]")], i = tabs.findIndex(t => t.dataset.tab === state.tab);
+  const n = e.key === "ArrowRight" ? i + 1 : e.key === "ArrowLeft" ? i - 1 : null;
+  if (n === null) return;
+  const t = tabs[(n + tabs.length) % tabs.length]; showTab(t.dataset.tab); t.focus();
+});
+/**
+ * Opens the Pipeline tab at one camera-to-screen stage (from the Start tab's journey diagram).
+ * @param {string} id stage id
+ */
+function goStage(id) { state.pipe = "camera"; state.stageBy.camera = id; showTab("pipeline"); scrollTo({ top: 0, behavior: "smooth" }); }
+document.addEventListener("click", e => {
+  const go = e.target.closest("[data-go]"); if (go) { showTab(go.dataset.go); scrollTo({ top: 0, behavior: "smooth" }); return; }
+  const jr = e.target.closest("[data-journey]"); if (jr) { goStage(jr.dataset.journey); return; }
+  const pk = e.target.closest("button[data-pipe]"); if (pk) { state.pipe = pk.dataset.pipe; drawPipeline(); return; }
+  const st = e.target.closest("button[data-s]"); if (st) { state.stageBy[state.pipe] = st.dataset.s; drawPipeline(); return; }
+  const cu = e.target.closest("button[data-c]"); if (cu) { const id = cu.dataset.c; state.curves.has(id) ? state.curves.delete(id) : state.curves.add(id); drawCurves(); return; }
+  const mi = e.target.closest("button[data-m]"); if (mi) { state.mistake = mi.dataset.m; drawMistakes(); return; }
+  const ac = e.target.closest("button[data-aces]"); if (ac) { state.acesStep = ac.dataset.aces; drawAces(); return; }
+  const rp = e.target.closest("button[data-role-pick]"); if (rp) { state.acesRole = rp.dataset.rolePick; drawAces(); return; }
+  const pr = e.target.closest("button[data-preset]"); if (pr) { state.preset = +pr.dataset.preset; state.probe = PRESETS[state.preset].xy; drawMap(); drawProbe(); return; }
+  if (e.target.closest("[data-chart]")) { scene = CHART; loadNote = ""; drawTab(); }
+  if (e.target.closest(".lamp-toggle")) { state.lamp.on = !state.lamp.on; relight(); }
+  if (e.target.closest("[data-lamp-reset]")) { Object.assign(state.lamp, LAMP_HOME); relight(); }
+});
+document.addEventListener("keydown", e => { const jr = e.target.closest?.("[data-journey]"); if (jr && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); goStage(jr.dataset.journey); } });
+document.addEventListener("change", e => {
+  if (e.target.matches(".file") && e.target.files[0]) loadImage(e.target.files[0]);
+  if (e.target.matches(".sdp")) { state.sdp[e.target.dataset.k] = e.target.value; drawSignals(); }
+  if (e.target.matches(".space") && scene.src) { scene = buildScene(scene.src, e.target.value); loadNote = ""; drawTab(); }
+  const id = e.target.dataset?.g;
+  if (id) { e.target.checked ? state.extras.add(id) : state.extras.delete(id); drawMap(); drawLegend(); }
+});
+let timer = 0;
+/** Runs f after input settles, so dragging a slider doesn't queue a full re-render per pixel moved. */
+const soon = f => { clearTimeout(timer); timer = setTimeout(f, 30); };
+document.addEventListener("input", e => {
+  const t = e.target;
+  if (t.matches(".exp")) { state.exposure = +t.value; soon(drawTab); }
+  if (t.id === "stop") { state.stop = +t.value; drawCurves(); }
+  if (t.matches("#rgb input")) { state.rgb[+t.dataset.i] = +t.value; drawStart(); }
+  if (t.id === "kelvin") { state.kelvin = +t.value; soon(drawStart); }
+  if (t.id === "bits") { state.bits = +t.value; drawStart(); }
+  if (t.id === "signal") { state.signal = +t.value; drawHdr(); }
+  if (t.matches(".lamp-stops")) { state.lamp.stops = +t.value; drawImageControls(); relightSoon(); }
+});
+document.getElementById("map-svg").addEventListener("click", e => {
+  const svg = e.currentTarget, pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.getScreenCTM().inverse());
+  state.probe = [pt.x / S + X0, Y1 - pt.y / S]; state.preset = null;
+  drawMap(); drawProbe();
+});
+/* The lamp: grab it on any picture of the test chart and drag. Caught before the Mistakes divider sees the drag. */
+document.addEventListener("pointerdown", e => {
+  const cv = e.target.closest?.("canvas"), p = cv && lampPoint(e, cv);
+  if (!p?.onLamp) return;
+  e.stopPropagation(); e.preventDefault();
+  cv.setPointerCapture(e.pointerId); cv._dragLamp = true; cv.style.cursor = "grabbing";
+}, true);
+document.addEventListener("pointermove", e => {
+  const cv = e.target.closest?.("canvas"), p = cv && lampPoint(e, cv);
+  if (!p) { if (cv?.style.cursor) cv.style.cursor = ""; return; }
+  if (cv._dragLamp && cv.hasPointerCapture(e.pointerId)) {
+    e.stopPropagation();
+    state.lamp.x = Math.round(Math.min(SW - 30, Math.max(30, p.x))); state.lamp.y = Math.round(Math.min(SH - 30, Math.max(30, p.y)));
+    relightSoon();
+  } else cv.style.cursor = p.onLamp ? "grab" : "";
+}, true);
+document.addEventListener("pointerup", e => { const cv = e.target.closest?.("canvas"); if (cv?._dragLamp) { cv._dragLamp = false; cv.style.cursor = "grab"; } }, true);
+document.addEventListener("toggle", e => { if (e.target.matches?.(".scene-more")) state.sceneOpen = e.target.open; }, true);
+/* The Mistakes divider: drag anywhere on the picture, or focus the handle and use the arrow keys */
+const misFrame = document.getElementById("mis-frame");
+const dragTo = e => { const r = misFrame.getBoundingClientRect(); state.split = Math.min(100, Math.max(0, (e.clientX - r.left) / r.width * 100)); drawSplit(); };
+misFrame.addEventListener("pointerdown", e => { misFrame.setPointerCapture(e.pointerId); dragTo(e); });
+misFrame.addEventListener("pointermove", e => { if (misFrame.hasPointerCapture(e.pointerId)) dragTo(e); });
+document.getElementById("mis-handle").addEventListener("keydown", e => {
+  const step = e.shiftKey ? 10 : 2, d = { ArrowLeft: -step, ArrowRight: step, Home: -100, End: 100 }[e.key];
+  if (d === undefined) return;
+  e.preventDefault(); state.split = Math.min(100, Math.max(0, state.split + d)); drawSplit();
+});
+addEventListener("resize", () => { if (state.tab === "mistakes" && misCache) drawSplit(); });
+addEventListener("hashchange", () => { if (location.hash.slice(1) !== state.tab) showTab(location.hash.slice(1)); });
+
+showTab(location.hash.slice(1) || "start");
+</script>
