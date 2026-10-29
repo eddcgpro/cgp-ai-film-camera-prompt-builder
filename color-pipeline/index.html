@@ -178,14 +178,19 @@ details[open] summary { margin-bottom: 10px }
 .scene-ctl { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; min-width: 0; flex: 1 1 100% }
 .space-pick .label { white-space: nowrap }
 .lamp-toggle[aria-pressed="true"] { border-color: var(--orange); color: var(--orange) }
-.scene-more { flex: 1 1 100%; min-width: 0 }
-.scene-more summary { cursor: pointer; font: 600 11px/1.3 var(--font-core); letter-spacing: .12em; text-transform: uppercase; color: var(--grey-20) }
-.scene-more[open] summary { margin-bottom: 10px }
-.scene-body { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; min-width: 0 }
-.scene-body .lampb { flex: 1 1 100% !important; min-width: 0 }
+.scene-body { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; min-width: 0; flex: 1 1 100% }
+.scene-body .lampb { flex: 1 1 220px !important; min-width: 0 }
+.scene-body .break { flex-basis: 100%; height: 0 }
 .scene-body .lampb input { min-width: 90px }
 .scene-body .lampb .label, .scene-body .lampb output { white-space: nowrap }
 .scene-ctl .btn { flex: none !important }
+/* The lamp's "grab me" ring: pulses over the lamp on every picture until the lamp is first grabbed */
+.lamp-ring { position: absolute; width: 0; height: 0; pointer-events: none; z-index: 2 }
+.lamp-ring::before, .lamp-ring::after { content: ""; position: absolute; left: -48px; top: -48px; width: 96px; height: 96px; border-radius: 50%;
+  border: 3px solid var(--orange); box-shadow: 0 0 16px rgba(255,153,0,.8), inset 0 0 12px rgba(255,153,0,.5); animation: lamp-pulse 1.6s ease-out infinite }
+.lamp-ring::after { animation-delay: .8s }
+@keyframes lamp-pulse { from { transform: scale(.4); opacity: 1 } to { transform: scale(1.4); opacity: 0 } }
+@media (prefers-reduced-motion: reduce) { .lamp-ring::before { animation: none; transform: scale(.8) } .lamp-ring::after { display: none } }
 .space-pick { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; flex: 0 1 auto !important; min-width: 0; max-width: 100% }
 .space-pick select { min-width: 0; width: 18em; max-width: 100%; padding: 7px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--chip-bg); color: var(--grey-10); font-size: 12px }
 .thumbs { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px }
@@ -220,6 +225,12 @@ details[open] summary { margin-bottom: 10px }
 .checks li { display: grid; grid-template-columns: 1.6em minmax(0, 1fr); align-items: baseline }
 .checks .yes { color: var(--green); font-weight: 700 } .checks .no { color: var(--orange); font-weight: 700 }
 .presets button::before { background: var(--dot); box-shadow: 0 0 0 1px rgba(255,255,255,.25) }
+/* The colour picker: an orange-edged "try it" box with big swatch buttons */
+.picker { display: grid; gap: 12px; padding: 16px 18px; border-radius: 20px; border: 1.5px solid var(--orange); background: var(--orange-16); box-shadow: 0 0 24px rgba(255,153,0,.15) }
+.picker .presets { gap: 8px }
+.picker .presets button { padding: 10px 14px; font-size: 12px; background: rgba(0,0,0,.55); color: var(--grey-10) }
+.picker .presets button::before { width: 16px; height: 16px; vertical-align: -3px; margin-right: 9px }
+.picker .presets button[aria-pressed="true"] { background: var(--orange); color: var(--black) }
 .legend { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 4px 12px; font-size: 12px }
 .legend label { display: flex; gap: 8px; align-items: baseline; color: var(--grey-20) }
 .legend input { accent-color: var(--orange) }
@@ -233,6 +244,11 @@ details[open] summary { margin-bottom: 10px }
 .sizes .bar { height: 12px; border-radius: 999px; background: rgba(255,255,255,.06); overflow: hidden }
 .sizes .bar i { display: block; height: 100%; border-radius: 999px; background: var(--grey-40) }
 .sizes .camera i { background: var(--role-camera) } .sizes .working i { background: var(--role-working) } .sizes .display i { background: var(--role-display) }
+/* Why some spaces reach further: the small maps; two side by side even on phones */
+#reach-map { background: #0b0b0b }
+.duo.dots { grid-template-columns: repeat(2, minmax(0, 1fr)) }
+.dots figure { margin: 0; display: grid; gap: 6px; font-size: 13px; color: var(--grey-20) }
+.dots svg { background: #0b0b0b; max-height: 440px }
 
 /* Curves plot and the grey ramps under it */
 .plot svg { display: block; width: 100%; height: auto }
@@ -241,7 +257,12 @@ details[open] summary { margin-bottom: 10px }
 .plot .mark line { stroke: rgba(229,229,229,.3); stroke-dasharray: 3 3 }
 .plot .curve { fill: none; stroke-width: 2.2; stroke-linejoin: round }
 .plot .scrub { stroke: var(--orange); stroke-width: 1.5 }
-.plot .ramp-label { fill: var(--grey-20); font: 600 10px var(--font-core); letter-spacing: .06em }
+.plot .ramp-label { fill: #fff; font: 600 10px var(--font-core); letter-spacing: .06em; stroke: #000; stroke-width: 3; paint-order: stroke }  /* white names overlaid on the grey strips */
+.plot .brace { fill: none; stroke: var(--orange); stroke-width: 1.5 }
+.plot .brace-t { fill: var(--orange); font: 600 10px var(--font-core) }
+.budget .slice { cursor: pointer }
+.budget .slice:hover { fill: rgba(255,153,0,.18) }
+.budget .n { fill: #fff; font: 700 12px var(--font-core); stroke: #000; stroke-width: 3; paint-order: stroke }
 .plot .emoji { font-size: 22px }
 .budget text { fill: var(--grey-40); font: 400 10px var(--font-core) }
 .budget .name { fill: var(--grey-10); font: 600 11px var(--font-core); letter-spacing: .06em }
@@ -259,6 +280,32 @@ details[open] summary { margin-bottom: 10px }
 .formats th { font: 600 10px/1.3 var(--font-core); letter-spacing: .12em; text-transform: uppercase; color: var(--grey-40) }
 .formats td:first-child { color: var(--grey-10); font-weight: 600; white-space: nowrap }
 .formats .yes { color: var(--green); font-weight: 700 } .formats .no { color: var(--grey-40) }
+/* Signals: the clickable router crosspoints, and ACES's clickable system diagram */
+.xp, [data-acesbit] { cursor: pointer; outline: none }
+.xp:hover circle + circle { fill: var(--orange-40) }
+.xp:focus-visible circle:first-child, [data-acesbit]:focus-visible > rect:first-child { stroke: var(--orange); stroke-width: 2 }
+[data-acesbit]:hover > rect:first-child { stroke: var(--orange) }
+.sig-play { align-items: start }
+#ip-ctl { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)) }
+.ipd { display: grid; gap: 6px; min-width: 0 }
+.ipd label { display: grid; grid-template-columns: 12px minmax(0, 1fr); gap: 8px; align-items: center }
+.ipd i { width: 12px; height: 12px; border-radius: 3px } .ipd .pv { background: var(--orange) } .ipd .pa { background: var(--green) }
+/* Signals: who ST 2110 is for */
+.who { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px }
+.who li { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 2px 12px; align-content: start; padding: 14px 16px; border-radius: 18px; border: 1px solid var(--line); background: var(--chip-bg); font-size: 13px; color: var(--grey-20) }
+.who span { grid-row: span 2; font-size: 28px; line-height: 1 }
+.who b { display: block }
+.who .not { border-style: dashed }
+/* ACES: the trap, and what it is and isn't */
+.trap { margin: 0; padding: 14px 18px; border-radius: 16px; border: 1px solid var(--orange); background: var(--orange-16); color: var(--grey-10); font-size: 18px; line-height: 1.5 }
+.trap b { color: #fff; font-weight: 700 }
+.verdict { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px }
+.verdict li { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--chip-bg); font: 600 13px/1.2 var(--font-core); color: var(--grey-10) }
+.verdict span { font-size: 18px; font-weight: 700 }
+.verdict .no span { color: #ff6b5e } .verdict .no { border-color: rgba(255,107,94,.5) }
+[data-acesbit].sel rect, [data-acesbit].sel path.box { stroke: var(--orange); stroke-width: 2.5; fill: rgba(255,153,0,.22) }
+#aces-bit { min-height: 4.5em }
+.verdict .yes { border-color: var(--green) } .verdict .yes span { color: var(--green) }
 .code { margin: 0; padding: 14px 16px; border-radius: 14px; background: #0b0b0b; border: 1px solid var(--line); color: var(--green); font: 500 12.5px/1.6 ui-monospace, "Cascadia Mono", Consolas, monospace; white-space: pre-wrap; word-break: break-all }
 .kit { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; font-size: 14px; color: var(--grey-20) }
 .kit b { display: block }
@@ -368,11 +415,13 @@ details[open] summary { margin-bottom: 10px }
         <h2>Gamut: which colours</h2>
         <p class="lead">A gamut is a paint box with three paints. Mix them and you get every colour inside the triangle between them, but nothing outside it.</p>
         <div class="mini"><svg class="art" viewBox="0 0 420 170" id="paint-art" role="img" aria-label="Three primaries, the colours they can mix, and one they can't"></svg></div>
-        <h3>Can this space show it?</h3>
-        <ul class="chips presets" id="presets" aria-label="Real-world colours"></ul>
-        <p id="probe-out" aria-live="polite"></p>
-        <ul class="checks" id="checks"></ul>
-        <p class="note">Or tap anywhere on the chart.</p>
+        <div class="picker">
+          <h3>Try it: pick a colour</h3>
+          <p class="note" style="color:var(--grey-20)">See which colour spaces can hold it. Or tap anywhere on the chart.</p>
+          <ul class="chips presets" id="presets" aria-label="Real-world colours"></ul>
+          <p id="probe-out" aria-live="polite"></p>
+          <ul class="checks" id="checks"></ul>
+        </div>
       </div>
       <div class="panel">
         <figure class="map" id="map">
@@ -382,6 +431,29 @@ details[open] summary { margin-bottom: 10px }
         <p class="note">The horseshoe is every colour a person can see (brightness taken out). Pure rainbow colours run round the curved edge; white is in the middle. Your screen can only show colours near sRGB, so the fill flattens towards the edges.</p>
         <ul class="legend" id="legend" aria-label="Gamuts"></ul>
       </div>
+    </div>
+    <div class="cols">
+      <div class="panel">
+        <h3>Why do some spaces reach further?</h3>
+        <p class="lead">Every colour space is three lights mixed together. The purer those three lights, the further out the corners sit, and the more colours the mix can reach.</p>
+        <div class="seg" id="reach-pick" aria-label="Colour space"></div>
+        <figure class="mini" style="margin:0"><svg class="art" id="reach-spec" viewBox="0 0 420 190" role="img" aria-label="The light each primary gives off, across the rainbow"></svg></figure>
+        <p class="note">A sketch of the light each primary gives off, across the rainbow. A narrow spike is one pure colour; a wide hump spills into its neighbours, which makes it paler.</p>
+        <div class="lesson" id="reach-text"></div>
+      </div>
+      <div class="panel">
+        <figure class="mini" style="margin:0"><svg id="reach-map" viewBox="0 0 450 575" role="img" aria-label="Where the chosen space's three lights sit on the map of visible colours"></svg></figure>
+        <p class="note">Each corner is one of the three lights. The dashed line runs from white out to the pure rainbow colour at the edge: the further along it a corner sits, the purer that light.</p>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Bigger isn't free</h3>
+      <p class="lesson" style="margin:0">A bigger space doesn't come with more numbers. A file has the same number of steps whatever space it's in, so spreading them over a bigger triangle makes each step a bigger jump in colour. That's why wide spaces like Rec.2020 are stored in 10 or 12 bits, never 8.</p>
+      <div class="duo dots">
+        <figure class="mini"><svg id="dots-709" viewBox="20 60 400 460" role="img" aria-label="The colours a small file can store in Rec.709: tightly packed"></svg><figcaption><b>Rec.709</b>: 169 colours, packed close together.</figcaption></figure>
+        <figure class="mini"><svg id="dots-2020" viewBox="20 60 400 460" role="img" aria-label="The same number of colours in Rec.2020: spread far apart"></svg><figcaption><b>Rec.2020</b>: the same 169, spread far apart.</figcaption></figure>
+      </div>
+      <p class="note">A toy file with 8 steps per channel (real 10-bit files have 1,024). Each dot is a colour it can store, at full brightness.</p>
     </div>
     <div class="cols">
       <div class="panel">
@@ -424,26 +496,27 @@ details[open] summary { margin-bottom: 10px }
       <div class="row"><label><span class="label">Exposure</span><input type="range" class="exp" min="-4" max="4" step="0.1" value="0"><output class="exp-val">0 stops</output></label><span class="scene-ctl"></span></div>
     </div>
     <div class="panel">
-      <h3>Where do the numbers go?</h3>
-      <p class="lesson" style="margin:0">A 10-bit file has 1,024 values to spend. Each bar is one stop of light (one doubling) and how many values it gets. <b>Linear</b> blows half its budget on the brightest stop and gives the shadows almost nothing. <b>sRGB</b> is fairer, but stops at the screen's white. <b>Log</b> gives every stop a fair share, and keeps going above white.</p>
-      <figure class="wide plot budget"><svg id="budget" viewBox="0 0 900 300" role="img" aria-label="Code values per stop for linear, sRGB and the camera's log curve"></svg></figure>
+      <h3>Sharing out the numbers</h3>
+      <p class="lead">A file only has so many numbers. The curve decides how many each stop of light gets, and more numbers means smoother gradients.</p>
+      <p class="lesson" style="margin:0" id="bud-intro"></p>
+      <div class="row"><div class="seg" id="bud-bits" aria-label="Bit depth"></div><label><span class="label">Follow a stop</span><input type="range" id="bud-stop" min="-8" max="9" step="1"><output id="bud-stop-val"></output></label></div>
+      <figure class="wide plot budget"><svg id="budget" viewBox="0 0 900 260" aria-label="How a file's numbers are shared out between stops of light, for linear, sRGB and the camera's log curve. Click a slice to follow that stop."></svg></figure>
+      <p class="callout" id="bud-read" aria-live="polite" style="margin:0"></p>
+      <p class="lesson" style="margin:0"><b>Linear</b> spends almost two-thirds of its numbers on the two brightest stops and squeezes every shadow into a sliver at the left. <b>sRGB</b> is fairer, but runs out at the screen's white. <b>Log</b> gives each stop about the same share, and still has room above white.</p>
     </div>
     <div class="cols">
       <div class="panel">
         <h3>The curves themselves</h3>
-        <p class="lesson" style="margin:0">Left to right is light, in stops; up is the number stored. Drag the exposure and watch the display curves (sRGB, linear) hit the top at display white while the log curves keep climbing.</p>
+        <div class="seg" id="axis-pick" aria-label="What runs left to right"></div>
+        <div class="lesson" id="axis-text"></div>
         <div class="row"><label><span class="label">Scene exposure</span><input type="range" id="stop" min="-8" max="8" step="0.1" value="0"><output id="stop-val">0 stops</output></label></div>
         <p id="stop-read" aria-live="polite"></p>
         <ul class="chips curves" id="curve-chips" aria-label="Curves to show"></ul>
       </div>
       <div class="panel">
-        <div class="plot"><svg id="curve-svg" viewBox="0 0 600 370" role="img" aria-label="Transfer curves: scene exposure in stops against code value"></svg></div>
-        <details>
-          <summary>The numbers</summary>
-          <table id="curve-out"></table>
-          <div class="plot"><svg id="ramp-svg" viewBox="0 0 600 100" role="img" aria-label="Grey ramps: each curve's code values shown directly on screen"></svg></div>
-          <p class="note">Ramps: −8 to +8 stops left to right, each curve's numbers shown straight on screen with no conversion.</p>
-        </details>
+        <div class="plot"><svg id="curve-svg" viewBox="0 0 600 370" role="img" aria-label="Transfer curves: scene light against the number stored, with each curve's numbers shown as a grey strip underneath"></svg></div>
+        <p class="note">Under the graph, each curve's numbers are shown straight on screen as greys, lined up with the light above them.</p>
+        <table id="curve-out"></table>
       </div>
     </div>
   </section>
@@ -462,7 +535,7 @@ details[open] summary { margin-bottom: 10px }
       <div class="row"><label><span class="label">Signal</span><input type="range" id="signal" min="0" max="1" step="0.01"><output id="signal-val"></output></label></div>
       <p id="signal-read" aria-live="polite" class="lesson" style="margin:0"></p>
       <figure class="wide"><svg id="nits" viewBox="0 0 900 290" role="img" aria-label="Peak brightness of screens in nits, on a log scale, with the signal's brightness marked"></svg></figure>
-      <p class="note">Log scale: each gridline is 10× brighter. Typical figures; real screens vary.</p>
+      <p class="note">The two rulers on top are the numbers in the file, each placed at the brightness it means. SDR's 1.00 lands on 100 nits (on a standard screen); PQ's 1.00 is 10,000 nits. Log scale: each gridline is 10× brighter. Screen figures are typical; real screens vary.</p>
     </div>
 
     <div class="panel">
@@ -496,6 +569,15 @@ details[open] summary { margin-bottom: 10px }
     <div class="panel">
       <h2>ACES, demystified</h2>
       <p class="lead"><b>ACES</b> (the Academy Color Encoding System) is a free, open standard for colour management: an agreed set of colour spaces and conversions, so cameras, CG, VFX and grading can hand pictures to each other without guessing.</p>
+      <p class="trap">The trap: <b>ACES is not a colour space, and it isn't a look.</b> It's a <b>system</b>: a family of colour spaces, plus standard transforms in and out of them.</p>
+      <ul class="verdict" aria-label="What ACES is and isn't">
+        <li class="no"><span>✗</span>One colour space</li>
+        <li class="no"><span>✗</span>A look or a LUT</li>
+        <li class="yes"><span>✓</span>A system: spaces + transforms</li>
+      </ul>
+      <figure class="wide"><svg class="art" id="aces-system" viewBox="0 0 900 330" aria-label="What's inside ACES: input transforms, five colour spaces and output transforms, with cameras and screens outside it. Each part is a button."></svg></figure>
+      <div class="callout" id="aces-bit" aria-live="polite"></div>
+      <p class="lesson" style="margin:0">So when someone says a shot is "in ACES", ask <b>which</b> ACES space: a linear ACEScg render and an ACEScct grade are both "ACES" and hold very different numbers. And "the ACES look" really means the output transform's default contrast: one piece of the system, which your grade (or an LMT) changes like any other.</p>
       <div class="duo">
         <div class="card"><span class="label">It is</span><p>A shared language: one big scene-referred space everything converts into, standard conversions in from every camera and out to every screen, and a record of which ones were used. Created by the Academy of Motion Picture Arts and Sciences; since 2025 an open-source project of the Academy Software Foundation.</p></div>
         <div class="card"><span class="label">It isn't</span><p>A look, a LUT, a camera setting or a grading style. ACES has a default way of turning scene light into a picture (the output transform), but your look comes from your grade, just as in any other pipeline.</p></div>
@@ -579,6 +661,33 @@ details[open] summary { margin-bottom: 10px }
     <div class="panel">
       <h2>Signals: SDI and ST 2110</h2>
       <p class="lead">Files carry a colour tag. Live pictures need one too. On set, in broadcast and in virtual production, video travels as a signal: down an SDI cable, or more and more, across an ordinary computer network using <b>SMPTE ST 2110</b>.</p>
+      <p class="trap">In one line: <b>ST 2110 sends live, uncompressed video over a computer network instead of video cables.</b> It's like going from a separate phone line for every call to the internet.</p>
+      <figure class="wide"><svg class="art" id="sig-why" viewBox="0 0 900 300" aria-label="Before and after: SDI needs a cable and a router port for every signal; ST 2110 puts every device on one network switch, kept in time by a shared clock"></svg></figure>
+      <div class="cols sig-play">
+        <div class="lesson"><p><b>Try the router.</b> Click a dot to send that source to that output. Each output takes one whole signal, picture and sound together. Every dot is a real switch inside the box, so the box has a fixed size.</p><p id="sdi-status" aria-live="polite"></p></div>
+        <div class="lesson"><p><b>Try the network.</b> There's no router: each device just asks the network for the streams it wants, so picture and sound can come from different places.</p><div class="choices" id="ip-ctl"></div></div>
+      </div>
+      <div class="row"><button type="button" class="btn" id="add-cam" aria-pressed="false">Add a camera</button><span class="note" id="add-cam-note"></span></div>
+      <div class="cards">
+        <div class="card"><span class="label">Problem 1 · cables</span><span class="big">A cable for every signal</span>
+          <p>SDI is point to point: one cable per picture, into a hardware router with a fixed number of ports. A new camera means a new cable run and a free port. <b>2110:</b> every device plugs into network switches, and any device can reach any other.</p></div>
+        <div class="card"><span class="label">Problem 2 · UHD &amp; HDR</span><span class="big">Bigger pictures, more cables</span>
+          <p>UHD needs 12G-SDI, or four 3G cables bundled together. <b>2110:</b> a faster network link instead. One 100 Gb/s fibre carries several uncompressed UHD streams at once.</p></div>
+        <div class="card"><span class="label">Problem 3 · sound &amp; data</span><span class="big">Everything stuck together</span>
+          <p>SDI carries audio tucked inside the video, so getting it to the sound desk means pulling it back out. <b>2110:</b> video, audio and data are separate streams. Each device just subscribes to the ones it needs.</p></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Who it's for</h3>
+      <ul class="who">
+        <li><span>📺</span><b>Broadcast studios and OB trucks</b>The main users. New broadcast facilities are mostly built on IP like this.</li>
+        <li><span>🏟️</span><b>Live sport and big events</b>Dozens of cameras feeding many destinations at once: exactly what a network is good at.</li>
+        <li><span>🎬</span><b>Large virtual production stages</b>Render nodes, LED processors and cameras on one network. Unreal Engine can send and receive 2110 (with NVIDIA's Rivermax network cards).</li>
+        <li class="not"><span>🎓</span><b>Most shoots and small post houses: not yet</b>SDI and HDMI are cheaper and simpler. 2110 needs managed network switches, a PTP clock and network know-how.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3>How it works</h3>
       <figure class="wide"><svg id="sig-art" viewBox="0 0 900 250" role="img" aria-label="SDI carries everything down one cable; ST 2110 sends video, audio and data as separate streams over a network, kept in sync by a shared clock"></svg></figure>
       <div class="duo">
         <div class="card"><span class="label">SDI</span><span class="big">One cable, everything inside</span>
@@ -735,7 +844,7 @@ const MISTAKES = [
 const state = { cam: "arri", work: "aces", disp: "rec709", tab: "start", extras: new Set(["rec2020"]), probe: null, preset: null,
   pipe: "camera", stageBy: { camera: "camera", vp: "content", vfx: "plate" },
   curves: new Set(["linear", "srgb", "logc4", "slog3", "acescct"]), stop: 0, exposure: 0, mistake: "log", split: 50,
-  rgb: [0.8, 0.35, 0.1], kelvin: 6500, bits: 5, signal: 0.5, lamp: { x: 850, y: 150, z: 220, on: true, stops: 10 }, sceneOpen: false,
+  rgb: [0.8, 0.35, 0.1], kelvin: 6500, bits: 5, signal: 0.5, lamp: { x: 850, y: 150, z: 220, on: true, stops: 10 }, reach: "rec709", axis: "stops", acesBit: "src", budBits: 10, budStop: 0,
   acesStep: "idt", acesRole: "colourist", sdp: { res: "1920x1080", fps: "60000/1001", sampling: "YCbCr-4:2:2", depth: "10", colorimetry: "BT709", tcs: "SDR", range: "NARROW" } };
 
 /* ---------- Matrices: RGB ↔ XYZ from primaries, Bradford white adaptation ---------- */
@@ -965,6 +1074,7 @@ const HDR_LUT = bakeLUT(a => apply(convert("rec2020", "rec709"), acesHDR(a)).map
 function showTab(id) {
   if (!document.getElementById("p-" + id)) id = "start";
   state.tab = id;
+  lampFound = false;  // the lamp's rings pulse again on every visit
   for (const b of document.querySelectorAll("[role=tab]")) {
     const on = b.dataset.tab === id;
     b.setAttribute("aria-selected", on); b.tabIndex = on ? 0 : -1;
@@ -1458,14 +1568,141 @@ function drawPaintArt() {
     T(268, 60, "Inside: any mix") + T(268, 76, "of the three paints", "s") + T(268, 112, "Outside: would need", "o") + T(268, 128, "negative paint", "s") + T(268, 142, "(impossible)", "s");
 }
 
+/* "Why do some spaces reach further?": where each space's three lights come from */
+const REACH = {
+  rec709:  { short: "Rec.709 / sRGB", text: "<p><b>Rec.709</b> was chosen in 1990 to match the glowing phosphors inside CRT TVs. Phosphor light is spread across many wavelengths, so its three lights aren't very pure, and the triangle is the smallest here. sRGB borrowed the same three lights for computer screens.</p><p>It's still what most of the web, TV and phones show.</p>" },
+  p3d65:   { short: "P3", text: "<p><b>P3</b> comes from digital cinema projectors: a bright lamp shone through colour filters. Its red and green are deeper than Rec.709's, so its triangle covers about a quarter more of the map.</p><p>Apple's Display P3 uses the same lights, and most HDR is mastered inside P3.</p>" },
+  rec2020: { short: "Rec.2020", text: "<p><b>Rec.2020</b> is defined by three single, pure wavelengths: 630&nbsp;nm red, 532&nbsp;nm green and 467&nbsp;nm blue, the light of lasers. They sit right on the edge of the map, about as pure as real light gets.</p><p>It's the container for UHD and HDR. Only laser projectors and some of the newest screens come close to filling it.</p>" },
+  ap0:     { short: "ACES AP0", text: "<p><b>ACES AP0</b> isn't three real lights at all. Two of its corners sit outside the map, where no light exists (they'd have to be purer than pure), so the triangle swallows every colour a person can see.</p><p>That's perfect for storing anything a camera records. No screen could ever show its corners.</p>" },
+};
+let fillUrl = null;  // the coloured horseshoe from the big map, reused as a picture in the small ones
+/** The coloured horseshoe as an SVG image in map units (viewBox 450×575), dimmed by `dim`. */
+const fillImage = (dim = 1) => `<image href="${fillUrl ||= document.getElementById("map-fill").toDataURL()}" x="0" y="0" width="450" height="575" opacity="${dim}"/>`;
+
+/**
+ * Where a primary points: the rainbow wavelength it's heading towards from white, and how far along the way it gets.
+ * @param {number[]} p primary, xy
+ * @param {number[]} w white, xy
+ * @returns {{nm: number, purity: number, edge: number[]}} purity 1 is on the edge of the map; above 1 is imaginary
+ */
+function dominant(p, w) {
+  const dx = p[0] - w[0], dy = p[1] - w[1];
+  for (let i = 0; i < LOCUS.length - 1; i++) {  // ray from white through p against each edge segment
+    const [ax, ay] = LOCUS[i], [bx, by] = LOCUS[i + 1], ex = bx - ax, ey = by - ay, d = dx * ey - dy * ex;
+    if (Math.abs(d) < 1e-12) continue;
+    const t = ((ax - w[0]) * ey - (ay - w[1]) * ex) / d, u = ((ax - w[0]) * dy - (ay - w[1]) * dx) / d;
+    if (t > 0 && u >= 0 && u <= 1) return { nm: 380 + 5 * (i + u), purity: 1 / t, edge: [w[0] + dx * t, w[1] + dy * t] };
+  }
+  return { nm: 0, purity: 1, edge: p };
+}
+/** The CSS colour of a rainbow wavelength (380–700 nm). */
+const nmCss = nm => { const f = (Math.min(700, Math.max(380, nm)) - 380) / 5, i = Math.min(LOCUS.length - 2, Math.floor(f)), u = f - i;
+  return xyCss([LOCUS[i][0] + (LOCUS[i + 1][0] - LOCUS[i][0]) * u, LOCUS[i][1] + (LOCUS[i + 1][1] - LOCUS[i][1]) * u]); };
+
+/** Draws "why do some spaces reach further": the space picker, its three lights as spectra, and its corners on the map. */
+function drawReach() {
+  const id = state.reach, g = GAMUTS[id], w = WHITE[g.w], prim = g.p.map(p => dominant(p, w));
+  document.getElementById("reach-pick").innerHTML = Object.entries(REACH).map(([k, r]) => `<button type="button" data-reach="${k}" aria-pressed="${k === id}">${r.short}</button>`).join("");
+  document.getElementById("reach-text").innerHTML = REACH[id].text;
+
+  // The spectrum: a rainbow strip, and each light as a hump whose width grows as its purity falls
+  const L = 20, R = 400, base = 140, nx = nm => L + (nm - 400) / 300 * (R - L);
+  let s = "";
+  for (let nm = 400; nm < 700; nm += 2) s += `<rect x="${nx(nm).toFixed(1)}" y="${base + 6}" width="${(nx(nm + 2) - nx(nm) + .4).toFixed(1)}" height="12" fill="${nmCss(nm + 1)}"/>`;
+  let ax = T(R + 6, base + 16, "nm", "s");
+  for (const nm of [400, 450, 500, 550, 600, 650, 700]) ax += T(nx(nm), base + 34, nm, "s c");
+  prim.forEach(({ nm, purity }, k) => {
+    const c = nmCss(nm), x = nx(nm);
+    if (purity > 1.001) {  // imaginary: drawn as a dashed spike with no real light under it
+      s += `<line x1="${x}" y1="${base}" x2="${x}" y2="18" stroke="${c}" stroke-width="2.5" stroke-dasharray="4 4"/><text class="t s o" x="${x + 6}" y="30">imaginary</text>`;
+      return;
+    }
+    const sd = 3 + 70 * (1 - purity) ** 0.8, pts = [];
+    for (let n = 380; n <= 720; n += 1) pts.push(`${nx(n).toFixed(1)},${(base - 112 * Math.exp(-((n - nm) ** 2) / (2 * sd * sd))).toFixed(1)}`);
+    s += `<polygon points="${nx(380)},${base} ${pts.join(" ")} ${nx(720)},${base}" fill="${c}" fill-opacity=".28" stroke="${c}" stroke-width="2"/>`;
+    s += T(x, 18 + (k === 1 ? 0 : 0), `${Math.round(purity * 100)}% pure`, "s c");
+  });
+  s += `<line class="ln thin" x1="${L}" y1="${base}" x2="${R}" y2="${base}"/>`;
+  document.getElementById("reach-spec").innerHTML = `<defs><clipPath id="spec-clip"><rect x="${L}" y="0" width="${R - L}" height="190"/></clipPath></defs><g clip-path="url(#spec-clip)">${s}</g>${ax}`;
+
+  // The map: every space faint for scale, the chosen one bold, with a line from white to the edge through each corner
+  let m = fillImage(0.85) + `<polygon points="${pts(LOCUS)}" fill="none" stroke="rgba(229,229,229,.6)" stroke-width="1.2"/>`;
+  for (const k of Object.keys(REACH)) if (k !== id) m += `<polygon points="${pts(GAMUTS[k].p)}" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="1.2" stroke-dasharray="3 4"/>`;
+  prim.forEach(({ edge }, k) => {
+    const far = prim[k].purity > 1 ? g.p[k] : edge;
+    m += `<line x1="${sx(w[0])}" y1="${sy(w[1])}" x2="${sx(far[0])}" y2="${sy(far[1])}" stroke="#000" stroke-opacity=".55" stroke-width="2" stroke-dasharray="5 4"/>`;
+  });
+  m += `<polygon points="${pts(g.p)}" fill="rgba(255,153,0,.12)" stroke="#FF9900" stroke-width="3" stroke-linejoin="round"/>`;
+  g.p.forEach((p, k) => m += `<circle cx="${sx(p[0])}" cy="${sy(p[1])}" r="7" fill="${nmCss(prim[k].nm)}" stroke="#000" stroke-width="2"/>`);
+  m += `<circle cx="${sx(w[0])}" cy="${sy(w[1])}" r="4" fill="#fff" stroke="#000" stroke-width="1.5"/>`;
+  document.getElementById("reach-map").innerHTML = `<defs><clipPath id="reach-clip"><rect width="450" height="575"/></clipPath></defs><g clip-path="url(#reach-clip)">${m}</g>`;
+}
+
+let dotsDrawn = false;
+/** Draws "bigger isn't free": the colours a toy file (8 steps per channel) can store, in Rec.709 and in Rec.2020. */
+function drawDots() {
+  if (dotsDrawn) return;
+  dotsDrawn = true;
+  for (const id of ["rec709", "rec2020"]) {
+    const M = toXYZ(id);
+    let h = fillImage(0.35) + `<polygon points="${pts(LOCUS)}" fill="none" stroke="rgba(229,229,229,.5)" stroke-width="1.2"/><polygon points="${pts(GAMUTS[id].p)}" fill="none" stroke="#FF9900" stroke-width="2"/>`;
+    for (let r = 0; r < 8; r++) for (let gg = 0; gg < 8; gg++) for (let b = 0; b < 8; b++) {
+      if (Math.max(r, gg, b) !== 7) continue;  // brightest shell only: every colour once, at full brightness
+      const [X, Y, Z] = apply(M, [r / 7, gg / 7, b / 7]), n = X + Y + Z;
+      h += `<circle cx="${sx(X / n).toFixed(1)}" cy="${sy(Y / n).toFixed(1)}" r="3.4" fill="#fff" stroke="#000" stroke-width="1"/>`;
+    }
+    document.getElementById(id === "rec709" ? "dots-709" : "dots-2020").innerHTML = h;
+  }
+}
+
 /** Redraws the Gamut tab. */
-function drawGamut() { paintFill(); drawMap(); drawProbe(); drawLegend(); drawSizes(); drawFit(); drawPaintArt(); }
+function drawGamut() { paintFill(); drawMap(); drawProbe(); drawLegend(); drawSizes(); drawFit(); drawPaintArt(); drawReach(); drawDots(); }
 
 /* ---------- Curves ---------- */
 
 /* Plot geometry: x is stops from mid grey (−8..+8), y is code value (0..1); a row of everyday things above */
 const CL = 34, CR = 10, CT = 44, CB = 26, CWID = 600, CHGT = 370;
 const cx = s => CL + (s + 8) / 16 * (CWID - CL - CR), cy = v => CT + (1 - v) * (CHGT - CT - CB);
+
+/**
+ * Draws "sharing out the numbers": for linear, sRGB and the camera's log, a bar of the file's numbers (0 to the top value
+ * at the chosen bit depth) shown as greys and cut where each stop of light lands. The followed stop is outlined in every
+ * bar and joined by an orange band, with a readout of how many numbers each curve gives it.
+ */
+function drawBudget() {
+  const c = CAMERAS[state.cam], rows = ["linear", "srgb", c.curve], N = 2 ** state.budBits - 1, BL = 20, BW = 860, bx = v => BL + v * BW, f = state.budStop;
+  const fmt = n => n.toLocaleString(), mul = v => v >= 1 ? `${+v.toFixed(1)}×` : `1/${Math.round(1 / v)}`;
+  document.getElementById("bud-intro").innerHTML = `Every pixel in a ${state.budBits}-bit file is stored as a whole number from 0 (black) to ${fmt(N)} (white). Each bar below is that whole range, shown as the grey each number makes. The lines mark where each <b>stop</b> of light lands (a stop is a doubling of light), and the label inside is how many numbers that stop gets. <b>Click a slice</b> to follow that stop through all three curves.`;
+  document.getElementById("bud-bits").innerHTML = [8, 10, 12].map(n => `<button type="button" data-budbits="${n}" aria-pressed="${state.budBits === n}">${n}-bit</button>`).join("");
+  document.getElementById("bud-stop").value = f;
+  document.getElementById("bud-stop-val").textContent = `${f >= 0 ? "+" : ""}${f}`;
+  let b = `<defs><linearGradient id="g-codes"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#fff"/></linearGradient></defs>`, band = "", marks = "", hits = "";
+  const read = [];
+  let prev = null;
+  rows.forEach((id, r) => {
+    const y0 = 16 + r * 82, cu = CURVES[id], at = s => clamp01(cu.encode(0.18 * 2 ** s)), top = y0 + 8;
+    b += `<text class="name" x="${BL}" y="${y0}" fill="${cu.color}">${cu.name}</text><rect x="${BL}" y="${top}" width="${BW}" height="36" rx="6" fill="url(#g-codes)"/>`;
+    for (let s = -8; s < 14; s++) {  // the stop from s to s+1, counted from mid grey
+      const a = at(s), z = at(s + 1), n = Math.round(N * z) - Math.round(N * a), w = bx(z) - bx(a);
+      if (a > 0 && a < 1) b += `<line x1="${bx(a)}" y1="${top}" x2="${bx(a)}" y2="${top + 36}" stroke="${cu.color}" stroke-width="2"/>`;
+      if (w > 30) b += `<text class="n" x="${(bx(a) + bx(z)) / 2}" y="${top + 23}" text-anchor="middle">${fmt(n)}</text>`;
+      if (w > 0.5) hits += `<rect class="slice" data-bud="${s}" x="${bx(a)}" y="${top}" width="${Math.max(w, 6)}" height="36" fill="transparent"><title>${n} numbers</title></rect>`;
+      if (s === f) {
+        marks += `<rect x="${bx(a) - 1}" y="${top - 2}" width="${Math.max(w, 2) + 2}" height="40" rx="3" fill="rgba(255,153,0,.25)" stroke="#FF9900" stroke-width="2.5"/>`;
+        if (prev) band += `<polygon points="${prev.a},${prev.y} ${prev.z},${prev.y} ${bx(z)},${top - 2} ${bx(a)},${top - 2}" fill="rgba(255,153,0,.28)"/>`;
+        prev = { a: bx(a), z: bx(z), y: top + 38 };
+        read.push(`${cu.name}: <b>${fmt(n)}</b>${n === 0 ? (a >= 1 ? " (clipped: lost)" : " (none: merged into black)") : n <= 4 ? " (a handful: visible banding)" : ""}`);
+      }
+    }
+    const grey = bx(at(0)), white = clamp01(cu.encode(1));
+    b += `<path d="M${BL} ${top + 40}v4H${grey}v-4" fill="none" stroke="${cu.color}" stroke-width="1.5"/><text x="${BL}" y="${top + 56}">darker than a face: ${fmt(Math.round(N * at(0)))} numbers</text>`;
+    b += white >= 0.999 ? `<text class="clip" x="${BL + BW}" y="${top + 52}" text-anchor="end">brighter than white: no numbers left</text>`
+      : `<text x="${BL + BW}" y="${top + 52}" text-anchor="end">room above white: ${fmt(N - Math.round(N * white))} numbers →</text>`;
+  });
+  document.getElementById("budget").innerHTML = b + band + marks + hits;
+  const where = f <= -5 ? "deep shadow" : f <= -2 ? "shadow" : f < 0 ? "just below a face" : f === 0 ? "a face up to twice as bright" : f === 1 ? "bright skin and sky" : f === 2 ? "around display white" : "brighter than white: highlights, lamps, the sun";
+  document.getElementById("bud-read").innerHTML = `<b>Following the stop from ${mul(2 ** f)} to ${mul(2 ** (f + 1))} as bright as a face</b> (${where}). Numbers it gets: ${read.join(" · ")}.`;
+}
 
 let curveCache = null;  // { key, frames }: the three example renders
 /** Redraws the Curves tab: the three example pictures, the code-value budget, the curve plot, readout and ramps. */
@@ -1479,41 +1716,44 @@ function drawCurves() {
   document.querySelectorAll("#curve-thumbs figure").forEach((f, i) => { paint(f.querySelector("canvas"), curveCache.frames[i]); f.querySelector("figcaption").innerHTML = shots[i][1]; });
   drawImageControls();
 
-  // Where the code values go: per stop, for linear, sRGB and the camera's log
-  const rows = ["linear", "srgb", c.curve], bw = 54, stops = Array.from({ length: 15 }, (_, i) => i - 8);
-  let b = "";
-  rows.forEach((id, r) => {
-    const y0 = r * 98 + 82, cu = CURVES[id];
-    b += `<text class="name" x="0" y="${y0 - 64}" fill="${cu.color}">${cu.name}</text>`;
-    stops.forEach((s, i) => {
-      const n = Math.round(1023 * (clamp01(cu.encode(0.18 * 2 ** (s + 1))) - clamp01(cu.encode(0.18 * 2 ** s)))), h = Math.sqrt(n / 520) * 54, x = 70 + i * bw;
-      b += `<rect x="${x}" y="${y0 - h}" width="${bw - 6}" height="${Math.max(h, n ? 1.5 : 0)}" rx="2" fill="${cu.color}" opacity=".85"/>`;
-      b += n ? `<text x="${x + (bw - 6) / 2}" y="${y0 - h - 4}" text-anchor="middle">${n}</text>` : `<text class="clip" x="${x + (bw - 6) / 2}" y="${y0 - 4}" text-anchor="middle">${s >= 2 ? "clip" : "0"}</text>`;
-      if (r === rows.length - 1) b += `<text x="${x + (bw - 6) / 2}" y="${y0 + 14}" text-anchor="middle">${s > 0 ? "+" : ""}${s}</text>`;
-    });
-    b += `<line x1="70" y1="${y0}" x2="${70 + stops.length * bw}" y2="${y0}" stroke="#444"/>`;
-  });
-  b += `<text x="0" y="${2 * 98 + 96}">stops from mid grey →</text>`;
-  document.getElementById("budget").innerHTML = b;
+  drawBudget();
 
   // The curve plot, with everyday things along the top
   document.getElementById("curve-chips").innerHTML = Object.entries(CURVES).map(([id, cu]) =>
     `<li><button type="button" data-c="${id}" aria-pressed="${state.curves.has(id)}" style="--dot:${cu.color}">${cu.name}</button></li>`).join("");
   const on = Object.keys(CURVES).filter(id => state.curves.has(id));
+  // Across is light: in stops (each step doubles it, the way eyes judge brightness) or in plain amounts (the way linear counts it).
+  // Under the plot, each curve's numbers as a grey strip, lined up with the light above.
+  const lin = state.axis === "light", PB = CHGT - CB, RH = 18, RG = 5, r0 = PB + 10, H2 = r0 + on.length * (RH + RG) + 18;
+  const lightAt = t => lin ? t : 0.18 * 2 ** (-8 + 16 * t), xOf = light => lin ? CL + light * (CWID - CL - CR) : cx(LOG2(light / 0.18));
+  document.getElementById("axis-pick").innerHTML = [["stops", "In stops (how eyes see)"], ["light", "In amount of light"]].map(([k, n]) => `<button type="button" data-axis="${k}" aria-pressed="${state.axis === k}">${n}</button>`).join("");
+  document.getElementById("axis-text").innerHTML = lin
+    ? "<p><b>Left to right is the plain amount of light</b>, from none up to display white. Up is the number stored. On this scale <b>linear</b> is a straight line: twice the light, twice the number.</p><p>Now the other curves bend instead. Every shadow is squeezed into the left edge, and log curves leap up through it to give those shadows plenty of numbers. Same curves, different ruler.</p>"
+    : "<p><b>Left to right is light in stops</b>, the way eyes judge brightness: each step to the right is double the light. Up is the number stored.</p><p>That's why <b>linear</b> is bent here, not straight. Its numbers grow by equal amounts of light, and each stop holds twice the light of the one before, so it creeps along the bottom and then shoots up. Log curves are nearly straight on this scale: that's what log means. Switch the ruler to see linear straighten out.</p>";
   let h = `<g class="grid">`;
-  for (let s = -8; s <= 8; s += 2) h += `<line x1="${cx(s)}" y1="${CT}" x2="${cx(s)}" y2="${CHGT - CB}"/><text x="${cx(s)}" y="${CHGT - 8}" text-anchor="middle">${s > 0 ? "+" : ""}${s}</text>`;
+  const ticks = lin ? [0, .25, .5, .75, 1].map(v => [v, String(v)]) : [-8, -6, -4, -2, 0, 2, 4, 6, 8].map(s => [0.18 * 2 ** s, (s > 0 ? "+" : "") + s]);
+  for (const [l, t] of ticks) h += `<line x1="${xOf(l)}" y1="${CT}" x2="${xOf(l)}" y2="${PB}"/><text x="${xOf(l)}" y="${H2 - 4}" text-anchor="middle">${t}</text>`;
   for (const v of [0, .25, .5, .75, 1]) h += `<line x1="${CL}" y1="${cy(v)}" x2="${CWID - CR}" y2="${cy(v)}"/><text x="${CL - 4}" y="${cy(v) + 3}" text-anchor="end">${v}</text>`;
-  const white = LOG2(1 / 0.18);
-  for (const [s, e] of [[-6, "🚗"], [-2.5, "🧥"], [0, "🙂"], [2.75, "📄"]]) h += `<text class="emoji" x="${cx(s)}" y="26" text-anchor="middle">${e}</text>`;
-  h += `</g><g class="mark"><line x1="${cx(0)}" y1="${CT}" x2="${cx(0)}" y2="${CHGT - CB}"/><text x="${cx(0) + 4}" y="${CT + 10}">face / 18% grey</text>
-    <line x1="${cx(white)}" y1="${CT}" x2="${cx(white)}" y2="${CHGT - CB}"/><text x="${cx(white) + 4}" y="${CT + 22}">display white</text></g>`;
+  if (lin) h += `<path class="brace" d="M${xOf(0.0028)} 30v-6H${xOf(0.18)}v6M${xOf(0.5)} 30v-6H${xOf(1)}v6"/><text class="brace-t" x="${xOf(0.18) + 6}" y="22">← 6 stops of shadow</text><text class="brace-t" x="${xOf(1)}" y="16" text-anchor="end">1 stop</text>`;
+  else for (const [s, e] of [[-6, "🚗"], [-2.5, "🧥"], [0, "🙂"], [2.75, "📄"]]) h += `<text class="emoji" x="${cx(s)}" y="26" text-anchor="middle">${e}</text>`;
+  h += `</g><g class="mark"><line x1="${xOf(0.18)}" y1="${CT}" x2="${xOf(0.18)}" y2="${PB}"/><text x="${xOf(0.18) + 4}" y="${CT + 10}">face / 18% grey</text>
+    <line x1="${xOf(1)}" y1="${CT}" x2="${xOf(1)}" y2="${PB}"/><text x="${xOf(1) + (lin ? -4 : 4)}" y="${CT + 22}" ${lin ? 'text-anchor="end"' : ""}>display white</text></g>`;
   for (const id of on) {
     const cu = CURVES[id], p = [];
-    for (let s = -8; s <= 8.001; s += 0.05) p.push(`${cx(s).toFixed(1)},${cy(clamp01(cu.encode(0.18 * 2 ** s))).toFixed(1)}`);
+    for (let t = 0; t <= 1.0001; t += 1 / 320) p.push(`${xOf(lightAt(t)).toFixed(1)},${cy(clamp01(cu.encode(lightAt(t)))).toFixed(1)}`);
     h += `<polyline class="curve" stroke="${cu.color}" points="${p.join(" ")}"><title>${cu.name}</title></polyline>`;
   }
-  h += `<line class="scrub" x1="${cx(state.stop)}" y1="${CT}" x2="${cx(state.stop)}" y2="${CHGT - CB}"/>`;
-  document.getElementById("curve-svg").innerHTML = h;
+  const scrubX = 0.18 * 2 ** state.stop;
+  if (!lin || scrubX <= 1) h += `<line class="scrub" x1="${xOf(scrubX)}" y1="${CT}" x2="${xOf(scrubX)}" y2="${PB}"/>`;
+  const rs = 96, rw = (CWID - CL - CR) / rs;
+  on.forEach((id, i) => {
+    const cu = CURVES[id], y = r0 + i * (RH + RG);
+    for (let k = 0; k < rs; k++) { const g = Math.round(clamp01(cu.encode(lightAt((k + .5) / rs))) * 255); h += `<rect x="${(CL + k * rw).toFixed(1)}" y="${y}" width="${(rw + .5).toFixed(1)}" height="${RH}" fill="rgb(${g},${g},${g})"/>`; }
+    h += `<rect x="${CL}" y="${y}" width="3" height="${RH}" fill="${cu.color}"/><text class="ramp-label" x="${CL + 8}" y="${y + 13}">${cu.name}</text>`;
+  });
+  const svg = document.getElementById("curve-svg");
+  svg.setAttribute("viewBox", `0 0 ${CWID} ${H2}`);
+  svg.innerHTML = h;
 
   const x = 0.18 * 2 ** state.stop, s = state.stop;
   document.getElementById("stop").value = s;
@@ -1523,15 +1763,6 @@ function drawCurves() {
   document.getElementById("curve-out").innerHTML = `<tr><th>Curve</th><th>Code value</th><th>10-bit</th></tr>` + on.map(id => {
     const cu = CURVES[id], v = cu.encode(x), clip = v >= 1;
     return `<tr><td><span style="color:${cu.color}">●</span> ${cu.name}</td><td class="${clip ? "clip" : ""}">${clamp01(v).toFixed(3)}${clip ? " clipped" : ""}</td><td>${Math.round(clamp01(v) * 1023)}</td></tr>`;
-  }).join("");
-
-  const rh = 20, rs = 64, rw = (CWID - 130) / rs, svg = document.getElementById("ramp-svg");
-  svg.setAttribute("viewBox", `0 0 600 ${Math.max(on.length * (rh + 6), 10)}`);
-  svg.innerHTML = on.map((id, i) => {
-    const cu = CURVES[id], y = i * (rh + 6);
-    let r = `<text class="ramp-label" x="0" y="${y + 14}">${cu.name}</text>`;
-    for (let k = 0; k < rs; k++) { const g = Math.round(clamp01(cu.encode(0.18 * 2 ** (-8 + 16 * (k + .5) / rs))) * 255); r += `<rect x="${130 + k * rw}" y="${y}" width="${rw + .5}" height="${rh}" fill="rgb(${g},${g},${g})"/>`; }
-    return r;
   }).join("");
 }
 
@@ -1586,18 +1817,29 @@ function drawHdr() {
   document.getElementById("signal-read").innerHTML = `Signal <b>${v.toFixed(2)}</b> means <b style="color:var(--grey-10)">${fmt(sdr)} nits</b> in SDR on a 100-nit screen, and twice that on a 200-nit one: it's relative. ` +
     `In PQ it means <b style="color:var(--orange)">${fmt(pq)} nits</b> on any HDR screen${pq > 1500 ? ", brighter than most can go, so the screen tone-maps it down" : ""}.`;
 
-  const x = n => 150 + Math.log10(Math.max(n, 1)) / 4 * 720;
+  // Two signal rulers on top (the numbers in the file, placed at the nits they mean), the screens below, nits along the bottom
+  const x = n => 150 + Math.log10(Math.max(n, 1)) / 4 * 720, F = `font-family="Montserrat, Arial"`, top = 104, bot = top + SCREENS.length * 26 + 6;
   let h = "";
-  for (const n of [1, 10, 100, 1000, 10000]) h += `<line x1="${x(n)}" y1="30" x2="${x(n)}" y2="250" stroke="#333"/><text x="${x(n)}" y="270" fill="#999" font-size="11" text-anchor="middle" font-family="Montserrat, Arial">${n.toLocaleString()} nits</text>`;
+  for (const n of [1, 10, 100, 1000, 10000]) h += `<line x1="${x(n)}" y1="${top - 12}" x2="${x(n)}" y2="${bot}" stroke="#333"/><text x="${x(n)}" y="${bot + 20}" fill="#999" font-size="11" text-anchor="middle" ${F}>${n.toLocaleString()} nits</text>`;
+  const ruler = (y, name, col, nits, ticks, end) => {
+    let r = `<text x="140" y="${y + 4}" fill="${col}" font-size="11" font-weight="600" text-anchor="end" ${F}>${name}</text><line x1="${x(1)}" y1="${y}" x2="${x(nits(1))}" y2="${y}" stroke="${col}" stroke-width="2"/>`;
+    for (const t of ticks) r += `<line x1="${x(nits(t))}" y1="${y - 4}" x2="${x(nits(t))}" y2="${y + 4}" stroke="${col}" stroke-width="1.5"/><text x="${x(nits(t))}" y="${y - 8}" fill="${col}" font-size="10" text-anchor="middle" ${F}>${t.toFixed(2)}</text>`;
+    return r + end;
+  };
+  h += ruler(30, "SDR signal", "#E5E5E5", s => 100 * s ** 2.4, [0.25, 0.5, 0.75, 1],
+    `<text x="${x(100) + 10}" y="34" fill="#E5E5E5" font-size="11" font-weight="600" ${F}>1.00 = 100 nits. Nothing goes higher.</text>`);
+  h += ruler(72, "PQ signal", "#FF9900", PQ_NITS, [0.25, 0.5, 0.75, 1], `<text x="${x(PQ_NITS(0.58))}" y="88" fill="#FF9900" font-size="10" text-anchor="middle" ${F}>0.58 = 203 nits</text>`);
   SCREENS.forEach(([n, lo, hi], i) => {
-    const y = 40 + i * 26;
-    h += `<text x="140" y="${y + 12}" fill="#ccc" font-size="12" text-anchor="end" font-family="Montserrat, Arial">${n}</text>
+    const y = top + i * 26;
+    h += `<text x="140" y="${y + 12}" fill="#ccc" font-size="12" text-anchor="end" ${F}>${n}</text>
       <rect x="${x(1)}" y="${y + 2}" width="${x(hi) - x(1)}" height="14" rx="7" fill="rgba(229,229,229,.10)"/><rect x="${x(lo) - 4}" y="${y + 2}" width="${x(hi) - x(lo) + 8}" height="14" rx="7" fill="${i === SCREENS.length - 1 ? "#FF9900" : "#CCCCCC"}" opacity=".8"/>`;
   });
-  h += `<line x1="${x(203)}" y1="30" x2="${x(203)}" y2="250" stroke="#8ED47F" stroke-dasharray="4 4"/><text x="${x(203) + 4}" y="24" fill="#8ED47F" font-size="11" font-family="Montserrat, Arial">HDR paper-white, 203</text>`;
-  h += `<line x1="${x(sdr)}" y1="30" x2="${x(sdr)}" y2="250" stroke="#E5E5E5" stroke-width="2.5"/><line x1="${x(pq)}" y1="30" x2="${x(pq)}" y2="250" stroke="#FF9900" stroke-width="2.5"/>
-    <text x="${x(sdr) - 4}" y="${pq > sdr * 3 ? 24 : 12}" fill="#E5E5E5" font-size="11" font-weight="600" text-anchor="end" font-family="Montserrat, Arial">SDR</text><text x="${x(pq) + 4}" y="12" fill="#FF9900" font-size="11" font-weight="600" font-family="Montserrat, Arial">PQ</text>`;
-  document.getElementById("nits").innerHTML = h;
+  h += `<line x1="${x(203)}" y1="${top - 8}" x2="${x(203)}" y2="${bot}" stroke="#8ED47F" stroke-dasharray="4 4"/><text x="${x(203) + 4}" y="${top - 2}" fill="#8ED47F" font-size="10" ${F}>HDR paper-white</text>`;
+  h += `<line x1="${x(sdr)}" y1="30" x2="${x(sdr)}" y2="${bot}" stroke="#E5E5E5" stroke-width="2.5"/><circle cx="${x(sdr)}" cy="30" r="5" fill="#E5E5E5"/>
+    <line x1="${x(pq)}" y1="72" x2="${x(pq)}" y2="${bot}" stroke="#FF9900" stroke-width="2.5"/><circle cx="${x(pq)}" cy="72" r="5" fill="#FF9900"/>`;
+  const svg = document.getElementById("nits");
+  svg.setAttribute("viewBox", `0 0 900 ${bot + 30}`);
+  svg.innerHTML = h;
 
   const key = [state.exposure, scene.name, scene.w].join("|");
   if (!hdrCache || hdrCache.key !== key) hdrCache = { key, frames: [renderMode("sdrsim"), renderMode("hdrsim")] };
@@ -1672,7 +1914,45 @@ const ACES_MYTHS = [
   ["\"You need ACES for HDR.\"", "Any scene-referred pipeline can make HDR, DaVinci Wide Gamut included. ACES gives you a standard, shared set of HDR output transforms."],
 ];
 let acesDrawn = false;
-/** Redraws the ACES tab: the step strip, explainer, diagram and picture, plus the tables, chooser and myths. */
+/* What each part of the "what's inside ACES" diagram is: [id, name, explanation] */
+const ACES_BITS = [
+  ["src", "Cameras and CG: not ACES", "Each camera records in its own log curve and gamut (LogC4 in ARRI Wide Gamut 4, S-Log3 in S-Gamut3.Cine, and so on), and CG comes from whatever the 3D app works in. ACES starts where they arrive."],
+  ["idt", "Input transforms", "One per camera (and its settings), published by the camera makers, often called IDTs. Each turns that camera's log and gamut into ACES2065-1: plain scene light, the same for every camera. After this step, an ARRI shot and a Sony shot speak the same language."],
+  ["ap0", "ACES2065-1", "The hub: linear light with AP0 primaries, wide enough to hold every colour a person can see. Used for archiving and for handing shots between companies, as EXR files."],
+  ["cg", "ACEScg", "Linear light with AP1 primaries, a little bigger than Rec.2020. Where CG is rendered and comped: light adds up correctly, and AP1 avoids AP0's imaginary corners, which make rendering maths behave strangely."],
+  ["cct", "ACEScct", "AP1 with a log curve (and a gentle toe in the shadows), so grading controls feel like they do on camera log. Grading apps work in it internally; you rarely save files in it."],
+  ["cc", "ACEScc", "The original pure-log grading space. ACEScct replaced it for most work because the toe makes lifting the shadows behave the way colourists expect."],
+  ["proxy", "ACESproxy", "Whole-number log (10- or 12-bit) for sending ACES pictures down SDI cables on set. A legacy format, rarely used now."],
+  ["lmt", "LMT: Look Modification Transform", "An optional, swappable look applied inside ACES before the output transform: a show LUT or a film emulation, say. Leave it out and you get the neutral ACES rendering."],
+  ["odt", "Output transforms", "One per kind of screen: SDR TV, cinema, HDR at 1,000 nits and so on. Each turns scene light into a picture that screen can show, tone-mapping the highlights and mapping the gamut. This is where \"the ACES look\" comes from. ACES 1 splits it into RRT + ODT; ACES 2.0 makes it one Output Transform."],
+  ["screens", "Screens: not ACES either", "A screen just needs the right signal, which the output transform makes. Deliver to a new screen and you swap the output transform: the grade stays exactly the same."],
+  ["amf", "AMF: ACES Metadata File", "A small XML file that travels with the shot, recording which input transform, look and output transform were used, so the next person in the chain sees exactly the same picture."],
+];
+/**
+ * Draws "what's inside ACES" as buttons: sources and screens outside the system; input transforms, the five spaces,
+ * an optional look, output transforms and the AMF inside. The chosen part is highlighted and explained underneath.
+ */
+function drawAcesSystem() {
+  const bit = (id, inner) => `<g data-acesbit="${id}" class="${state.acesBit === id ? "sel" : ""}" tabindex="0" role="button" aria-pressed="${state.acesBit === id}" aria-label="${ACES_BITS.find(b => b[0] === id)[1]}">${inner}</g>`;
+  const side = (x, labels) => labels.map((l, i) => BOX(x, 50 + i * 78, 120, 44) + T(x + 60, 77 + i * 78, l, "c")).join("");
+  const stack = (x, a, b, c) => BOX(x, 60, 110, 180, "hi") + T(x + 55, 136, a, "c") + T(x + 55, 152, b, "c") + T(x + 55, 172, c, "s c");
+  let h = `<rect x="160" y="10" width="600" height="310" rx="18" fill="rgba(255,153,0,.04)" stroke="#FF9900" stroke-width="2" stroke-dasharray="7 5"/>` + T(178, 32, "ACES: the system", "o") + `<text class="t s o" x="742" y="32" text-anchor="end">click any part</text>`;
+  h += bit("src", side(10, ["ARRI camera", "Sony camera", "CG render"])) + bit("screens", side(770, ["SDR TV", "Cinema", "HDR TV"]));
+  for (let i = 0; i < 3; i++) h += AR(132, 72 + i * 78, 178, 150) + AR(732, 150, 768, 72 + i * 78);
+  h += bit("idt", stack(180, "Input", "transforms", "one per camera")) + bit("odt", stack(620, "Output", "transforms", "one per screen")) + AR(292, 150, 318) + AR(582, 150, 618);
+  h += BOX(320, 46, 260, 206) + T(450, 66, "5 colour spaces", "c o");
+  ACES_SPACES.forEach(([n], i) => {
+    const y = 76 + i * 34, why = ["archive, hand-offs", "CG and comp", "grading", "older grading", "older on-set signal"][i];
+    h += bit(["ap0", "cg", "cct", "cc", "proxy"][i], `<rect x="334" y="${y}" width="232" height="28" rx="14" fill="rgba(255,255,255,.06)" stroke="rgba(229,229,229,.3)"/>` + T(348, y + 18, `<tspan font-weight="600" fill="#E5E5E5">${n}</tspan>`) + `<text class="t s" x="556" y="${y + 18}" text-anchor="end">${why}</text>`);
+  });
+  h += bit("lmt", `<rect x="380" y="262" width="200" height="34" rx="10" fill="rgba(0,0,0,.01)" stroke="rgba(229,229,229,.45)" stroke-dasharray="4 4"/>` + T(480, 283, "LMT: an optional, swappable look", "s c"));
+  h += bit("amf", `<rect x="176" y="258" width="190" height="44" rx="8" fill="rgba(0,0,0,.01)" stroke="none"/><path class="box" d="M182 262h22l8 8v26h-30z"/>` + T(222, 276, "AMF: a file recording") + T(222, 291, "which transforms were used", "s"));
+  document.getElementById("aces-system").innerHTML = h;
+  const [, name, text] = ACES_BITS.find(b => b[0] === state.acesBit);
+  document.getElementById("aces-bit").innerHTML = `<b>${name}.</b> ${text}`;
+}
+
+/** Redraws the ACES tab: the step strip, explainer, diagram and picture, plus the system diagram, tables, chooser and myths. */
 function drawAces() {
   const cur = Math.max(0, ACES_STEPS.findIndex(s => s.id === state.acesStep)), s = ACES_STEPS[cur];
   document.getElementById("aces-steps").innerHTML = ACES_STEPS.map((st, i) => `<li>${i ? flowArrow(i <= cur) : ""}<button type="button" data-aces="${st.id}" aria-pressed="${i === cur}">${st.name}</button></li>`).join("");
@@ -1686,6 +1966,7 @@ function drawAces() {
   drawImageControls();
   if (acesDrawn) return;
   acesDrawn = true;
+  drawAcesSystem();
   document.getElementById("aces-table").innerHTML = `<tr><th>Encoding</th><th>Primaries</th><th>Curve</th><th>For</th><th>Lives in</th></tr>` + ACES_SPACES.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("");
   document.getElementById("aces-myths").innerHTML = ACES_MYTHS.map(([m, f]) => `<div class="card"><span class="big">${m}</span><p>${f}</p></div>`).join("");
 }
@@ -1751,6 +2032,78 @@ function drawSignals() {
   a += `<circle cx="685" cy="30" r="14" fill="none" stroke="#E5E5E5" stroke-width="2"/><path d="M685 30V21M685 30l6 4" stroke="#E5E5E5" stroke-width="2"/>${txt(706, 34, "PTP clock: everything in sync", "#ccc")}<line x1="685" y1="44" x2="685" y2="92" stroke="#E5E5E5" stroke-dasharray="3 3"/>`;
   a += txt(600, 214, "each stream described by an SDP", "#999", "middle");
   document.getElementById("sig-art").innerHTML = a;
+  drawSigWhy();
+}
+
+/* The before/after's devices; a fifth source, Camera 3, appears with "Add a camera" */
+const SIG_SRC = ["Camera 1", "Camera 2", "Graphics", "Replay", "Camera 3"], SIG_DST = ["Vision mixer", "Monitor", "Recorder"];
+const sig = { sdi: [0, 1, 3], ip: [{ v: 0, a: 0 }, { v: 1, a: 1 }, { v: 0, a: 3 }], extra: false };
+/**
+ * Draws the before/after and its controls. Left: an SDI router whose crosspoints are clickable, each lighting the whole path
+ * from source to output. Right: the same devices on one network switch, each destination taking its picture and its sound
+ * from wherever it likes, with the chosen streams' packets moving along the links.
+ */
+function drawSigWhy() {
+  const n = sig.extra ? 5 : 4, still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const box = (x, y, l, w = 96, c = "box") => BOX(x, y, w, 34, c) + T(x + w / 2, y + 22, l, "s c");
+  const OR = "#FF9900", GR = "#8ED47F", DIM = "#555";
+  let h = T(20, 26, "SDI: a cable for every signal", "o") + T(470, 26, "ST 2110: everything on one network", "o") + `<line x1="450" y1="12" x2="450" y2="288" stroke="rgba(229,229,229,.15)"/>`;
+
+  // SDI: four inputs (rows) and three outputs (columns); a path through the router for each output's chosen source
+  const sy = i => 65 + i * 52, dy = j => 87 + j * 62, colX = j => 212 + j * 32, R0 = 176, R1 = 300;
+  h += BOX(R0, 34, R1 - R0, 216) + T((R0 + R1) / 2, 50, "Router · 4 in, 3 out", "s c");
+  SIG_DST.forEach((d, j) => h += T(colX(j), 66, ["Mix", "Mon", "Rec"][j], "s c"));
+  for (let i = 0; i < 4; i++) h += `<line x1="${R0}" y1="${sy(i) + 10}" x2="${colX(2) + 10}" y2="${sy(i) + 10}" stroke="#333"/>`;
+  for (let j = 0; j < 3; j++) h += `<line x1="${colX(j)}" y1="72" x2="${colX(j)}" y2="242" stroke="#333"/>`;
+  for (let i = 0; i < 4; i++) {
+    const used = sig.sdi.includes(i);
+    h += box(14, sy(i) - 17, SIG_SRC[i], 96, used ? "hi" : "box") + `<line x1="110" y1="${sy(i)}" x2="${R0}" y2="${sy(i)}" stroke="${used ? OR : "#777"}" stroke-width="5"/>`;
+  }
+  SIG_DST.forEach((d, j) => {
+    const i = sig.sdi[j], y = sy(i) + 10;
+    h += `<path d="M${R0} ${y}H${colX(j)}V${dy(j)}H${R1}" fill="none" stroke="${OR}" stroke-width="2.5" stroke-linejoin="round" opacity=".9"/>`;
+    h += `<line x1="${R1}" y1="${dy(j)}" x2="334" y2="${dy(j)}" stroke="${OR}" stroke-width="5"/>` + box(334, dy(j) - 17, d, 100, "hi") + T(384, dy(j) + 30, `← ${SIG_SRC[i]}`, "s c o");
+  });
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) {
+    const on = sig.sdi[j] === i;
+    h += `<g class="xp" tabindex="0" role="button" data-xp="${i},${j}" aria-pressed="${on}" aria-label="Send ${SIG_SRC[i]} to ${SIG_DST[j]}"><circle cx="${colX(j)}" cy="${sy(i) + 10}" r="13" fill="transparent"/>` +
+      `<circle cx="${colX(j)}" cy="${sy(i) + 10}" r="${on ? 7 : 5}" fill="${on ? OR : DIM}" stroke="${on ? "#fff" : "none"}" stroke-width="1.5"/></g>`;
+  }
+  if (sig.extra) h += box(14, 256, "Camera 3", 96, "box") + `<line x1="110" y1="273" x2="160" y2="273" stroke="#ff6b5e" stroke-width="5" stroke-dasharray="6 5"/>` +
+    `<path d="M162 265l14 16M176 265l-14 16" stroke="#ff6b5e" stroke-width="3"/>` + `<text class="t s" x="186" y="278" fill="#ff6b5e" style="fill:#ff6b5e">no free input</text>`;
+
+  // 2110: links into one switch; each destination picks its picture and its sound separately
+  const S0 = 620, S1 = 736, SY0 = 112, SY1 = 196, gap = sig.extra ? 46 : 52, iy = i => 61 + i * gap, inY = i => SY0 + 14 + i * (56 / (n - 1));
+  const flow = (x1, y1, x2, y2, col, k) => [0, 1, 2].map(m => {
+    const begin = `${(-(m / 3 + k * 0.11) * 1.8).toFixed(2)}s`;
+    return still ? `<rect x="${x1 + (x2 - x1) * (m + .5) / 3 - 4}" y="${y1 + (y2 - y1) * (m + .5) / 3 - 4}" width="8" height="8" rx="2" fill="${col}"/>`
+      : `<rect x="-4" y="-4" width="8" height="8" rx="2" fill="${col}"><animateMotion dur="1.8s" begin="${begin}" repeatCount="indefinite" path="M${x1} ${y1}L${x2} ${y2}"/></rect>`; }).join("");
+  for (let i = 0; i < n; i++) {
+    const v = sig.ip.some(d => d.v === i), a = sig.ip.some(d => d.a === i), y = iy(i);
+    h += box(470, y - 17, SIG_SRC[i], 96, v || a ? "hi" : "box") + `<line x1="566" y1="${y}" x2="${S0}" y2="${inY(i)}" stroke="${v || a ? "#888" : "#444"}" stroke-width="2"/>`;
+    if (v) h += flow(566, y - 3, S0, inY(i) - 3, OR, i);
+    if (a) h += flow(566, y + 3, S0, inY(i) + 3, GR, i + .5);
+  }
+  h += BOX(S0, SY0, S1 - S0, SY1 - SY0, "hi") + T((S0 + S1) / 2, 150, "Network", "c") + T((S0 + S1) / 2, 166, "switch", "c");
+  SIG_DST.forEach((d, j) => {
+    const y = 87 + j * 62, oy = SY0 + 24 + j * 18, { v, a } = sig.ip[j];
+    h += `<line x1="${S1}" y1="${oy}" x2="790" y2="${y}" stroke="#888" stroke-width="2"/>` + flow(S1, oy - 3, 790, y - 3, OR, j) + flow(S1, oy + 3, 790, y + 3, GR, j + .5);
+    h += box(790, y - 17, d, 100, "hi") + `<text class="t s c" x="840" y="${y + 30}"><tspan fill="${OR}" style="fill:${OR}">${SIG_SRC[v]}</tspan> · <tspan fill="${GR}" style="fill:${GR}">${SIG_SRC[a]}</tspan></text>`;
+  });
+  h += `<circle cx="660" cy="62" r="16" fill="none" stroke="#E5E5E5" stroke-width="2"/><path d="M660 52v10l7 5" stroke="#E5E5E5" stroke-width="2" fill="none"/><line x1="660" y1="78" x2="660" y2="${SY0}" stroke="#E5E5E5" stroke-dasharray="3 3"/>` + T(682, 58, "PTP clock keeps", "s") + T(682, 72, "every stream in time", "s");
+  h += `<rect x="470" y="276" width="8" height="8" rx="2" fill="${OR}"/>` + T(482, 284, "picture", "s") + `<rect x="530" y="276" width="8" height="8" rx="2" fill="${GR}"/>` + T(542, 284, "sound: separate streams, any device to any device", "s");
+  document.getElementById("sig-why").innerHTML = h;
+
+  document.getElementById("sdi-status").innerHTML = SIG_DST.map((d, j) => `<b>${d}</b> ← ${SIG_SRC[sig.sdi[j]]}`).join(" · ");
+  const opts = sel => SIG_SRC.slice(0, n).map((s, i) => `<option value="${i}" ${i === sel ? "selected" : ""}>${s}</option>`).join("");
+  document.getElementById("ip-ctl").innerHTML = SIG_DST.map((d, j) => `<div class="ipd"><span class="label">${d}</span>` +
+    `<label><i class="pv" title="Picture"></i><select data-ip="${j}" data-k="v" aria-label="${d}: picture from">${opts(sig.ip[j].v)}</select></label>` +
+    `<label><i class="pa" title="Sound"></i><select data-ip="${j}" data-k="a" aria-label="${d}: sound from">${opts(sig.ip[j].a)}</select></label></div>`).join("");
+  const add = document.getElementById("add-cam");
+  add.setAttribute("aria-pressed", sig.extra); add.textContent = sig.extra ? "Remove camera 3" : "Add a camera";
+  document.getElementById("add-cam-note").innerHTML = sig.extra
+    ? "<b>SDI:</b> the router's 4 inputs are all taken, so Camera 3 needs a bigger router and a new cable run. <b>2110:</b> one more link to the switch, and every device can use it straight away."
+    : "See what happens to each side when the show needs one more camera.";
 }
 
 /* ---------- Image lab: a scene in linear Rec.2020, rendered through different (sometimes broken) pipelines ---------- */
@@ -2142,11 +2495,34 @@ function paint(cv, a, b, sc = scene) {
     ctx.font = "500 11px Montserrat, Arial, sans-serif";
     for (const s of [-6, 0, 6]) ctx.fillText((s > 0 ? "+" : "") + s, 28 + (s + 6) * 36 + 8, 449);
   }
+  placeRing(cv, sc);
+}
+
+let lampFound = false;  // set when the lamp is grabbed; cleared on every tab change, so the rings return on each visit
+/**
+ * Puts the pulsing "grab me" ring over the lamp on a picture, until the viewer grabs the lamp on this tab.
+ * @param {HTMLCanvasElement} cv
+ * @param {object} sc the scene painted into it
+ */
+function placeRing(cv, sc) {
+  const lp = !lampFound && sc?.chart && sc.stage?.lamp;
+  if (!lp) { cv._ring?.remove(); return; }
+  const host = cv.parentElement, ring = cv._ring ||= Object.assign(document.createElement("span"), { className: "lamp-ring" });
+  ring.setAttribute("aria-hidden", "true");
+  if (getComputedStyle(host).position === "static") host.style.position = "relative";
+  if (ring.parentElement !== host) host.append(ring);
+  ring.style.left = `${cv.offsetLeft + lp.x / sc.w * cv.offsetWidth}px`;
+  ring.style.top = `${cv.offsetTop + lp.y / sc.h * cv.offsetHeight}px`;
+}
+/** The lamp has been grabbed: the rings go until the next tab change. */
+function foundLamp() {
+  lampFound = true;
+  for (const r of document.querySelectorAll(".lamp-ring")) r.remove();
 }
 
 /**
- * The controls under each picture. Always shown: exposure, and (on the test chart) the lamp switch with a hint.
- * Folded into "Scene": lamp brightness and reset, loading your own image, and the colour space it's read as.
+ * The controls under each picture, all always shown: exposure; on the test chart the lamp switch, its brightness and reset;
+ * then loading your own image and the colour space it's read as.
  */
 function drawImageControls() {
   for (const el of document.querySelectorAll(".exp")) el.value = state.exposure;
@@ -2154,11 +2530,11 @@ function drawImageControls() {
   const groups = [...new Set(Object.values(INPUTS).map(i => i.group))], on = state.lamp.on;
   const pick = scene.chart ? "" : `<label class="space-pick"><span class="label">This image is in</span><select class="space">${groups.map(g => `<optgroup label="${g}">${
     Object.entries(INPUTS).filter(([, i]) => i.group === g).map(([id, i]) => `<option value="${id}" ${id === scene.space ? "selected" : ""}>${i.name}</option>`).join("")}</optgroup>`).join("")}</select></label>`;
-  const lamp = scene.chart ? `<button type="button" class="btn lamp-toggle" aria-pressed="${on}">Lamp: ${on ? "on" : "off"}</button><span class="note">${on ? "Drag the lamp on the picture to move it." : "Lit by the soft front light only: every patch reads its true value."}</span>` : "";
+  const lamp = scene.chart ? `<button type="button" class="btn lamp-toggle" aria-pressed="${on}">Lamp: ${on ? "on" : "off"}</button>${on ? "" : `<span class="note">Lit by the soft front light only: every patch reads its true value.</span>`}` : "";
   const bright = scene.chart && on ? `<label class="lampb"><span class="label">Lamp brightness</span><input type="range" class="lamp-stops" min="4" max="14" step="0.5"><output></output></label><button type="button" class="btn" data-lamp-reset>Reset lamp</button>` : "";
-  const html = `${lamp}<details class="scene-more" ${state.sceneOpen ? "open" : ""}><summary>Scene</summary><div class="scene-body">${bright}` +
+  const html = `<div class="scene-body">${lamp}${bright}${scene.chart ? `<span class="break"></span>` : ""}` +
     `<label class="btn">Load your own image<input type="file" accept="image/*,.exr" class="file"></label>${scene.chart ? "" : `<button type="button" class="btn" data-chart>Back to the test chart</button>`}${pick}` +
-    `<span class="note">${esc(loadNote) || "JPEG, PNG, WebP or EXR. It stays on your device."}</span></div></details>`;
+    `<span class="note">${esc(loadNote) || "JPEG, PNG, WebP or EXR. It stays on your device."}</span></div>`;
   for (const el of document.querySelectorAll(".scene-ctl")) if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; }  // rebuilt only when it changes
   for (const s of document.querySelectorAll(".lamp-stops")) { s.value = state.lamp.stops; s.nextElementSibling.textContent = `+${state.lamp.stops} stops`; s.title = `${state.lamp.stops} stops brighter than mid grey`; }
 }
@@ -2254,15 +2630,27 @@ document.addEventListener("click", e => {
   const mi = e.target.closest("button[data-m]"); if (mi) { state.mistake = mi.dataset.m; drawMistakes(); return; }
   const ac = e.target.closest("button[data-aces]"); if (ac) { state.acesStep = ac.dataset.aces; drawAces(); return; }
   const rp = e.target.closest("button[data-role-pick]"); if (rp) { state.acesRole = rp.dataset.rolePick; drawAces(); return; }
+  const bb = e.target.closest("button[data-budbits]"); if (bb) { state.budBits = +bb.dataset.budbits; drawBudget(); return; }
+  const bs = e.target.closest("[data-bud]"); if (bs) { state.budStop = +bs.dataset.bud; drawBudget(); return; }
+  const ab = e.target.closest("[data-acesbit]"); if (ab) { state.acesBit = ab.dataset.acesbit; drawAcesSystem(); document.querySelector(`[data-acesbit="${state.acesBit}"]`)?.focus(); return; }
+  const xp = e.target.closest("[data-xp]"); if (xp) { const [i, j] = xp.dataset.xp.split(",").map(Number); sig.sdi[j] = i; drawSigWhy(); document.querySelector(`[data-xp="${i},${j}"]`)?.focus(); return; }
+  if (e.target.closest("#add-cam")) { sig.extra = !sig.extra; if (!sig.extra) for (const d of sig.ip) { if (d.v > 3) d.v = 0; if (d.a > 3) d.a = 0; } drawSigWhy(); return; }
+  const rc = e.target.closest("button[data-reach]"); if (rc) { state.reach = rc.dataset.reach; drawReach(); return; }
+  const ax = e.target.closest("button[data-axis]"); if (ax) { state.axis = ax.dataset.axis; drawCurves(); return; }
   const pr = e.target.closest("button[data-preset]"); if (pr) { state.preset = +pr.dataset.preset; state.probe = PRESETS[state.preset].xy; drawMap(); drawProbe(); return; }
   if (e.target.closest("[data-chart]")) { scene = CHART; loadNote = ""; drawTab(); }
   if (e.target.closest(".lamp-toggle")) { state.lamp.on = !state.lamp.on; relight(); }
   if (e.target.closest("[data-lamp-reset]")) { Object.assign(state.lamp, LAMP_HOME); relight(); }
 });
-document.addEventListener("keydown", e => { const jr = e.target.closest?.("[data-journey]"); if (jr && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); goStage(jr.dataset.journey); } });
+document.addEventListener("keydown", e => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const jr = e.target.closest?.("[data-journey]"); if (jr) { e.preventDefault(); goStage(jr.dataset.journey); }
+  const svgBtn = e.target.closest?.("[data-xp], [data-acesbit]"); if (svgBtn) { e.preventDefault(); svgBtn.dispatchEvent(new MouseEvent("click", { bubbles: true })); }  // SVG buttons answer the keyboard too
+});
 document.addEventListener("change", e => {
   if (e.target.matches(".file") && e.target.files[0]) loadImage(e.target.files[0]);
   if (e.target.matches(".sdp")) { state.sdp[e.target.dataset.k] = e.target.value; drawSignals(); }
+  if (e.target.matches("[data-ip]")) { sig.ip[+e.target.dataset.ip][e.target.dataset.k] = +e.target.value; drawSigWhy(); }
   if (e.target.matches(".space") && scene.src) { scene = buildScene(scene.src, e.target.value); loadNote = ""; drawTab(); }
   const id = e.target.dataset?.g;
   if (id) { e.target.checked ? state.extras.add(id) : state.extras.delete(id); drawMap(); drawLegend(); }
@@ -2274,6 +2662,7 @@ document.addEventListener("input", e => {
   const t = e.target;
   if (t.matches(".exp")) { state.exposure = +t.value; soon(drawTab); }
   if (t.id === "stop") { state.stop = +t.value; drawCurves(); }
+  if (t.id === "bud-stop") { state.budStop = +t.value; drawBudget(); }
   if (t.matches("#rgb input")) { state.rgb[+t.dataset.i] = +t.value; drawStart(); }
   if (t.id === "kelvin") { state.kelvin = +t.value; soon(drawStart); }
   if (t.id === "bits") { state.bits = +t.value; drawStart(); }
@@ -2291,6 +2680,7 @@ document.addEventListener("pointerdown", e => {
   if (!p?.onLamp) return;
   e.stopPropagation(); e.preventDefault();
   cv.setPointerCapture(e.pointerId); cv._dragLamp = true; cv.style.cursor = "grabbing";
+  foundLamp();
 }, true);
 document.addEventListener("pointermove", e => {
   const cv = e.target.closest?.("canvas"), p = cv && lampPoint(e, cv);
@@ -2302,7 +2692,6 @@ document.addEventListener("pointermove", e => {
   } else cv.style.cursor = p.onLamp ? "grab" : "";
 }, true);
 document.addEventListener("pointerup", e => { const cv = e.target.closest?.("canvas"); if (cv?._dragLamp) { cv._dragLamp = false; cv.style.cursor = "grab"; } }, true);
-document.addEventListener("toggle", e => { if (e.target.matches?.(".scene-more")) state.sceneOpen = e.target.open; }, true);
 /* The Mistakes divider: drag anywhere on the picture, or focus the handle and use the arrow keys */
 const misFrame = document.getElementById("mis-frame");
 const dragTo = e => { const r = misFrame.getBoundingClientRect(); state.split = Math.min(100, Math.max(0, (e.clientX - r.left) / r.width * 100)); drawSplit(); };
@@ -2313,7 +2702,10 @@ document.getElementById("mis-handle").addEventListener("keydown", e => {
   if (d === undefined) return;
   e.preventDefault(); state.split = Math.min(100, Math.max(0, state.split + d)); drawSplit();
 });
-addEventListener("resize", () => { if (state.tab === "mistakes" && misCache) drawSplit(); });
+addEventListener("resize", () => {
+  if (state.tab === "mistakes" && misCache) drawSplit();
+  for (const cv of document.querySelectorAll("canvas")) if (cv._ring) placeRing(cv, cv._sc);  // keep the rings on the lamp
+});
 addEventListener("hashchange", () => { if (location.hash.slice(1) !== state.tab) showTab(location.hash.slice(1)); });
 
 showTab(location.hash.slice(1) || "start");
