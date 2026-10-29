@@ -311,6 +311,13 @@ details[open] summary { margin-bottom: 10px }
 .kit b { display: block }
 
 @media (max-width: 860px) { .cols, .toy { grid-template-columns: minmax(0, 1fr) } }
+
+/* Newsletter sign-up under every tab: same as the Shot Designer; hidden if the HubSpot form doesn't load */
+.signup { margin-top: 32px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 380px); gap: 32px; align-items: center }
+.signup:has(#hs-form:empty) { display: none }
+.signup h2 { font: 400 clamp(40px, 5.5vw, 64px)/.95 var(--font-display); text-transform: uppercase; letter-spacing: .01em; color: var(--grey-10); margin: 0 }
+.signup-card { padding: 20px 24px; border-radius: 18px; background: #f4f4f4; color: #111 }
+@media (max-width: 720px) { .signup { grid-template-columns: minmax(0, 1fr); gap: 16px } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important } }
 </style>
 
@@ -748,7 +755,18 @@ details[open] summary { margin-bottom: 10px }
       </div>
     </div>
   </section>
+
+  <!-- Newsletter: under every tab, same as the Shot Designer -->
+  <section class="signup" aria-labelledby="signup-h">
+    <h2 id="signup-h">Sign up for the CG Pro newsletter</h2>
+    <div class="signup-card"><div id="hs-form"></div></div>
+  </section>
 </div>
+<!-- CG Pro sign-up form (HubSpot), rendered into #hs-form -->
+<script charset="utf-8" src="https://js.hsforms.net/forms/embed/v2.js"></script>
+<script>
+  try { hbspt.forms.create({ portalId: "47792854", formId: "8de8bcd9-7c95-48a1-a8fe-5a9e2e23a67c", region: "na1", target: "#hs-form" }); } catch (e) {}  // the course works without it
+</script>
 
 <script>
 /* Colour science data. Primaries and white points as CIE 1931 xy, from each spec or vendor white paper. */
