@@ -159,6 +159,7 @@ h1 { font: 400 clamp(40px, 6vw, 64px)/.92 var(--font-display); letter-spacing: .
 .presets { display: flex; flex-wrap: wrap; gap: 8px }
 .preset { padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--chip-bg); color: var(--grey-10); font: 500 13px/1.2 var(--font-core); transition: all 200ms var(--ease) }
 .preset:hover { border-color: var(--orange); background: var(--orange-08) }
+.preset[aria-pressed="true"] { background: var(--orange); border-color: var(--orange); color: var(--black); font-weight: 600 }  /* the preset that's on screen */
 
 /* Sheet */
 .sheet { display: grid; gap: 12px }
@@ -424,7 +425,7 @@ function applyPreset(p) {
     else vals[s.id] = p.v[s.id] || null;
   });
 }
-applyPreset(PRESETS[0]);
+applyPreset(PRESETS.find(p => p.name === "16mm intimate"));  // the look a new visitor starts on
 
 /* ---------- build ---------- */
 function slotHTML(s, i) {
@@ -527,6 +528,17 @@ function render() {
   if (active && $(active)) $(active).focus({ preventScroll: true });
 }
 
+/**
+ * Whether a preset is still what's on screen: every unlocked slot is switched on and holds exactly what the preset set
+ * (empty where it set nothing). Locked slots are skipped, since loading a preset leaves them alone.
+ * @param {{v: Object<string, string>}} p a preset
+ * @returns {boolean}
+ */
+const presetShown = p => SLOTS.every(s => locked[s.id] || (enabled[s.id] &&
+  (s.modes ? s.modes.map(m => s.id + ":" + m.id) : [s.id]).every(k => (vals[k] || null) === (p.v[k] || null))));
+/** Highlights the preset button whose look is on screen; none once any slot is changed. */
+function markPresets() { [...$("presets").children].forEach((b, i) => b.setAttribute("aria-pressed", presetShown(PRESETS[i]))); }
+
 // The prompt, counts, warnings and preview: everything that changes while dragging the focal length slider.
 function renderLive() {
   const t = promptText(), a = activeVals();
@@ -539,6 +551,7 @@ function renderLive() {
   $("warn").hidden = !c.length;
   $("warn").textContent = c.length ? "⚠ " + c.join(" · ") : "";
   const rd = readingHTML(a); $("reading").hidden = !rd; $("reading").innerHTML = rd;
+  markPresets();
   const pv = previewHTML(a);
   $("pv-view").innerHTML = pv.svg; $("pv-cap").innerHTML = pv.cap;
   startPreview();
@@ -1886,6 +1899,7 @@ $("fmt-structured").onclick = () => { format = "structured"; store.set("format",
 const presetBox = $("presets");
 PRESETS.forEach(p => { const b = document.createElement("button"); b.type = "button"; b.className = "preset"; b.textContent = p.name;
   b.onclick = () => { applyPreset(p); render(); toast("Loaded " + p.name); }; presetBox.appendChild(b); });
+markPresets();
 LOOKS_ROLL.forEach(L => { const b = document.createElement("button"); b.type = "button"; b.className = "preset"; b.textContent = L.name;
   b.onclick = () => rollLook(L); $("looks").appendChild(b); });
 
