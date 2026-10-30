@@ -249,6 +249,8 @@ details[open] summary { margin-bottom: 10px }
 .duo.dots { grid-template-columns: repeat(2, minmax(0, 1fr)) }
 .dots figure { margin: 0; display: grid; gap: 6px; font-size: 13px; color: var(--grey-20) }
 .dots svg { background: #0b0b0b; max-height: 440px }
+.steps3 { margin: 0; padding-left: 22px; display: grid; gap: 6px }
+.steps3 li { margin: 0 }
 
 /* Curves plot and the grey ramps under it */
 .plot svg { display: block; width: 100%; height: auto }
@@ -281,15 +283,13 @@ details[open] summary { margin-bottom: 10px }
 .formats td:first-child { color: var(--grey-10); font-weight: 600; white-space: nowrap }
 .formats .yes { color: var(--green); font-weight: 700 } .formats .no { color: var(--grey-40) }
 /* Signals: the clickable router crosspoints, and ACES's clickable system diagram */
-.xp, [data-acesbit] { cursor: pointer; outline: none }
+.xp, [data-acesbit], .plug, .dev { cursor: pointer; outline: none }
+.plug:hover rect, .plug:focus-visible rect { stroke-width: 3 }
+.dev:hover rect:first-child, .dev:focus-visible rect:first-child { stroke: var(--orange) }
 .xp:hover circle + circle { fill: var(--orange-40) }
 .xp:focus-visible circle:first-child, [data-acesbit]:focus-visible > rect:first-child { stroke: var(--orange); stroke-width: 2 }
 [data-acesbit]:hover > rect:first-child { stroke: var(--orange) }
 .sig-play { align-items: start }
-#ip-ctl { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)) }
-.ipd { display: grid; gap: 6px; min-width: 0 }
-.ipd label { display: grid; grid-template-columns: 12px minmax(0, 1fr); gap: 8px; align-items: center }
-.ipd i { width: 12px; height: 12px; border-radius: 3px } .ipd .pv { background: var(--orange) } .ipd .pa { background: var(--green) }
 /* Signals: who ST 2110 is for */
 .who { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px }
 .who li { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 2px 12px; align-content: start; padding: 14px 16px; border-radius: 18px; border: 1px solid var(--line); background: var(--chip-bg); font-size: 13px; color: var(--grey-20) }
@@ -305,6 +305,8 @@ details[open] summary { margin-bottom: 10px }
 .verdict .no span { color: #ff6b5e } .verdict .no { border-color: rgba(255,107,94,.5) }
 [data-acesbit].sel rect, [data-acesbit].sel path.box { stroke: var(--orange); stroke-width: 2.5; fill: rgba(255,153,0,.22) }
 #aces-bit { min-height: 4.5em }
+.aces-bit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 20px; align-items: center }
+@media (max-width: 720px) { .aces-bit { grid-template-columns: minmax(0, 1fr) } }
 .verdict .yes { border-color: var(--green) } .verdict .yes span { color: var(--green) }
 .code { margin: 0; padding: 14px 16px; border-radius: 14px; background: #0b0b0b; border: 1px solid var(--line); color: var(--green); font: 500 12.5px/1.6 ui-monospace, "Cascadia Mono", Consolas, monospace; white-space: pre-wrap; word-break: break-all }
 .kit { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; font-size: 14px; color: var(--grey-20) }
@@ -454,13 +456,19 @@ details[open] summary { margin-bottom: 10px }
       </div>
     </div>
     <div class="panel">
-      <h3>Bigger isn't free</h3>
-      <p class="lesson" style="margin:0">A bigger space doesn't come with more numbers. A file has the same number of steps whatever space it's in, so spreading them over a bigger triangle makes each step a bigger jump in colour. That's why wide spaces like Rec.2020 are stored in 10 or 12 bits, never 8.</p>
+      <h3>Same data, spread thinner</h3>
+      <p class="lead">A bigger colour space doesn't give you more data. It spreads the same data over more colours.</p>
+      <ol class="lesson steps3">
+        <li><b>Same amount of data.</b> A file has the same number of steps per channel whatever space it's in. Each dot below is one colour a small file can store, and both maps get exactly the same number.</li>
+        <li><b>Bigger gaps.</b> Rec.2020 spreads those dots over a much bigger area, so neighbouring colours are further apart. Less fine detail in colour: smooth gradients can break into visible steps (banding).</li>
+        <li><b>The fix is more bits.</b> More steps per channel fill the gaps back in. That's why Rec.2020 is always stored in 10 or 12 bits, never 8.</li>
+      </ol>
+      <div class="row"><label><span class="label">Steps per channel</span><input type="range" id="dot-steps" min="4" max="14" step="1"><output id="dot-steps-val"></output></label><button type="button" class="btn" id="dot-boost" aria-pressed="false">Give Rec.2020 more bits</button></div>
       <div class="duo dots">
-        <figure class="mini"><svg id="dots-709" viewBox="20 60 400 460" role="img" aria-label="The colours a small file can store in Rec.709: tightly packed"></svg><figcaption><b>Rec.709</b>: 169 colours, packed close together.</figcaption></figure>
-        <figure class="mini"><svg id="dots-2020" viewBox="20 60 400 460" role="img" aria-label="The same number of colours in Rec.2020: spread far apart"></svg><figcaption><b>Rec.2020</b>: the same 169, spread far apart.</figcaption></figure>
+        <figure class="mini"><svg id="dots-709" viewBox="20 60 400 460" role="img" aria-label="The colours a small file can store in Rec.709"></svg><figcaption id="dots-709-cap"></figcaption></figure>
+        <figure class="mini"><svg id="dots-2020" viewBox="20 60 400 460" role="img" aria-label="The colours the same file can store in Rec.2020"></svg><figcaption id="dots-2020-cap"></figcaption></figure>
       </div>
-      <p class="note">A toy file with 8 steps per channel (real 10-bit files have 1,024). Each dot is a colour it can store, at full brightness.</p>
+      <p class="note">A toy file (real 10-bit files have 1,024 steps per channel). Each dot is a colour it can store, at full brightness; the gap is the average distance from each dot to its nearest neighbour.</p>
     </div>
     <div class="cols">
       <div class="panel">
@@ -539,6 +547,10 @@ details[open] summary { margin-bottom: 10px }
         <div class="card"><span class="label">HDR · absolute</span><span class="big">Code value = nits</span>
           <p><b>PQ</b> (SMPTE ST 2084) gives every code value a fixed brightness. Paper-white sits around <b>200 nits</b>, and everything above is headroom for highlights: sun, lamps, neon, reflections. <b>HLG</b>, used in broadcast, is relative like SDR but with headroom built in.</p></div>
       </div>
+      <h3>What is PQ?</h3>
+      <p class="trap"><b>PQ is the curve HDR uses to turn signal numbers into exact brightness.</b> Short for Perceptual Quantizer (SMPTE ST 2084, designed by Dolby), it gives every signal value one fixed brightness in nits, on every screen, from 0 up to 10,000.</p>
+      <figure class="wide"><svg class="art" id="pq-bar" viewBox="0 0 900 190" role="img" aria-label="The PQ signal from 0 to 1, with the brightness in nits that each value means"></svg></figure>
+      <p class="lesson" style="margin:0">Two things to notice. <b>SDR's whole world fits in the bottom half</b>: 100 nits, SDR's white, is only about 0.51 of the PQ signal, and everything above is room for highlights. And PQ is <b>perceptual</b>: like log, it spends its numbers the way eyes see, with plenty of steps in the darks, so 10 or 12 bits give smooth gradients all the way to 10,000 nits. HDR10, HDR10+ and Dolby Vision use PQ, and so do many LED walls in virtual production.</p>
       <div class="row"><label><span class="label">Signal</span><input type="range" id="signal" min="0" max="1" step="0.01"><output id="signal-val"></output></label></div>
       <p id="signal-read" aria-live="polite" class="lesson" style="margin:0"></p>
       <figure class="wide"><svg id="nits" viewBox="0 0 900 290" role="img" aria-label="Peak brightness of screens in nits, on a log scale, with the signal's brightness marked"></svg></figure>
@@ -583,7 +595,10 @@ details[open] summary { margin-bottom: 10px }
         <li class="yes"><span>✓</span>A system: spaces + transforms</li>
       </ul>
       <figure class="wide"><svg class="art" id="aces-system" viewBox="0 0 900 330" aria-label="What's inside ACES: input transforms, five colour spaces and output transforms, with cameras and screens outside it. Each part is a button."></svg></figure>
-      <div class="callout" id="aces-bit" aria-live="polite"></div>
+      <div class="aces-bit">
+        <figure class="viewer"><div class="frame"><canvas id="aces-bit-canvas"></canvas><span class="tag l" id="aces-bit-tag"></span></div></figure>
+        <div class="callout" id="aces-bit" aria-live="polite"></div>
+      </div>
       <p class="lesson" style="margin:0">So when someone says a shot is "in ACES", ask <b>which</b> ACES space: a linear ACEScg render and an ACEScct grade are both "ACES" and hold very different numbers. And "the ACES look" really means the output transform's default contrast: one piece of the system, which your grade (or an LMT) changes like any other.</p>
       <div class="duo">
         <div class="card"><span class="label">It is</span><p>A shared language: one big scene-referred space everything converts into, standard conversions in from every camera and out to every screen, and a record of which ones were used. Created by the Academy of Motion Picture Arts and Sciences; since 2025 an open-source project of the Academy Software Foundation.</p></div>
@@ -671,8 +686,8 @@ details[open] summary { margin-bottom: 10px }
       <p class="trap">In one line: <b>ST 2110 sends live, uncompressed video over a computer network instead of video cables.</b> It's like going from a separate phone line for every call to the internet.</p>
       <figure class="wide"><svg class="art" id="sig-why" viewBox="0 0 900 300" aria-label="Before and after: SDI needs a cable and a router port for every signal; ST 2110 puts every device on one network switch, kept in time by a shared clock"></svg></figure>
       <div class="cols sig-play">
-        <div class="lesson"><p><b>Try the router.</b> Click a dot to send that source to that output. Each output takes one whole signal, picture and sound together. Every dot is a real switch inside the box, so the box has a fixed size.</p><p id="sdi-status" aria-live="polite"></p></div>
-        <div class="lesson"><p><b>Try the network.</b> There's no router: each device just asks the network for the streams it wants, so picture and sound can come from different places.</p><div class="choices" id="ip-ctl"></div></div>
+        <div class="lesson"><p><b>Try the router.</b> Inputs come in as <b>rows</b> (IN 1 to 4), outputs leave as <b>columns</b> (OUT 1 to 3), and each output's device sits under its column. Click a dot to plug that row's input into that column's output: follow the orange line. Each output takes one input, picture and sound together, and every dot is a real switch in the box, so its size is fixed.</p><p id="sdi-status" aria-live="polite"></p></div>
+        <div class="lesson"><p><b>Try the network.</b> There's no router. <b>1.</b> Click a device on the right. <b>2.</b> Click a source's <span style="color:var(--orange)">▶ picture</span> or <span style="color:var(--green)">♪ sound</span> plug. The device asks the network for that stream, so picture and sound can come from different places.</p><p id="ip-status" aria-live="polite"></p></div>
       </div>
       <div class="row"><button type="button" class="btn" id="add-cam" aria-pressed="false">Add a camera</button><span class="note" id="add-cam-note"></span></div>
       <div class="cards">
@@ -862,7 +877,7 @@ const MISTAKES = [
 const state = { cam: "arri", work: "aces", disp: "rec709", tab: "start", extras: new Set(["rec2020"]), probe: null, preset: null,
   pipe: "camera", stageBy: { camera: "camera", vp: "content", vfx: "plate" },
   curves: new Set(["linear", "srgb", "logc4", "slog3", "acescct"]), stop: 0, exposure: 0, mistake: "log", split: 50,
-  rgb: [0.8, 0.35, 0.1], kelvin: 6500, bits: 5, signal: 0.5, lamp: { x: 850, y: 150, z: 220, on: true, stops: 10 }, reach: "rec709", axis: "stops", acesBit: "src", budBits: 10, budStop: 0,
+  rgb: [0.8, 0.35, 0.1], kelvin: 6500, bits: 5, signal: 0.5, lamp: { x: 850, y: 150, z: 220, on: true, stops: 10 }, reach: "rec709", axis: "stops", acesBit: "src", budBits: 10, budStop: 0, dotSteps: 8, dotBoost: false,
   acesStep: "idt", acesRole: "colourist", sdp: { res: "1920x1080", fps: "60000/1001", sampling: "YCbCr-4:2:2", depth: "10", colorimetry: "BT709", tcs: "SDR", range: "NARROW" } };
 
 /* ---------- Matrices: RGB ↔ XYZ from primaries, Bradford white adaptation ---------- */
@@ -1656,21 +1671,35 @@ function drawReach() {
   document.getElementById("reach-map").innerHTML = `<defs><clipPath id="reach-clip"><rect width="450" height="575"/></clipPath></defs><g clip-path="url(#reach-clip)">${m}</g>`;
 }
 
-let dotsDrawn = false;
-/** Draws "bigger isn't free": the colours a toy file (8 steps per channel) can store, in Rec.709 and in Rec.2020. */
+/**
+ * Draws "same data, spread thinner": the colours a toy file can store in Rec.709 and in Rec.2020, with the same steps per
+ * channel (or more for Rec.2020 when it's given more bits), and the average gap between neighbouring colours.
+ */
 function drawDots() {
-  if (dotsDrawn) return;
-  dotsDrawn = true;
+  const k = state.dotSteps, boost = state.dotBoost, gaps = {};
+  document.getElementById("dot-steps").value = k;
+  document.getElementById("dot-steps-val").textContent = `${k} steps`;
+  const btn = document.getElementById("dot-boost");
+  btn.setAttribute("aria-pressed", boost); btn.textContent = boost ? "Back to the same bits" : "Give Rec.2020 more bits";
   for (const id of ["rec709", "rec2020"]) {
-    const M = toXYZ(id);
-    let h = fillImage(0.35) + `<polygon points="${pts(LOCUS)}" fill="none" stroke="rgba(229,229,229,.5)" stroke-width="1.2"/><polygon points="${pts(GAMUTS[id].p)}" fill="none" stroke="#FF9900" stroke-width="2"/>`;
-    for (let r = 0; r < 8; r++) for (let gg = 0; gg < 8; gg++) for (let b = 0; b < 8; b++) {
-      if (Math.max(r, gg, b) !== 7) continue;  // brightest shell only: every colour once, at full brightness
-      const [X, Y, Z] = apply(M, [r / 7, gg / 7, b / 7]), n = X + Y + Z;
-      h += `<circle cx="${sx(X / n).toFixed(1)}" cy="${sy(Y / n).toFixed(1)}" r="3.4" fill="#fff" stroke="#000" stroke-width="1"/>`;
+    const M = toXYZ(id), steps = id === "rec2020" && boost ? Math.round(k * 1.6) : k, top = steps - 1, xy = [];
+    for (let r = 0; r < steps; r++) for (let gg = 0; gg < steps; gg++) for (let b = 0; b < steps; b++) {
+      if (Math.max(r, gg, b) !== top) continue;  // brightest shell only: every colour once, at full brightness
+      const [X, Y, Z] = apply(M, [r / top, gg / top, b / top]), n = X + Y + Z;
+      xy.push([X / n, Y / n]);
     }
-    document.getElementById(id === "rec709" ? "dots-709" : "dots-2020").innerHTML = h;
+    let sum = 0;  // average distance to the nearest neighbour, in xy
+    for (const p of xy) { let best = Infinity; for (const q of xy) if (q !== p) { const d = (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2; if (d > 1e-12 && d < best) best = d; } sum += Math.sqrt(best); }
+    gaps[id] = { n: xy.length, gap: sum / xy.length, steps };
+    document.getElementById(id === "rec709" ? "dots-709" : "dots-2020").innerHTML = fillImage(0.35) +
+      `<polygon points="${pts(LOCUS)}" fill="none" stroke="rgba(229,229,229,.5)" stroke-width="1.2"/><polygon points="${pts(GAMUTS[id].p)}" fill="none" stroke="#FF9900" stroke-width="2"/>` +
+      xy.map(([x, y]) => `<circle cx="${sx(x).toFixed(1)}" cy="${sy(y).toFixed(1)}" r="${steps > 10 ? 2.4 : 3.4}" fill="#fff" stroke="#000" stroke-width="1"/>`).join("");
   }
+  const a = gaps.rec709, b = gaps.rec2020, ratio = b.gap / a.gap;
+  document.getElementById("dots-709-cap").innerHTML = `<b>Rec.709</b>, ${a.steps} steps per channel: <b>${a.n}</b> colours, packed close together.`;
+  document.getElementById("dots-2020-cap").innerHTML = boost
+    ? `<b>Rec.2020</b>, given ${b.steps} steps per channel: <b>${b.n}</b> colours, and the gaps are about as small as Rec.709's again (${ratio.toFixed(1)}×). More bits, same fineness.`
+    : `<b>Rec.2020</b>, the same ${b.steps} steps: the same <b>${b.n}</b> colours, but the gaps between them are <b>${ratio.toFixed(1)}× wider</b>.`;
 }
 
 /** Redraws the Gamut tab. */
@@ -1826,6 +1855,29 @@ const HARDWARE = [
 /* PQ code value (0..1) to nits: the inverse of SMPTE ST 2084 */
 const PQ_NITS = v => { const p = Math.pow(v, 1 / 78.84375); return 10000 * Math.pow(Math.max(p - 0.8359375, 0) / (18.8515625 - 18.6875 * p), 1 / 0.1593017578125); };
 
+/**
+ * Draws "what is PQ": the signal from 0 to 1 as a bar, the nits each value means under it, landmarks (SDR white, HDR
+ * paper-white, a typical HDR TV's peak, the 10,000-nit top), brackets for SDR's range and the highlight headroom, and the
+ * signal slider's value.
+ * @param {number} v the signal slider, 0..1
+ */
+function drawPqBar(v) {
+  const X0 = 110, W = 750, x = s => X0 + s * W, sig = nits => PQ(nits / 203), fmt = n => n < 10 ? n.toFixed(1) : Math.round(n).toLocaleString();
+  let h = `<defs><linearGradient id="g-pq"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#fff"/></linearGradient></defs>`;
+  h += `<rect x="${X0}" y="74" width="${W}" height="28" rx="6" fill="url(#g-pq)"/>` + `<text class="t s" x="${X0 - 26}" y="68" text-anchor="end">signal</text><text class="t s" x="${X0 - 26}" y="122" text-anchor="end">nits</text>`;
+  for (const s of [0, .25, .5, .75, 1]) h += `<text class="t s c" x="${x(s)}" y="68">${s.toFixed(2)}</text><text class="t c" x="${x(s)}" y="122">${fmt(PQ_NITS(s))}</text>`;
+  for (const [n, label, y, col] of [[100, "SDR white · 100", 20, "#E5E5E5"], [203, "HDR paper-white · 203", 36, "#8ED47F"], [1000, "typical HDR TV peak · 1,000", 20, "#FF9900"], [10000, "the top · 10,000", 36, "#FF9900"]]) {
+    const xs = x(sig(n)), end = xs > 780;
+    h += `<line x1="${xs}" y1="${y + 4}" x2="${xs}" y2="102" stroke="${col}" stroke-width="1.5" stroke-dasharray="3 3"/><text class="t s" x="${xs + (end ? -4 : 4)}" y="${y}" ${end ? 'text-anchor="end"' : ""} style="fill:${col}">${label}</text>`;
+  }
+  const s100 = x(sig(100));
+  h += `<path d="M${X0} 134v6H${s100}v-6" fill="none" stroke="#E5E5E5" stroke-width="1.5"/><text class="t s c" x="${(X0 + s100) / 2}" y="154">everything SDR can show</text>`;
+  h += `<path d="M${s100 + 4} 134v6H${X0 + W}v-6" fill="none" stroke="#FF9900" stroke-width="1.5"/><text class="t s c o" x="${(s100 + X0 + W) / 2}" y="154">headroom for highlights: lamps, sun glints, neon</text>`;
+  h += `<path d="M${x(v) - 7} 64h14l-7 9z" fill="#FF9900"/><line x1="${x(v)}" y1="74" x2="${x(v)}" y2="102" stroke="#FF9900" stroke-width="3"/>` +
+    `<text class="t o" x="${Math.min(Math.max(x(v), 140), 760)}" y="180" text-anchor="middle">your signal ${v.toFixed(2)} = ${fmt(PQ_NITS(v))} nits on every PQ screen</text>`;
+  document.getElementById("pq-bar").innerHTML = h;
+}
+
 let hdrCache = null, kitDrawn = false;
 /** Redraws the HDR & files tab: the signal readout, the nits chart, the SDR/HDR pictures, the formats table and the kit lists. */
 function drawHdr() {
@@ -1858,6 +1910,7 @@ function drawHdr() {
   const svg = document.getElementById("nits");
   svg.setAttribute("viewBox", `0 0 900 ${bot + 30}`);
   svg.innerHTML = h;
+  drawPqBar(v);
 
   const key = [state.exposure, scene.name, scene.w].join("|");
   if (!hdrCache || hdrCache.key !== key) hdrCache = { key, frames: [renderMode("sdrsim"), renderMode("hdrsim")] };
@@ -1946,6 +1999,27 @@ const ACES_BITS = [
   ["screens", "Screens: not ACES either", "A screen just needs the right signal, which the output transform makes. Deliver to a new screen and you swap the output transform: the grade stays exactly the same."],
   ["amf", "AMF: ACES Metadata File", "A small XML file that travels with the shot, recording which input transform, look and output transform were used, so the next person in the chain sees exactly the same picture."],
 ];
+/* The test chart at each part of the system: [render mode, tag on the picture, why it looks like that] */
+const ACES_BIT_VIEW = {
+  src: ["log", "Camera log, as recorded", "Flat and grey: log is made for storing, not for looking at."],
+  idt: ["ap0raw", "ACES2065-1 numbers, shown raw", "Straight out of the input transform. Linear numbers look dark on screen: they're amounts of light, not a picture yet."],
+  ap0: ["ap0raw", "ACES2065-1 numbers, shown raw", "Linear numbers look dark on screen: they're amounts of light, not a picture yet."],
+  cg: ["ap1raw", "ACEScg numbers, shown raw", "Linear like ACES2065-1, so just as dark on screen, with slightly different primaries."],
+  cct: ["acescct", "ACEScct numbers, shown raw", "Log numbers look flat and grey, just like camera log: that's the space a colourist grades in."],
+  cc: ["acescct", "ACEScct shown (ACEScc looks almost the same)", "Pure log: flat and grey, and only different from ACEScct deep in the shadows."],
+  proxy: ["acescct", "Log numbers, as ACESproxy carries them", "Flat log numbers, squeezed into whole numbers for an SDI cable."],
+  lmt: ["graded", "Through the output transform, with a warm look", "A look shifts the picture before the output transform: here, a warmer grade."],
+  odt: ["display", "After the output transform", "Only here do the numbers become a picture made for eyes, on one particular kind of screen."],
+  screens: ["display", "On an SDR screen", "The finished picture. An HDR screen gets the same grade through its own output transform."],
+  amf: ["display", "What the next person sees", "With the AMF, the next person in the chain loads the same transforms and sees exactly this."],
+};
+/** Paints the test chart as it looks at the chosen part of the ACES system, with its tag and note. */
+function paintAcesBit() {
+  const [mode, tag, why] = ACES_BIT_VIEW[state.acesBit], [, name, text] = ACES_BITS.find(b => b[0] === state.acesBit);
+  paint(document.getElementById("aces-bit-canvas"), renderMode(mode));
+  document.getElementById("aces-bit-tag").textContent = tag;
+  document.getElementById("aces-bit").innerHTML = `<b>${name}.</b> ${text}<p class="note" style="margin-top:8px;color:var(--grey-20)">The picture: ${why}</p>`;
+}
 /**
  * Draws "what's inside ACES" as buttons: sources and screens outside the system; input transforms, the five spaces,
  * an optional look, output transforms and the AMF inside. The chosen part is highlighted and explained underneath.
@@ -1966,8 +2040,7 @@ function drawAcesSystem() {
   h += bit("lmt", `<rect x="380" y="262" width="200" height="34" rx="10" fill="rgba(0,0,0,.01)" stroke="rgba(229,229,229,.45)" stroke-dasharray="4 4"/>` + T(480, 283, "LMT: an optional, swappable look", "s c"));
   h += bit("amf", `<rect x="176" y="258" width="190" height="44" rx="8" fill="rgba(0,0,0,.01)" stroke="none"/><path class="box" d="M182 262h22l8 8v26h-30z"/>` + T(222, 276, "AMF: a file recording") + T(222, 291, "which transforms were used", "s"));
   document.getElementById("aces-system").innerHTML = h;
-  const [, name, text] = ACES_BITS.find(b => b[0] === state.acesBit);
-  document.getElementById("aces-bit").innerHTML = `<b>${name}.</b> ${text}`;
+  paintAcesBit();
 }
 
 /** Redraws the ACES tab: the step strip, explainer, diagram and picture, plus the system diagram, tables, chooser and myths. */
@@ -1982,7 +2055,7 @@ function drawAces() {
   document.getElementById("aces-roles").innerHTML = ACES_ROLES.map(([id, n]) => `<li><button type="button" data-role-pick="${id}" aria-pressed="${id === state.acesRole}">${n}</button></li>`).join("");
   document.getElementById("aces-role").innerHTML = `<p>${ACES_ROLES.find(r => r[0] === state.acesRole)[2]}</p>`;
   drawImageControls();
-  if (acesDrawn) return;
+  if (acesDrawn) { paintAcesBit(); return; }  // the system picture follows exposure and the lamp too
   acesDrawn = true;
   drawAcesSystem();
   document.getElementById("aces-table").innerHTML = `<tr><th>Encoding</th><th>Primaries</th><th>Curve</th><th>For</th><th>Lives in</th></tr>` + ACES_SPACES.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("");
@@ -2055,68 +2128,72 @@ function drawSignals() {
 
 /* The before/after's devices; a fifth source, Camera 3, appears with "Add a camera" */
 const SIG_SRC = ["Camera 1", "Camera 2", "Graphics", "Replay", "Camera 3"], SIG_DST = ["Vision mixer", "Monitor", "Recorder"];
-const sig = { sdi: [0, 1, 3], ip: [{ v: 0, a: 0 }, { v: 1, a: 1 }, { v: 0, a: 3 }], extra: false };
+const sig = { sdi: [0, 1, 3], ip: [{ v: 0, a: 0 }, { v: 1, a: 1 }, { v: 0, a: 3 }], sel: 0, extra: false };
 /**
- * Draws the before/after and its controls. Left: an SDI router whose crosspoints are clickable, each lighting the whole path
- * from source to output. Right: the same devices on one network switch, each destination taking its picture and its sound
- * from wherever it likes, with the chosen streams' packets moving along the links.
+ * Draws the before/after. Left: an SDI router as a grid, inputs as rows and outputs as columns, with each output's device
+ * under its column; clicking a dot plugs that input into that output and lights the whole path. Right: the same devices on
+ * one network switch; pick a device, then a source's picture (▶) or sound (♪) plug, and that stream flows to it.
  */
 function drawSigWhy() {
   const n = sig.extra ? 5 : 4, still = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const box = (x, y, l, w = 96, c = "box") => BOX(x, y, w, 34, c) + T(x + w / 2, y + 22, l, "s c");
-  const OR = "#FF9900", GR = "#8ED47F", DIM = "#555";
-  let h = T(20, 26, "SDI: a cable for every signal", "o") + T(470, 26, "ST 2110: everything on one network", "o") + `<line x1="450" y1="12" x2="450" y2="288" stroke="rgba(229,229,229,.15)"/>`;
+  const OR = "#FF9900", GR = "#8ED47F";
+  const box = (x, y, w, h, l, c = "box", tx = x + w / 2) => BOX(x, y, w, h, c) + T(tx, y + h / 2 + 4, l, "s c");
+  let h = T(20, 24, "SDI: a cable for every signal", "o") + T(470, 24, "ST 2110: everything on one network", "o") + `<line x1="450" y1="12" x2="450" y2="306" stroke="rgba(229,229,229,.15)"/>`;
 
-  // SDI: four inputs (rows) and three outputs (columns); a path through the router for each output's chosen source
-  const sy = i => 65 + i * 52, dy = j => 87 + j * 62, colX = j => 212 + j * 32, R0 = 176, R1 = 300;
-  h += BOX(R0, 34, R1 - R0, 216) + T((R0 + R1) / 2, 50, "Router · 4 in, 3 out", "s c");
-  SIG_DST.forEach((d, j) => h += T(colX(j), 66, ["Mix", "Mon", "Rec"][j], "s c"));
-  for (let i = 0; i < 4; i++) h += `<line x1="${R0}" y1="${sy(i) + 10}" x2="${colX(2) + 10}" y2="${sy(i) + 10}" stroke="#333"/>`;
-  for (let j = 0; j < 3; j++) h += `<line x1="${colX(j)}" y1="72" x2="${colX(j)}" y2="242" stroke="#333"/>`;
+  // SDI: inputs come in from the left as rows; outputs leave from the bottom as columns, straight down to their device
+  const ry = i => 74 + i * 40, cx = j => 236 + j * 72, R0 = 150, R1 = 420, RT = 42, RB = 228;
+  h += BOX(R0, RT, R1 - R0, RB - RT) + `<text class="t s" x="${R0 + 8}" y="${RB - 8}">Router</text>`;
+  for (let j = 0; j < 3; j++) h += `<text class="t s c" x="${cx(j)}" y="${RT + 14}">OUT ${j + 1}</text><line x1="${cx(j)}" y1="${RT + 22}" x2="${cx(j)}" y2="${RB}" stroke="#3a3a3a" stroke-width="2"/>`;
   for (let i = 0; i < 4; i++) {
     const used = sig.sdi.includes(i);
-    h += box(14, sy(i) - 17, SIG_SRC[i], 96, used ? "hi" : "box") + `<line x1="110" y1="${sy(i)}" x2="${R0}" y2="${sy(i)}" stroke="${used ? OR : "#777"}" stroke-width="5"/>`;
+    h += box(10, ry(i) - 15, 94, 30, SIG_SRC[i], used ? "hi" : "box") + `<line x1="104" y1="${ry(i)}" x2="${R0}" y2="${ry(i)}" stroke="${used ? OR : "#777"}" stroke-width="5"/>`;
+    h += `<text class="t s" x="${R0 + 8}" y="${ry(i) - 6}">IN ${i + 1}</text><line x1="${R0}" y1="${ry(i)}" x2="${cx(2) + 14}" y2="${ry(i)}" stroke="#3a3a3a" stroke-width="2"/>`;
   }
-  SIG_DST.forEach((d, j) => {
-    const i = sig.sdi[j], y = sy(i) + 10;
-    h += `<path d="M${R0} ${y}H${colX(j)}V${dy(j)}H${R1}" fill="none" stroke="${OR}" stroke-width="2.5" stroke-linejoin="round" opacity=".9"/>`;
-    h += `<line x1="${R1}" y1="${dy(j)}" x2="334" y2="${dy(j)}" stroke="${OR}" stroke-width="5"/>` + box(334, dy(j) - 17, d, 100, "hi") + T(384, dy(j) + 30, `← ${SIG_SRC[i]}`, "s c o");
+  SIG_DST.forEach((d, j) => {  // the lit path: along the input's row to the dot, then down the output's column to the device
+    const y = ry(sig.sdi[j]);
+    h += `<path d="M${R0} ${y}H${cx(j)}V${RB + 12}" fill="none" stroke="${OR}" stroke-width="4" stroke-linejoin="round"/>` + box(cx(j) - 34, RB + 12, 68, 30, d, "hi");
   });
   for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) {
     const on = sig.sdi[j] === i;
-    h += `<g class="xp" tabindex="0" role="button" data-xp="${i},${j}" aria-pressed="${on}" aria-label="Send ${SIG_SRC[i]} to ${SIG_DST[j]}"><circle cx="${colX(j)}" cy="${sy(i) + 10}" r="13" fill="transparent"/>` +
-      `<circle cx="${colX(j)}" cy="${sy(i) + 10}" r="${on ? 7 : 5}" fill="${on ? OR : DIM}" stroke="${on ? "#fff" : "none"}" stroke-width="1.5"/></g>`;
+    h += `<g class="xp" tabindex="0" role="button" data-xp="${i},${j}" aria-pressed="${on}" aria-label="Plug ${SIG_SRC[i]} (input ${i + 1}) into ${SIG_DST[j]} (output ${j + 1})">` +
+      `<circle cx="${cx(j)}" cy="${ry(i)}" r="15" fill="transparent"/><circle cx="${cx(j)}" cy="${ry(i)}" r="${on ? 8 : 6}" fill="${on ? OR : "#666"}" stroke="${on ? "#fff" : "#222"}" stroke-width="2"/></g>`;
   }
-  if (sig.extra) h += box(14, 256, "Camera 3", 96, "box") + `<line x1="110" y1="273" x2="160" y2="273" stroke="#ff6b5e" stroke-width="5" stroke-dasharray="6 5"/>` +
-    `<path d="M162 265l14 16M176 265l-14 16" stroke="#ff6b5e" stroke-width="3"/>` + `<text class="t s" x="186" y="278" fill="#ff6b5e" style="fill:#ff6b5e">no free input</text>`;
+  if (sig.extra) h += box(10, 235, 94, 30, "Camera 3") + `<line x1="104" y1="250" x2="132" y2="250" stroke="#ff6b5e" stroke-width="5" stroke-dasharray="5 4"/>` +
+    `<path d="M134 242l12 16M146 242l-12 16" stroke="#ff6b5e" stroke-width="3"/><text class="t s" x="10" y="282" style="fill:#ff6b5e">no free input on the router</text>`;
 
-  // 2110: links into one switch; each destination picks its picture and its sound separately
-  const S0 = 620, S1 = 736, SY0 = 112, SY1 = 196, gap = sig.extra ? 46 : 52, iy = i => 61 + i * gap, inY = i => SY0 + 14 + i * (56 / (n - 1));
-  const flow = (x1, y1, x2, y2, col, k) => [0, 1, 2].map(m => {
-    const begin = `${(-(m / 3 + k * 0.11) * 1.8).toFixed(2)}s`;
-    return still ? `<rect x="${x1 + (x2 - x1) * (m + .5) / 3 - 4}" y="${y1 + (y2 - y1) * (m + .5) / 3 - 4}" width="8" height="8" rx="2" fill="${col}"/>`
-      : `<rect x="-4" y="-4" width="8" height="8" rx="2" fill="${col}"><animateMotion dur="1.8s" begin="${begin}" repeatCount="indefinite" path="M${x1} ${y1}L${x2} ${y2}"/></rect>`; }).join("");
+  // 2110: every source sends a picture stream (▶) and a sound stream (♪) to the switch; devices ask for the ones they want
+  const S0 = 640, S1 = 740, SY0 = 104, SY1 = 184, gap = sig.extra ? 38 : 46, sy = i => 70 + i * gap, inY = i => SY0 + 12 + i * (56 / (n - 1)), dy = j => 82 + j * 66, oY = j => SY0 + 22 + j * 18;
+  const flow = (x1, y1, x2, y2, col, k, dim) => [0, 1, 2].map(m => {
+    const begin = `${(-(m / 3 + k * 0.11) * 1.8).toFixed(2)}s`, o = dim ? ' opacity=".3"' : "";
+    return still ? `<rect x="${x1 + (x2 - x1) * (m + .5) / 3 - 4}" y="${y1 + (y2 - y1) * (m + .5) / 3 - 4}" width="8" height="8" rx="2" fill="${col}"${o}/>`
+      : `<rect x="-4" y="-4" width="8" height="8" rx="2" fill="${col}"${o}><animateMotion dur="1.8s" begin="${begin}" repeatCount="indefinite" path="M${x1} ${y1}L${x2} ${y2}"/></rect>`; }).join("");
+  const me = sig.ip[sig.sel];
   for (let i = 0; i < n; i++) {
-    const v = sig.ip.some(d => d.v === i), a = sig.ip.some(d => d.a === i), y = iy(i);
-    h += box(470, y - 17, SIG_SRC[i], 96, v || a ? "hi" : "box") + `<line x1="566" y1="${y}" x2="${S0}" y2="${inY(i)}" stroke="${v || a ? "#888" : "#444"}" stroke-width="2"/>`;
-    if (v) h += flow(566, y - 3, S0, inY(i) - 3, OR, i);
-    if (a) h += flow(566, y + 3, S0, inY(i) + 3, GR, i + .5);
+    const v = sig.ip.some(d => d.v === i), a = sig.ip.some(d => d.a === i), mine = me.v === i || me.a === i, y = sy(i);
+    h += box(470, y - 15, 120, 30, SIG_SRC[i], mine ? "hi" : "box", 512) + `<line x1="590" y1="${y}" x2="${S0}" y2="${inY(i)}" stroke="${mine ? "#aaa" : "#444"}" stroke-width="${mine ? 3 : 2}"/>`;
+    if (v) h += flow(590, y - 3, S0, inY(i) - 3, OR, i, me.v !== i);
+    if (a) h += flow(590, y + 3, S0, inY(i) + 3, GR, i + .5, me.a !== i);
+    for (const [k, x, col, sym, nm] of [["v", 548, OR, "▶", "picture"], ["a", 568, GR, "♪", "sound"]]) {
+      const on = me[k] === i;
+      h += `<g class="plug" tabindex="0" role="button" data-ipsrc="${i},${k}" aria-pressed="${on}" aria-label="Send ${SIG_SRC[i]}'s ${nm} to ${SIG_DST[sig.sel]}">` +
+        `<rect x="${x}" y="${y - 9}" width="18" height="18" rx="4" fill="${on ? col : "rgba(0,0,0,.4)"}" stroke="${col}" stroke-width="1.5"/>` +
+        `<text x="${x + 9}" y="${y + 4}" text-anchor="middle" font-size="10" style="fill:${on ? "#000" : col}">${sym}</text></g>`;
+    }
   }
-  h += BOX(S0, SY0, S1 - S0, SY1 - SY0, "hi") + T((S0 + S1) / 2, 150, "Network", "c") + T((S0 + S1) / 2, 166, "switch", "c");
+  h += BOX(S0, SY0, S1 - S0, SY1 - SY0, "hi") + T((S0 + S1) / 2, 140, "Network", "c") + T((S0 + S1) / 2, 156, "switch", "c");
   SIG_DST.forEach((d, j) => {
-    const y = 87 + j * 62, oy = SY0 + 24 + j * 18, { v, a } = sig.ip[j];
-    h += `<line x1="${S1}" y1="${oy}" x2="790" y2="${y}" stroke="#888" stroke-width="2"/>` + flow(S1, oy - 3, 790, y - 3, OR, j) + flow(S1, oy + 3, 790, y + 3, GR, j + .5);
-    h += box(790, y - 17, d, 100, "hi") + `<text class="t s c" x="840" y="${y + 30}"><tspan fill="${OR}" style="fill:${OR}">${SIG_SRC[v]}</tspan> · <tspan fill="${GR}" style="fill:${GR}">${SIG_SRC[a]}</tspan></text>`;
+    const y = dy(j), { v, a } = sig.ip[j], sel = j === sig.sel;
+    h += `<line x1="${S1}" y1="${oY(j)}" x2="790" y2="${y}" stroke="${sel ? "#aaa" : "#444"}" stroke-width="${sel ? 3 : 2}"/>` + flow(S1, oY(j) - 3, 790, y - 3, OR, j, !sel) + flow(S1, oY(j) + 3, 790, y + 3, GR, j + .5, !sel);
+    h += `<g class="dev" tabindex="0" role="button" data-ipdst="${j}" aria-pressed="${sel}" aria-label="Choose ${d}">` + box(790, y - 15, 100, 30, d, sel ? "hi" : "box") +
+      (sel ? `<rect x="787" y="${y - 18}" width="106" height="36" rx="12" fill="none" stroke="${OR}" stroke-width="2"/>` : "") + `</g>` +
+      `<text class="t s" x="792" y="${y + 28}" style="fill:${OR}">▶ ${SIG_SRC[v]}</text><text class="t s" x="792" y="${y + 41}" style="fill:${GR}">♪ ${SIG_SRC[a]}</text>`;
   });
-  h += `<circle cx="660" cy="62" r="16" fill="none" stroke="#E5E5E5" stroke-width="2"/><path d="M660 52v10l7 5" stroke="#E5E5E5" stroke-width="2" fill="none"/><line x1="660" y1="78" x2="660" y2="${SY0}" stroke="#E5E5E5" stroke-dasharray="3 3"/>` + T(682, 58, "PTP clock keeps", "s") + T(682, 72, "every stream in time", "s");
-  h += `<rect x="470" y="276" width="8" height="8" rx="2" fill="${OR}"/>` + T(482, 284, "picture", "s") + `<rect x="530" y="276" width="8" height="8" rx="2" fill="${GR}"/>` + T(542, 284, "sound: separate streams, any device to any device", "s");
+  h += `<circle cx="690" cy="58" r="14" fill="none" stroke="#E5E5E5" stroke-width="2"/><path d="M690 49v9l6 4" stroke="#E5E5E5" stroke-width="2" fill="none"/><line x1="690" y1="72" x2="690" y2="${SY0}" stroke="#E5E5E5" stroke-dasharray="3 3"/>` + T(710, 54, "PTP clock:", "s") + T(710, 67, "keeps time", "s");
+  h += `<text class="t s" x="470" y="296"><tspan style="fill:${OR}">▶ picture</tspan>   <tspan style="fill:${GR}">♪ sound</tspan>   travel as separate streams</text>`;
   document.getElementById("sig-why").innerHTML = h;
 
-  document.getElementById("sdi-status").innerHTML = SIG_DST.map((d, j) => `<b>${d}</b> ← ${SIG_SRC[sig.sdi[j]]}`).join(" · ");
-  const opts = sel => SIG_SRC.slice(0, n).map((s, i) => `<option value="${i}" ${i === sel ? "selected" : ""}>${s}</option>`).join("");
-  document.getElementById("ip-ctl").innerHTML = SIG_DST.map((d, j) => `<div class="ipd"><span class="label">${d}</span>` +
-    `<label><i class="pv" title="Picture"></i><select data-ip="${j}" data-k="v" aria-label="${d}: picture from">${opts(sig.ip[j].v)}</select></label>` +
-    `<label><i class="pa" title="Sound"></i><select data-ip="${j}" data-k="a" aria-label="${d}: sound from">${opts(sig.ip[j].a)}</select></label></div>`).join("");
+  document.getElementById("sdi-status").innerHTML = SIG_DST.map((d, j) => `<b>OUT ${j + 1} · ${d}</b> ← IN ${sig.sdi[j] + 1} · ${SIG_SRC[sig.sdi[j]]}`).join("<br>");
+  document.getElementById("ip-status").innerHTML = `<b>${SIG_DST[sig.sel]}</b> is getting <span style="color:var(--orange)">picture from ${SIG_SRC[me.v]}</span> and <span style="color:var(--green)">sound from ${SIG_SRC[me.a]}</span>.`;
   const add = document.getElementById("add-cam");
   add.setAttribute("aria-pressed", sig.extra); add.textContent = sig.extra ? "Remove camera 3" : "Add a camera";
   document.getElementById("add-cam-note").innerHTML = sig.extra
@@ -2648,10 +2725,13 @@ document.addEventListener("click", e => {
   const mi = e.target.closest("button[data-m]"); if (mi) { state.mistake = mi.dataset.m; drawMistakes(); return; }
   const ac = e.target.closest("button[data-aces]"); if (ac) { state.acesStep = ac.dataset.aces; drawAces(); return; }
   const rp = e.target.closest("button[data-role-pick]"); if (rp) { state.acesRole = rp.dataset.rolePick; drawAces(); return; }
+  if (e.target.closest("#dot-boost")) { state.dotBoost = !state.dotBoost; drawDots(); return; }
   const bb = e.target.closest("button[data-budbits]"); if (bb) { state.budBits = +bb.dataset.budbits; drawBudget(); return; }
   const bs = e.target.closest("[data-bud]"); if (bs) { state.budStop = +bs.dataset.bud; drawBudget(); return; }
   const ab = e.target.closest("[data-acesbit]"); if (ab) { state.acesBit = ab.dataset.acesbit; drawAcesSystem(); document.querySelector(`[data-acesbit="${state.acesBit}"]`)?.focus(); return; }
   const xp = e.target.closest("[data-xp]"); if (xp) { const [i, j] = xp.dataset.xp.split(",").map(Number); sig.sdi[j] = i; drawSigWhy(); document.querySelector(`[data-xp="${i},${j}"]`)?.focus(); return; }
+  const dv = e.target.closest("[data-ipdst]"); if (dv) { sig.sel = +dv.dataset.ipdst; drawSigWhy(); document.querySelector(`[data-ipdst="${sig.sel}"]`)?.focus(); return; }
+  const pl = e.target.closest("[data-ipsrc]"); if (pl) { const [i, k] = pl.dataset.ipsrc.split(","); sig.ip[sig.sel][k] = +i; drawSigWhy(); document.querySelector(`[data-ipsrc="${i},${k}"]`)?.focus(); return; }
   if (e.target.closest("#add-cam")) { sig.extra = !sig.extra; if (!sig.extra) for (const d of sig.ip) { if (d.v > 3) d.v = 0; if (d.a > 3) d.a = 0; } drawSigWhy(); return; }
   const rc = e.target.closest("button[data-reach]"); if (rc) { state.reach = rc.dataset.reach; drawReach(); return; }
   const ax = e.target.closest("button[data-axis]"); if (ax) { state.axis = ax.dataset.axis; drawCurves(); return; }
@@ -2663,12 +2743,11 @@ document.addEventListener("click", e => {
 document.addEventListener("keydown", e => {
   if (e.key !== "Enter" && e.key !== " ") return;
   const jr = e.target.closest?.("[data-journey]"); if (jr) { e.preventDefault(); goStage(jr.dataset.journey); }
-  const svgBtn = e.target.closest?.("[data-xp], [data-acesbit]"); if (svgBtn) { e.preventDefault(); svgBtn.dispatchEvent(new MouseEvent("click", { bubbles: true })); }  // SVG buttons answer the keyboard too
+  const svgBtn = e.target.closest?.("[data-xp], [data-acesbit], [data-ipsrc], [data-ipdst]"); if (svgBtn) { e.preventDefault(); svgBtn.dispatchEvent(new MouseEvent("click", { bubbles: true })); }  // SVG buttons answer the keyboard too
 });
 document.addEventListener("change", e => {
   if (e.target.matches(".file") && e.target.files[0]) loadImage(e.target.files[0]);
   if (e.target.matches(".sdp")) { state.sdp[e.target.dataset.k] = e.target.value; drawSignals(); }
-  if (e.target.matches("[data-ip]")) { sig.ip[+e.target.dataset.ip][e.target.dataset.k] = +e.target.value; drawSigWhy(); }
   if (e.target.matches(".space") && scene.src) { scene = buildScene(scene.src, e.target.value); loadNote = ""; drawTab(); }
   const id = e.target.dataset?.g;
   if (id) { e.target.checked ? state.extras.add(id) : state.extras.delete(id); drawMap(); drawLegend(); }
@@ -2681,6 +2760,7 @@ document.addEventListener("input", e => {
   if (t.matches(".exp")) { state.exposure = +t.value; soon(drawTab); }
   if (t.id === "stop") { state.stop = +t.value; drawCurves(); }
   if (t.id === "bud-stop") { state.budStop = +t.value; drawBudget(); }
+  if (t.id === "dot-steps") { state.dotSteps = +t.value; drawDots(); }
   if (t.matches("#rgb input")) { state.rgb[+t.dataset.i] = +t.value; drawStart(); }
   if (t.id === "kelvin") { state.kelvin = +t.value; soon(drawStart); }
   if (t.id === "bits") { state.bits = +t.value; drawStart(); }
